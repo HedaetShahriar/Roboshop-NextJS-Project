@@ -1,30 +1,30 @@
 import Link from "next/link";
 import clientPromise from "@/lib/mongodb";
+import productsStatic from "@/data/product.json";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import ProductCard from "@/components/ProductCard";
 
-const ProductCard = ({ product }) => (
-  <Card className="flex flex-col">
-    <CardHeader>
-      <CardTitle>{product.name}</CardTitle>
-      <CardDescription>${product.price.toFixed(2)}</CardDescription>
-    </CardHeader>
-    <CardContent className="flex-grow">
-      <p className="text-sm text-muted-foreground">{product.description}</p>
-    </CardContent>
-    <CardFooter>
-      <Button asChild className="w-full">
-        <Link href={`/products/${product._id}`}>View Details</Link>
-      </Button>
-    </CardFooter>
-  </Card>
-);
 
 export default async function HomePage() {
-  const client = await clientPromise;
-  const db = client.db("roboshop");
-  const highlightedProductsData = await db.collection("products").find({}).limit(3).toArray();
-  const highlightedProducts = highlightedProductsData.map(p => ({ ...p, _id: p._id.toString() }));
+  // Fetch a handful of products; fallback to static JSON if DB is empty/unavailable
+  let highlightedProducts = [];
+  try {
+    const client = await clientPromise;
+    const db = client.db("roboshop");
+    const all = await db.collection("products").find({}).toArray();
+    // console.log("Fetched products from DB:", all);
+    const products = all.map(p => ({ ...p, _id: p._id.toString() }));
+    const discounted = products.filter(p => p.has_discount_price && Number(p.discount_price) > 0);
+    highlightedProducts = (discounted.length ? discounted : products).slice(0, 3);
+    console.log("Highlighted products:", highlightedProducts);
+  } catch (e) {
+    // ignore and fallback below
+  }
+  if (!highlightedProducts.length) {
+    const discounted = productsStatic.filter(p => p.has_discount_price && Number(p.discount_price) > 0);
+    const source = discounted.length ? discounted : productsStatic;
+    highlightedProducts = source.slice(0, 3);
+  }
 
   return (
     <>
@@ -44,6 +44,11 @@ export default async function HomePage() {
             {highlightedProducts.map(product => (
               <ProductCard key={product._id} product={product} />
             ))}
+          </div>
+          <div className="mt-8">
+            <Button asChild variant="secondary">
+              <Link href="/products">Browse all products</Link>
+            </Button>
           </div>
         </div>
       </section>

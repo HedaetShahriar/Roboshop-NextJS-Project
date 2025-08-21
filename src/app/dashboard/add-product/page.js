@@ -5,7 +5,6 @@ import { addProduct } from "@/app/actions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 
 export default function AddProductPage() {
   const [isPending, startTransition] = useTransition();
@@ -32,12 +31,27 @@ export default function AddProductPage() {
             <Input type="text" id="name" name="name" required />
           </div>
           <div className="grid gap-2 mb-4">
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" name="description" required />
+            <Label htmlFor="image">Image URL</Label>
+            <Input type="url" id="image" name="image" placeholder="https://example.com/image.jpg" required />
           </div>
-          <div className="grid gap-2 mb-6">
+          <div className="grid gap-2 mb-4">
+            <Label htmlFor="has_discount_price">Has Discount Price?</Label>
+            <div className="flex items-center gap-2">
+              <input id="has_discount_price" name="has_discount_price" type="checkbox" />
+              <Label htmlFor="has_discount_price" className="!m-0">Yes</Label>
+            </div>
+          </div>
+          <div className="grid gap-2 mb-4">
             <Label htmlFor="price">Price</Label>
             <Input type="number" id="price" name="price" step="0.01" required />
+          </div>
+          <div className="grid gap-2 mb-4">
+            <Label htmlFor="discount_price">Discount Price</Label>
+            <Input type="number" id="discount_price" name="discount_price" step="0.01" placeholder="0.00" />
+          </div>
+          <div className="grid gap-2 mb-6">
+            <Label htmlFor="current_stock">Current Stock</Label>
+            <Input type="number" id="current_stock" name="current_stock" min="0" step="1" required />
           </div>
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? 'Adding...' : 'Add Product'}
