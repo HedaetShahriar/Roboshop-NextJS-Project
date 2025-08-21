@@ -1,22 +1,44 @@
 import Link from "next/link";
-import products from "./products.json";
+import clientPromise from "@/lib/mongodb";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function ProductsPage() {
+export default async function ProductsPage() {
+  const client = await clientPromise;
+  const db = client.db("roboshop");
+  const productsData = await db.collection("products").find({}).toArray();
+  const products = productsData.map(product => ({
+    ...product,
+    _id: product._id.toString(),
+  }));
+
   return (
-    <div className="max-w-4xl mx-auto p-8">
-      <h2 className="text-3xl font-bold mb-8">Products</h2>
-      <ul className="space-y-6">
-        {products.map((product) => (
-          <li key={product.id} className="border border-gray-200 rounded-lg p-6 shadow-sm">
-            <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
-            <p className="mb-2">{product.description}</p>
-            <p className="mb-4"><strong>Price:</strong> ${product.price}</p>
-            <Link href={`/products/${product.id}`}>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Details</button>
-            </Link>
-          </li>
-        ))}
-      </ul>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-4xl font-bold text-center mb-10">Our Products</h1>
+      {products.length === 0 ? (
+        <div className="text-center text-gray-500 mt-10">
+          <p>No products found. Please check back later!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {products.map((product) => (
+            <Card key={product._id} className="flex flex-col">
+              <CardHeader>
+                <CardTitle>{product.name}</CardTitle>
+                <CardDescription>${product.price.toFixed(2)}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-grow">
+                <p>{product.description}</p>
+              </CardContent>
+              <CardFooter>
+                <Button asChild className="w-full">
+                  <Link href={`/products/${product._id}`}>View Details</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
-  );
+  )
 }

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Arduino Uno R3",
+    "description": "The classic Arduino board for beginners and experts alike. Perfect for prototyping and learning electronics.",
+    "price": 25.00,
+    "category": "Microcontrollers"
+  },
+  {
+    "name": "Raspberry Pi 4 Model B",
+    "description": "A tiny, dual-display, desktop computer... and a robot brain. Comes with 4GB of RAM.",
+    "price": 55.00,
+    "category": "Microcontrollers"
+  },
+  {
+    "name": "L298N Motor Driver",
+    "description": "A high power motor driver module for driving DC and Stepper Motors. Can control up to 2 DC motors.",
+    "price": 9.50,
+    "category": "Motors"
+  },
+  {
+    "name": "HC-SR04 Ultrasonic Sensor",
+    "description": "An essential sensor for robotics projects that require distance measurement and obstacle avoidance.",
+    "price": 4.00,
+    "category": "Sensors"
+  },
+  {
+    "name": "SG90 Micro Servo Motor",
+    "description": "A tiny and lightweight servo motor with high output power. Ideal for small-scale robotics.",
+    "price": 5.50,
+    "category": "Motors"
+  }
+]
