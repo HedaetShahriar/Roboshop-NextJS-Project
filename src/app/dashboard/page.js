@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock, Truck, CheckCircle2, XCircle, TriangleAlert, DollarSign, TrendingUp, Receipt } from "lucide-react";
+import MetricsPanel from "@/components/dashboard/MetricsPanel";
 
 export const dynamic = 'force-dynamic';
 
@@ -133,6 +134,9 @@ export default async function SellerDashboardHome() {
           <Link href="/dashboard/add-product"><Button size="sm">Add product</Button></Link>
         </div>
       </div>
+
+  {/* Metrics with filters and charts */}
+  <MetricsPanel />
     </div>
   );
 }
