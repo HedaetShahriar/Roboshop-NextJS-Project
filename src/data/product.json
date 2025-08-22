@@ -1,210 +1,286 @@
-[
-  {
-    "name": "IC 7400",
-    "slug": "ic-7400",
-    "image": "https://cdn.robodocbd.com/production/3cec07e9ba5f5bb252d13f5f431e4bbb/7d75377e540349576ab7be88ef2f3821.png",
-    "price": 29.59,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 34,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+[{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1b0"
   },
-  {
-    "name": "IC 7402",
-    "slug": "ic-7402",
-    "image": "https://cdn.robodocbd.com/production/8c19f571e251e61cb8dd3612f26d5ecf/953ec71d0ac91160c751b52eac8a2cc6.png",
-    "price": 23.59,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 28,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "IC 7400",
+  "slug": "ic-7400",
+  "image": "https://cdn.robodocbd.com/production/3cec07e9ba5f5bb252d13f5f431e4bbb/7d75377e540349576ab7be88ef2f3821.png",
+  "price": 29.59,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 34,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1b2"
   },
-  {
-    "name": "IC 7410",
-    "slug": "ic-7410",
-    "image": "https://cdn.robodocbd.com/production/6a9aeddfc689c1d0e3b9ccc3ab651bc5/483e63db06efebb7a6b830d0e151642e.JPG",
-    "price": 27.67,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 16,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "IC 7410",
+  "slug": "ic-7410",
+  "image": "https://cdn.robodocbd.com/production/6a9aeddfc689c1d0e3b9ccc3ab651bc5/483e63db06efebb7a6b830d0e151642e.JPG",
+  "price": 27.67,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 16,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1b3"
   },
-  {
-    "name": "IC 7432",
-    "slug": "ic-7432",
-    "image": "https://cdn.robodocbd.com/production/c24cd76e1ce41366a4bbe8a49b02a028/d7ddaba483e49e09f905750a5c69ed6e.png",
-    "price": 29.59,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 12,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "IC 7432",
+  "slug": "ic-7432",
+  "image": "https://cdn.robodocbd.com/production/c24cd76e1ce41366a4bbe8a49b02a028/d7ddaba483e49e09f905750a5c69ed6e.png",
+  "price": 29.59,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 12,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1b4"
   },
-  {
-    "name": "IC 74151",
-    "slug": "ic-74151",
-    "image": "https://cdn.robodocbd.com/production/e56954b4f6347e897f954495eab16a88/a6605d20d674b28b7e63918343e65690.jpg",
-    "price": 33.75,
-    "has_discount_price": true,
-    "discount_price": 29.9,
-    "current_stock": 22,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "IC 74151",
+  "slug": "ic-74151",
+  "image": "https://cdn.robodocbd.com/production/e56954b4f6347e897f954495eab16a88/a6605d20d674b28b7e63918343e65690.jpg",
+  "price": 33.75,
+  "has_discount_price": true,
+  "discount_price": 29.9,
+  "current_stock": 22,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1b5"
   },
-  {
-    "name": "IC 74153",
-    "slug": "ic-74153",
-    "image": "https://cdn.robodocbd.com/production/20f07591c6fcb220ffe637cda29bb3f6/a856cb2c40aaf270db6ac682a9b5b9fc.jpg",
-    "price": 45,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 2,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "IC 74153",
+  "slug": "ic-74153",
+  "image": "https://cdn.robodocbd.com/production/20f07591c6fcb220ffe637cda29bb3f6/a856cb2c40aaf270db6ac682a9b5b9fc.jpg",
+  "price": 45,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 2,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1b6"
   },
-  {
-    "name": "IC 74138",
-    "slug": "ic-74138",
-    "image": "https://cdn.robodocbd.com/production/c52f1bd66cc19d05628bd8bf27af3ad6/e1293d4ace5a8605720ba2a51ef0e282.jpg",
-    "price": 39.75,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 10,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "IC 74138",
+  "slug": "ic-74138",
+  "image": "https://cdn.robodocbd.com/production/c52f1bd66cc19d05628bd8bf27af3ad6/e1293d4ace5a8605720ba2a51ef0e282.jpg",
+  "price": 39.75,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 10,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1b7"
   },
-  {
-    "name": "IC 74238",
-    "slug": "ic-74238",
-    "image": "https://cdn.robodocbd.com/production/6c9882bbac1c7093bd25041881277658/6e521bdbd25385c16a7b54dabdabc4c5.jpg",
-    "price": 45,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 10,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "IC 74238",
+  "slug": "ic-74238",
+  "image": "https://cdn.robodocbd.com/production/6c9882bbac1c7093bd25041881277658/6e521bdbd25385c16a7b54dabdabc4c5.jpg",
+  "price": 45,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 10,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1b8"
   },
-  {
-    "name": "IC 74595",
-    "slug": "ic-74595",
-    "image": "https://cdn.robodocbd.com/production/d947bf06a885db0d477d707121934ff8/7bdbd0551d0721a988f6da508f94c4c4.jpg",
-    "price": 25,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 10,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "IC 74595",
+  "slug": "ic-74595",
+  "image": "https://cdn.robodocbd.com/production/d947bf06a885db0d477d707121934ff8/7bdbd0551d0721a988f6da508f94c4c4.jpg",
+  "price": 25,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 10,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1b9"
   },
-  {
-    "name": "IC 4073",
-    "slug": "ic-4073",
-    "image": "https://cdn.robodocbd.com/production/fe131d7f5a6b38b23cc967316c13dae2/7b246eadd1390a21e7393571e9cdb126.jpg",
-    "price": 36.47,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 28,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "IC 4073",
+  "slug": "ic-4073",
+  "image": "https://cdn.robodocbd.com/production/fe131d7f5a6b38b23cc967316c13dae2/7b246eadd1390a21e7393571e9cdb126.jpg",
+  "price": 36.47,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 28,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1ba"
   },
-  {
-    "name": "IC 4075",
-    "slug": "ic-4075",
-    "image": "https://cdn.robodocbd.com/production/46ba9f2a6976570b0353203ec4474217/5f6176a6273a6fdd617fe42735550c6a.jpg",
-    "price": 41.67,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 19,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "IC 4075",
+  "slug": "ic-4075",
+  "image": "https://cdn.robodocbd.com/production/46ba9f2a6976570b0353203ec4474217/5f6176a6273a6fdd617fe42735550c6a.jpg",
+  "price": 41.67,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 19,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1bb"
   },
-  {
-    "name": "9V Battery (PAKKO)",
-    "slug": "9v-battery-pakko",
-    "image": "https://cdn.robodocbd.com/production/839ab46820b524afda05122893c2fe8e/3d342fd50c3497cb6f26a84a655473d0.JPG",
-    "price": 80,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 11,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "9V Battery (PAKKO)",
+  "slug": "9v-battery-pakko",
+  "image": "https://cdn.robodocbd.com/production/839ab46820b524afda05122893c2fe8e/3d342fd50c3497cb6f26a84a655473d0.JPG",
+  "price": 80,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 11,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1bc"
   },
-  {
-    "name": "9V Battery (New Leader)",
-    "slug": "9v-battery-new-leader",
-    "image": "https://cdn.robodocbd.com/production/48aedb8880cab8c45637abc7493ecddd/d5c11276f7fdb9ca5a102bfe769e9b0f.jpg",
-    "price": 75,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 14,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "9V Battery (New Leader)",
+  "slug": "9v-battery-new-leader",
+  "image": "https://cdn.robodocbd.com/production/48aedb8880cab8c45637abc7493ecddd/d5c11276f7fdb9ca5a102bfe769e9b0f.jpg",
+  "price": 75,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 14,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1bd"
   },
-  {
-    "name": "9V Battery Connector",
-    "slug": "9v-battery-connector",
-    "image": "https://cdn.robodocbd.com/production/03c6b06952c750899bb03d998e631860/2891da19f13c2a8461f182154ec4b572.jpg",
-    "price": 11.9,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 5,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "9V Battery Connector",
+  "slug": "9v-battery-connector",
+  "image": "https://cdn.robodocbd.com/production/03c6b06952c750899bb03d998e631860/2891da19f13c2a8461f182154ec4b572.jpg",
+  "price": 11.9,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 5,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1be"
   },
-  {
-    "name": "Jumper Wires (F to F) 20 Pieces",
-    "slug": "jumper-wires-f-to-f-20-pieces",
-    "image": "https://cdn.robodocbd.com/production/7f100b7b36092fb9b06dfb4fac360931/43b3d3e72a5e84fcd45e561cad6591a6.jpg",
-    "price": 54.9,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 10,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
+  "name": "Jumper Wires (F to F) 20 Pieces",
+  "slug": "jumper-wires-f-to-f-20-pieces",
+  "image": "https://cdn.robodocbd.com/production/7f100b7b36092fb9b06dfb4fac360931/43b3d3e72a5e84fcd45e561cad6591a6.jpg",
+  "price": 54.9,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 10,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7a96d11a6379a41deb1bf"
   },
-  {
-    "name": "LDR (Small) ",
-    "slug": "ldr-small",
-    "image": "https://cdn.robodocbd.com/production/19f3cd308f1455b3fa09a282e0d496f4/9c9da40c95ed5feb82004f580922aaf6.jpg",
-    "price": 6.99,
-    "has_discount_price": false,
-    "discount_price": 0,
-    "current_stock": 5,
-    "product_rating": 0,
-    "product_max_rating": 5,
-    "product_rating_count": 0,
-    "promotions": []
-  }
-]
+  "name": "LDR (Small) ",
+  "slug": "ldr-small",
+  "image": "https://cdn.robodocbd.com/production/19f3cd308f1455b3fa09a282e0d496f4/9c9da40c95ed5feb82004f580922aaf6.jpg",
+  "price": 6.99,
+  "has_discount_price": false,
+  "discount_price": 0,
+  "current_stock": 5,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7af5711a6379a41deb1c1"
+  },
+  "name": "128x64 Graphic LCD Display",
+  "slug": "128x64-graphic-lcd-display",
+  "image": "https://cdn.robodocbd.com/production/a51fb975227d6640e4fe47854476d133/uLdTUOUrPcGXh2kALJgXqMTKNWRnNZ-metaMTI4eDY0IEdyYXBoaWMgTENEIERpc3BsYXkgLnBuZw==-.png",
+  "quantity": 1,
+  "price": 1070,
+  "has_discount_price": true,
+  "discount_price": 999,
+  "subtotal": 999,
+  "current_stock": 15
+},
+{
+  "_id": {
+    "$oid": "68a7b01411a6379a41deb1c3"
+  },
+  "name": "WiFi Relay Module ESP8266 5V",
+  "slug": "wifi-relay-module-esp8266-5v",
+  "image": "https://cdn.robodocbd.com/production/db576a7d2453575f29eab4bac787b919/b4af26d702f20bc590f9f38cc49af285.jpg",
+  "price": 390.7,
+  "has_discount_price": true,
+  "discount_price": 375.7,
+  "current_stock": 1,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+},
+{
+  "_id": {
+    "$oid": "68a7b05411a6379a41deb1c5"
+  },
+  "name": "FTDI USB to UART TTL Converter FT232RL",
+  "slug": "ftdi-usb-to-uart-ttl-converter-ft232rl",
+  "image": "https://cdn.robodocbd.com/production/995e1fda4a2b5f55ef0df50868bf2a8f/73011273916b4baf45c08d5954f14716.jpg",
+  "price": 389,
+  "has_discount_price": true,
+  "discount_price": 299,
+  "current_stock": 8,
+  "product_rating": 0,
+  "product_max_rating": 5,
+  "product_rating_count": 0,
+  "promotions": []
+}]

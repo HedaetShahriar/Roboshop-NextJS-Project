@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import Image from "next/image";
+import AddToCartButton from "@/components/AddToCartButton";
 
 export default async function ProductDetailPage({ params }) {
   const { id } = await params;
@@ -58,6 +59,16 @@ export default async function ProductDetailPage({ params }) {
                 <li><strong>Rating:</strong> {product.product_rating}/{product.product_max_rating || 5} ({product.product_rating_count || 0})</li>
               )}
             </ul>
+            <div className="mt-6">
+              <AddToCartButton
+                id={product._id}
+                name={product.name}
+                price={hasDiscount ? discountPrice : price}
+                image={product.image}
+                disabled={typeof product.current_stock !== 'undefined' ? product.current_stock <= 0 : false}
+                className="w-full md:w-auto"
+              />
+            </div>
             <div className="text-md text-gray-500 mt-6 border-t pt-4">
               <p><strong>Product ID:</strong> {product._id}</p>
               {product.createdAt && <p><strong>Added On:</strong> {new Date(product.createdAt).toLocaleDateString()}</p>}

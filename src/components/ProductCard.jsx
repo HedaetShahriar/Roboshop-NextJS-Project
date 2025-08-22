@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
+import AddToCartButton from "@/components/AddToCartButton";
 const ProductCard = ({ product }) => {
   const hasDiscount = product.has_discount_price && Number(product.discount_price) > 0;
   const price = Number(product.price || 0);
@@ -11,6 +12,7 @@ const ProductCard = ({ product }) => {
   const maxRating = product.product_max_rating || 5;
   const ratingCount = product.product_rating_count;
   const canNavigate = !!product._id;
+  const pid = product._id || product.slug || product.name;
 
   return (
     <Card className="flex flex-col overflow-hidden">
@@ -54,10 +56,18 @@ const ProductCard = ({ product }) => {
           </div>
         )}
       </CardContent>
-      <CardFooter>
-        <Button asChild className="w-full" disabled={!canNavigate}>
+      <CardFooter className="flex gap-2">
+        <Button asChild className="flex-1" disabled={!canNavigate}>
           <Link href={canNavigate ? `/products/${product._id}` : "/products"}>View Details</Link>
         </Button>
+        <AddToCartButton
+          id={pid}
+          name={product.name}
+          price={hasDiscount ? discountPrice : price}
+          image={product.image}
+          disabled={typeof stock !== 'undefined' ? stock <= 0 : false}
+          className="flex-1"
+        />
       </CardFooter>
     </Card>
   );

@@ -11,6 +11,7 @@ import { Menu, X, ShoppingCart } from "lucide-react";
 export default function Navbar() {
   const { data: session, status } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const { items, count, subtotal, removeItem, updateQty } = useCart();
 
   const NavLinks = () => (
@@ -22,17 +23,19 @@ export default function Navbar() {
     </>
   );
 
-  const dropdownRef = useRef(null);
+  const dropdownRef = useRef(null); // mobile menu
+  const cartRef = useRef(null); // cart dropdown (desktop)
   useEffect(() => {
     function onDocKey(e) {
-      if (e.key === 'Escape') setMenuOpen(false);
+      if (e.key === 'Escape') { setMenuOpen(false); setCartOpen(false); }
     }
     function onDocClick(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
+      const clickedOutsideMenu = dropdownRef.current && !dropdownRef.current.contains(e.target);
+      const clickedOutsideCart = cartRef.current && !cartRef.current.contains(e.target);
+      if (menuOpen && clickedOutsideMenu) setMenuOpen(false);
+      if (cartOpen && clickedOutsideCart) setCartOpen(false);
     }
-    if (menuOpen) {
+    if (menuOpen || cartOpen) {
       document.addEventListener('keydown', onDocKey);
       document.addEventListener('click', onDocClick);
     }
@@ -40,7 +43,7 @@ export default function Navbar() {
       document.removeEventListener('keydown', onDocKey);
       document.removeEventListener('click', onDocClick);
     };
-  }, [menuOpen]);
+  }, [menuOpen, cartOpen]);
 
   return (
     <nav className="bg-white border-b sticky top-0 z-50">
@@ -53,11 +56,13 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-2">
           <NavLinks />
           {/* Cart dropdown (desktop) */}
-          <div className="relative group">
+          <div className="relative" ref={cartRef}>
             <button
               className="relative inline-flex items-center justify-center rounded-md p-2 hover:bg-zinc-100"
               aria-label="Open cart"
-              onClick={() => setMenuOpen(false)}
+              aria-haspopup="menu"
+              aria-expanded={cartOpen}
+              onClick={() => { setMenuOpen(false); setCartOpen(v => !v); }}
             >
               <ShoppingCart className="size-6" />
               {count > 0 && (
@@ -66,48 +71,49 @@ export default function Navbar() {
                 </span>
               )}
             </button>
-            {/* Simple hover dropdown for desktop */}
-            <div className="absolute right-0 mt-2 w-80 rounded-md border bg-white shadow-lg ring-1 ring-black/5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition">
-              <div className="p-3 max-h-80 overflow-auto">
-                {items.length === 0 ? (
-                  <p className="text-sm text-zinc-500">Your cart is empty.</p>
-                ) : (
-                  <ul className="space-y-3">
-                    {items.map((it) => (
-                      <li key={it.id} className="flex items-center gap-3">
-                        {it.image && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={it.image} alt="" className="h-10 w-10 rounded object-cover" />
-                        )}
-                        <div className="flex-1">
-                          <div className="text-sm font-medium line-clamp-1">{it.name}</div>
-                          <div className="text-xs text-zinc-500">${it.price.toFixed(2)}</div>
-                        </div>
-                        <input
-                          type="number"
-                          min={1}
-                          value={it.qty}
-                          onChange={(e) => updateQty(it.id, Number(e.target.value))}
-                          className="w-14 rounded border px-2 py-1 text-sm"
-                        />
-                        <button className="text-xs text-red-600 hover:underline" onClick={() => removeItem(it.id)}>
-                          Remove
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+            {cartOpen && (
+              <div role="menu" className="absolute right-0 mt-2 w-80 rounded-md border bg-white py-2 shadow-lg ring-1 ring-black/5">
+                <div className="px-3 pb-2 max-h-80 overflow-auto">
+                  {items.length === 0 ? (
+                    <p className="text-sm text-zinc-500">Your cart is empty.</p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {items.map((it) => (
+                        <li key={it.id} className="flex items-center gap-3">
+                          {it.image && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={it.image} alt="" className="h-10 w-10 rounded object-cover" />
+                          )}
+                          <div className="flex-1">
+                            <div className="text-sm font-medium line-clamp-1">{it.name}</div>
+                            <div className="text-xs text-zinc-500">${it.price.toFixed(2)}</div>
+                          </div>
+                          <input
+                            type="number"
+                            min={1}
+                            value={it.qty}
+                            onChange={(e) => updateQty(it.id, Number(e.target.value))}
+                            className="w-14 rounded border px-2 py-1 text-sm"
+                          />
+                          <button className="text-xs text-red-600 hover:underline" onClick={() => removeItem(it.id)}>
+                            Remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="border-t px-3 py-2 flex items-center justify-between">
+                  <span className="text-sm font-medium">Subtotal</span>
+                  <span className="text-sm font-semibold">${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="px-3 pb-2">
+                  <Link href="/checkout" className="block w-full text-center rounded-md bg-blue-600 text-white py-2 text-sm hover:bg-blue-700" onClick={() => setCartOpen(false)}>
+                    Checkout
+                  </Link>
+                </div>
               </div>
-              <div className="border-t p-3 flex items-center justify-between">
-                <span className="text-sm font-medium">Subtotal</span>
-                <span className="text-sm font-semibold">${subtotal.toFixed(2)}</span>
-              </div>
-              <div className="p-3">
-                <Link href="/checkout" className="block w-full text-center rounded-md bg-blue-600 text-white py-2 text-sm hover:bg-blue-700">
-                  Checkout
-                </Link>
-              </div>
-            </div>
+            )}
           </div>
           {status === 'authenticated' ? (
             <div className="flex items-center gap-3">
