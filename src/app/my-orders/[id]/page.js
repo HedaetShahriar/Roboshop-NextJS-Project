@@ -25,6 +25,14 @@ export default async function OrderDetailPage({ params }) {
     return notFound();
   }
 
+  // Fetch issues for this order (customer view)
+  const issues = await db
+    .collection('order_issues')
+    .find({ orderId: new ObjectId(order._id) })
+    .sort({ createdAt: -1 })
+    .toArray();
+  const issueList = issues.map((i) => ({ ...i, _id: i._id.toString(), orderId: i.orderId.toString() }));
+
   return (
     <div className="container mx-auto px-4 py-10">
       <div className="flex items-center justify-between mb-6">
@@ -163,8 +171,125 @@ export default async function OrderDetailPage({ params }) {
               <div className="text-xs text-gray-600">Card: **** **** **** {order.payment.cardLast4}</div>
             )}
           </div>
+
+          {/* Order Help */}
+          <div className="bg-white border rounded p-4">
+            <div className="font-semibold mb-3">Order help</div>
+            {issueList.length === 0 ? (
+              <ReportIssueForm orderId={order._id} />
+            ) : (
+              <div className="space-y-4">
+                {issueList.map((iss) => (
+                  <div key={iss._id} className="border rounded p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold">{iss.subject || 'Order issue'}</div>
+                      <span className={`px-2 py-1 rounded text-xs capitalize ${iss.status === 'resolved' ? 'bg-green-100 text-green-800' : iss.status === 'in_progress' ? 'bg-amber-100 text-amber-800' : 'bg-zinc-100'}`}>{iss.status}</span>
+                    </div>
+                    <div className="text-xs text-gray-500">Opened on {new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(iss.createdAt))}</div>
+                    <div className="mt-2 border rounded p-2 bg-zinc-50">
+                      <div className="text-xs text-gray-500 mb-1">Conversation</div>
+                      <ul className="space-y-1 max-h-40 overflow-auto pr-1">
+                        {iss.messages?.map((m, idx) => (
+                          <li key={idx} className="text-sm"><span className="font-semibold capitalize">{m.by}</span>: {m.text} <span className="text-xs text-gray-500">• {new Date(m.at).toLocaleString()}</span></li>
+                        ))}
+                      </ul>
+                    </div>
+                    {iss.status !== 'resolved' && (
+                      <AddIssueMessageForm issueId={iss._id} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// Server Components helper forms
+async function ReportIssueForm({ orderId }) {
+  async function createIssue(data) {
+    'use server';
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) return;
+    const client = await clientPromise;
+    const db = client.db('roboshop');
+    const order = await db.collection('orders').findOne({ _id: new ObjectId(orderId), userId: session.user.email });
+    if (!order) return;
+    const now = new Date();
+    const doc = {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      userId: session.user.email,
+      category: (data.get('category') || 'other').toString(),
+      subject: (data.get('subject') || 'Order issue').toString().slice(0, 120),
+      description: (data.get('description') || '').toString().slice(0, 2000),
+      status: 'open',
+      messages: [{ by: 'customer', text: (data.get('description') || '').toString().slice(0, 2000), at: now }],
+      createdAt: now,
+      updatedAt: now,
+    };
+    if (!doc.description) return;
+    // Prevent duplicate open issues per order
+    const existing = await db.collection('order_issues').findOne({ orderId: order._id, status: { $in: ['open','in_progress'] } });
+    if (!existing) {
+      await db.collection('order_issues').insertOne(doc);
+      await db.collection('orders').updateOne({ _id: order._id }, { $push: { history: { code: 'issue-opened', label: 'Issue reported', at: now } }, $set: { updatedAt: now } });
+    }
+    revalidatePath(`/my-orders/${orderId}`);
+  }
+  return (
+    <form action={createIssue} className="space-y-3">
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm mb-1">Category</label>
+          <select name="category" className="border rounded px-2 py-2 w-full text-sm">
+            <option value="wrong_item">Wrong item received</option>
+            <option value="damaged">Item damaged</option>
+            <option value="late_delivery">Late delivery</option>
+            <option value="payment">Payment issue</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Subject</label>
+          <input name="subject" placeholder="Brief summary" className="border rounded px-2 py-2 w-full text-sm" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm mb-1">Description</label>
+        <textarea name="description" rows={3} placeholder="Describe the issue" className="border rounded px-2 py-2 w-full text-sm" />
+      </div>
+      <div>
+        <Button type="submit" className="text-sm">Submit issue</Button>
+      </div>
+    </form>
+  );
+}
+
+async function AddIssueMessageForm({ issueId }) {
+  async function addMessage(data) {
+    'use server';
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) return;
+    const client = await clientPromise;
+    const db = client.db('roboshop');
+    const _id = new ObjectId(issueId);
+    const issue = await db.collection('order_issues').findOne({ _id });
+    if (!issue || issue.userId !== session.user.email) return;
+    const text = (data.get('message') || '').toString().slice(0, 2000);
+    if (!text) return;
+    const now = new Date();
+    await db.collection('order_issues').updateOne({ _id }, { $push: { messages: { by: 'customer', text, at: now } }, $set: { updatedAt: now } });
+    revalidatePath(`/my-orders/${issue.orderId.toString()}`);
+  }
+  return (
+    <form action={addMessage} className="mt-3 flex flex-wrap items-center gap-2">
+      <input type="hidden" name="issueId" value={issueId} />
+      <input name="message" placeholder="Add a message" className="border rounded px-2 py-2 text-sm flex-1 min-w-[200px]" />
+      <Button type="submit" size="sm">Send</Button>
+    </form>
   );
 }
