@@ -17,7 +17,7 @@ const KNOWN_PROMOS = {
 };
 
 export default function CheckoutPage() {
-  const { items, subtotal, updateQty, removeItem, clear, replaceCart } = useCart();
+  const { items, subtotal, updateQty, removeItem, clear, setCartFromServer, updatedAt } = useCart();
   const router = useRouter();
   const { data: session } = useSession();
 
@@ -121,7 +121,7 @@ export default function CheckoutPage() {
     };
   }, [session?.user]);
 
-  // Sync cart from DB on load when authenticated
+  // Sync cart from DB on load when authenticated with change + timestamp checks
   useEffect(() => {
     let cancelled = false;
     async function syncCart() {
@@ -132,15 +132,49 @@ export default function CheckoutPage() {
         const data = await res.json();
         if (cancelled) return;
         const serverItems = data?.cart?.items || [];
-        // If local has items and server is empty, keep local; else use server
-        if (serverItems.length > 0) {
-          replaceCart(serverItems);
+        const serverTsRaw = data?.cart?.updatedAt;
+        const serverTs = typeof serverTsRaw === 'string' ? Date.parse(serverTsRaw) : Number(serverTsRaw || 0);
+
+        // Helper: compare by id+qty ignoring order
+        const byIdQty = (arr) => {
+          const m = new Map();
+          for (const it of Array.isArray(arr) ? arr : []) {
+            if (!it?.id) continue;
+            const qty = Math.max(1, Number(it.qty || 1));
+            m.set(String(it.id), qty + (m.get(String(it.id)) || 0));
+          }
+          return m;
+        };
+        const a = byIdQty(items);
+        const b = byIdQty(serverItems);
+        let changed = false;
+        if (a.size !== b.size) changed = true;
+        if (!changed) {
+          for (const [k, v] of a.entries()) {
+            if (b.get(k) !== v) { changed = true; break; }
+          }
+        }
+        if (!changed) return; // data same, no update
+
+        const localTs = Number(updatedAt || 0);
+        if (!serverTs || (localTs && localTs > serverTs)) {
+          // Local is newer: push local to server
+          try {
+            await fetch('/api/cart', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ items, subtotal })
+            });
+          } catch {}
+        } else {
+          // Server is newer: adopt server snapshot
+          setCartFromServer(serverItems, serverTsRaw);
         }
       } catch {}
     }
     syncCart();
     return () => { cancelled = true; };
-  }, [session?.user, replaceCart]);
+  }, [session?.user, items, subtotal, updatedAt, setCartFromServer]);
 
   const applyPromo = () => {
     const code = promoCode.trim().toUpperCase();
