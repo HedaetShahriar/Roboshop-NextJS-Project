@@ -14,9 +14,11 @@ import EditAddressModalButton from "@/components/dashboard/EditAddressModalButto
 export default async function OrdersTable({ sp }) {
   const client = await clientPromise;
   const db = client.db('roboshop');
+
   const where = {};
   const status = sp?.status;
   if (status) where.status = status;
+
   const q = (sp?.q || '').toString().trim();
   if (q) {
     where.$or = [
@@ -26,6 +28,7 @@ export default async function OrdersTable({ sp }) {
       { 'contact.phone': { $regex: q, $options: 'i' } },
     ];
   }
+
   // Optional date range and sort
   const fromStr = (sp?.from || '').toString();
   const toStr = (sp?.to || '').toString();
@@ -67,7 +70,6 @@ export default async function OrdersTable({ sp }) {
       .sort(sort)
       .skip(skip)
       .limit(pageSize);
-    // Apply case-insensitive collation when sorting by strings
     if (sortKey.startsWith('status')) {
       cursor.collation({ locale: 'en', strength: 2 });
     }
@@ -107,7 +109,6 @@ export default async function OrdersTable({ sp }) {
       set.status = 'delivered';
       pushEvent('delivered', 'Delivered');
     } else if (action === 'revert' && order.status !== 'delivered' && order.status !== 'cancelled') {
-      // revert to processing
       set.status = 'processing';
       pushEvent('reverted', 'Reverted to processing');
     } else {
@@ -138,7 +139,7 @@ export default async function OrdersTable({ sp }) {
     const order = await db.collection('orders').findOne({ _id });
     if (!order) return;
     if (['delivered', 'cancelled'].includes(order.status)) {
-      return; // do not allow editing after finalization
+      return;
     }
     const now = new Date();
     const keys = ['fullName','email','phone','address1','address2','city','state','postalCode','country'];
@@ -188,41 +189,97 @@ export default async function OrdersTable({ sp }) {
 
   return (
     <>
-      <div className="overflow-auto rounded border bg-white max-h-[65vh]">
-        <table className="min-w-full text-sm">
+      {/* Mobile cards view */}
+      <div className="sm:hidden space-y-2">
+        {orders.map((o) => (
+          <div key={o._id.toString()} className="rounded border bg-white p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="font-medium">#{o.orderNumber}</div>
+                <div className="text-xs text-muted-foreground">{fmtDT(o.createdAt)}</div>
+              </div>
+              <span className={`px-2 py-1 rounded text-[10px] capitalize ${statusClass(o.status)}`}>{o.status}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="text-sm font-medium">{fmtCurrency(o?.amounts?.total)}</div>
+              {o?.rider?.name && (
+                <span className="inline-flex items-center rounded border px-2 py-0.5 text-[10px] text-zinc-700 bg-zinc-50">
+                  Rider: <span className="ml-1 font-medium">{o.rider.name}</span>
+                </span>
+              )}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <AddressModalButton address={o.billingAddress || {
+                fullName: o.contact?.fullName,
+                email: o.contact?.email,
+                phone: o.contact?.phone,
+                ...o.shippingAddress,
+              }} />
+              <EditAddressModalButton
+                orderId={o._id.toString()}
+                initialAddress={o.billingAddress || {
+                  fullName: o.contact?.fullName,
+                  email: o.contact?.email,
+                  phone: o.contact?.phone,
+                  ...o.shippingAddress,
+                }}
+                action={updateBillingAddress}
+                label="Edit"
+                disabled={['delivered','cancelled'].includes(o.status)}
+              />
+            </div>
+            <form action={advance} className="mt-3 grid grid-cols-1 gap-2">
+              <input type="hidden" name="id" value={o._id.toString()} />
+              <select name="action" className="border rounded-md h-9 px-2 text-xs w-full">
+                <option value="pack">Mark packed</option>
+                <option value="assign">Assign rider</option>
+                <option value="ship">Mark shipped</option>
+                <option value="deliver">Mark delivered</option>
+                <option value="revert">Revert</option>
+              </select>
+              <Input name="riderName" placeholder="Rider" className="h-9 w-full" />
+              <Button type="submit" size="sm" className="w-full">Apply</Button>
+            </form>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden sm:block overflow-auto rounded border bg-white max-h-[65vh]">
+        <table className="min-w-full text-xs sm:text-sm">
           <thead className="sticky top-0 z-[1] bg-white shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.06)]">
             <tr className="text-left">
-              <th className="px-3 py-2 font-medium">Order #</th>
+              <th className="px-2 sm:px-3 py-2 font-medium">Order #</th>
               <th className="px-3 py-2 font-medium">
                 <Link href={`/dashboard/orders${mkQS({ sort: sortKey === 'oldest' ? 'newest' : 'oldest', page: 1 })}`} className="inline-flex items-center gap-1">
                   Date
                   <span className="text-xs text-muted-foreground">{sortKey === 'oldest' ? '▲' : sortKey === 'newest' ? '▼' : ''}</span>
                 </Link>
               </th>
-              <th className="px-3 py-2 font-medium">
+              <th className="px-2 sm:px-3 py-2 font-medium">
                 <Link href={`/dashboard/orders${mkQS({ sort: sortKey === 'status-asc' ? 'status-desc' : 'status-asc', page: 1 })}`} className="inline-flex items-center gap-1">
                   Status
                   <span className="text-xs text-muted-foreground">{sortKey?.startsWith('status-') ? (sortKey === 'status-asc' ? '▲' : '▼') : ''}</span>
                 </Link>
               </th>
-              <th className="px-3 py-2 font-medium">Billing address</th>
+              <th className="px-2 sm:px-3 py-2 font-medium">Billing address</th>
               <th className="px-3 py-2 font-medium">
                 <Link href={`/dashboard/orders${mkQS({ sort: sortKey === 'amount-high' ? 'amount-low' : 'amount-high', page: 1 })}`} className="inline-flex items-center gap-1">
                   Total
                   <span className="text-xs text-muted-foreground">{sortKey?.startsWith('amount-') ? (sortKey === 'amount-high' ? '▼' : '▲') : ''}</span>
                 </Link>
               </th>
-              <th className="px-3 py-2 font-medium">Actions</th>
+              <th className="px-2 sm:px-3 py-2 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
             {orders.map((o) => (
               <tr key={o._id.toString()} className="border-t">
-                <td className="px-3 py-2 font-medium">#{o.orderNumber}</td>
+                <td className="px-2 sm:px-3 py-2 font-medium">#{o.orderNumber}</td>
                 <td className="px-3 py-2 text-muted-foreground">{fmtDT(o.createdAt)}</td>
                 <td className="px-3 py-2"><span className={`px-2 py-1 rounded text-xs capitalize ${statusClass(o.status)}`}>{o.status}</span></td>
                 <td className="px-3 py-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <AddressModalButton address={o.billingAddress || {
                       fullName: o.contact?.fullName,
                       email: o.contact?.email,
@@ -243,20 +300,27 @@ export default async function OrdersTable({ sp }) {
                     />
                   </div>
                 </td>
-                <td className="px-3 py-2">{fmtCurrency(o?.amounts?.total)}</td>
+                <td className="px-2 sm:px-3 py-2">{fmtCurrency(o?.amounts?.total)}</td>
                 <td className="px-3 py-2">
-                  <form action={advance} className="flex flex-wrap items-center gap-2">
-                    <input type="hidden" name="id" value={o._id.toString()} />
-                    <select name="action" className="border rounded-md h-9 px-2 text-xs">
-                      <option value="pack">Mark packed</option>
-                      <option value="assign">Assign rider</option>
-                      <option value="ship">Mark shipped</option>
-                      <option value="deliver">Mark delivered</option>
-                      <option value="revert">Revert</option>
-                    </select>
-                    <Input name="riderName" placeholder="Rider" className="h-9 w-[120px]" />
-                    <Button type="submit" size="sm">Apply</Button>
-                  </form>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {o?.rider?.name && (
+                      <span className="inline-flex items-center rounded border px-2 py-0.5 text-xs text-zinc-700 bg-zinc-50">
+                        Rider: <span className="ml-1 font-medium">{o.rider.name}</span>
+                      </span>
+                    )}
+                    <form action={advance} className="flex flex-wrap items-center gap-2">
+                      <input type="hidden" name="id" value={o._id.toString()} />
+                      <select name="action" className="border rounded-md h-9 px-2 text-xs w-full sm:w-auto">
+                        <option value="pack">Mark packed</option>
+                        <option value="assign">Assign rider</option>
+                        <option value="ship">Mark shipped</option>
+                        <option value="deliver">Mark delivered</option>
+                        <option value="revert">Revert</option>
+                      </select>
+                      <Input name="riderName" placeholder="Rider" className="h-9 w-full sm:w-[120px]" />
+                      <Button type="submit" size="sm" className="w-full sm:w-auto">Apply</Button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -265,14 +329,14 @@ export default async function OrdersTable({ sp }) {
       </div>
 
       {/* Pagination */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-sm text-muted-foreground">Showing {showingFrom}–{showingTo} of {total}</div>
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3">
+        <div className="text-xs sm:text-sm text-muted-foreground">Showing {showingFrom}–{showingTo} of {total}</div>
         <div className="flex items-center gap-2">
-          <span className="text-sm">Rows:</span>
+          <span className="text-xs sm:text-sm">Rows:</span>
           <PageSizeSelect value={pageSize} />
-          <Link href={`/dashboard/orders${mkQS({ page: Math.max(1, page - 1) })}`} className={`px-3 py-1 rounded border text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Prev</Link>
-          <div className="text-sm">Page {page} / {totalPages}</div>
-          <Link href={`/dashboard/orders${mkQS({ page: Math.min(totalPages, page + 1) })}`} className={`px-3 py-1 rounded border text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Next</Link>
+          <Link href={`/dashboard/orders${mkQS({ page: Math.max(1, page - 1) })}`} className={`px-3 py-1 rounded border text-xs sm:text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Prev</Link>
+          <div className="text-xs sm:text-sm">Page {page} / {totalPages}</div>
+          <Link href={`/dashboard/orders${mkQS({ page: Math.min(totalPages, page + 1) })}`} className={`px-3 py-1 rounded border text-xs sm:text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Next</Link>
         </div>
       </div>
     </>
