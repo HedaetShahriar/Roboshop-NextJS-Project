@@ -24,6 +24,7 @@ export default function CheckoutPage() {
   const [promoMessage, setPromoMessage] = useState(null);
   const [message, setMessage] = useState(null);
   const [placing, setPlacing] = useState(false);
+  const [errors, setErrors] = useState({});
 
   // Address and contact fields
   const [form, setForm] = useState({
@@ -79,37 +80,87 @@ export default function CheckoutPage() {
   const onChange = (e) => {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
+    // Clear error for the field being edited
+    setErrors((prev) => (prev[name] ? { ...prev, [name]: undefined } : prev));
+    // If switching payment method, clear method-specific errors
+    if (name === "paymentMethod") {
+      setErrors((prev) => ({
+        ...prev,
+        bkashNumber: undefined,
+        bkashTxnId: undefined,
+        cardNumber: undefined,
+        cardExpiry: undefined,
+        cardCvc: undefined,
+      }));
+    }
   };
 
   const validate = () => {
-    if (items.length === 0) return "Your cart is empty.";
-    if (!form.fullName || form.fullName.length < 3) return "Please enter your full name.";
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) return "Please enter a valid email address.";
-    if (!/^\+?[0-9\-\s]{7,15}$/.test(form.phone)) return "Please enter a valid phone number.";
-    if (!form.city || !form.address1) return "Please complete your address (city and address line 1).";
-    if (!form.billingSameAsShipping) {
-      if (!form.billingCity || !form.billingAddress1) return "Please complete your billing address (city and address line 1).";
+    const errs = {};
+    // Cart
+    if (items.length === 0) {
+      errs.cart = "Your cart is empty.";
     }
+    // Contact
+    if (!form.fullName || form.fullName.trim().length < 3) {
+      errs.fullName = "Please enter your full name (min 3 characters).";
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) {
+      errs.email = "Please enter a valid email address.";
+    }
+    if (!/^\+?[0-9\-\s]{7,15}$/.test(form.phone)) {
+      errs.phone = "Please enter a valid phone number.";
+    }
+    // Shipping
+    if (!form.city) {
+      errs.city = "City is required.";
+    }
+    if (!form.address1) {
+      errs.address1 = "Address line 1 is required.";
+    }
+    // Billing (if different)
+    if (!form.billingSameAsShipping) {
+      if (!form.billingCity) {
+        errs.billingCity = "Billing city is required.";
+      }
+      if (!form.billingAddress1) {
+        errs.billingAddress1 = "Billing address line 1 is required.";
+      }
+    }
+    // Payment specifics
     if (form.paymentMethod === "bkash") {
-      if (!/^01[0-9]{9}$/.test(form.bkashNumber)) return "Please enter a valid bKash number (11 digits starting with 01).";
-      if (!form.bkashTxnId || form.bkashTxnId.length < 6) return "Please enter a valid bKash transaction ID.";
+      if (!/^01[0-9]{9}$/.test(form.bkashNumber)) {
+        errs.bkashNumber = "Enter a valid bKash number (11 digits starting with 01).";
+      }
+      if (!form.bkashTxnId || form.bkashTxnId.trim().length < 6) {
+        errs.bkashTxnId = "Enter a valid bKash transaction ID.";
+      }
     }
     if (form.paymentMethod === "card") {
-      if (!/^\d{12,19}$/.test(form.cardNumber.replace(/\s+/g, ""))) return "Please enter a valid card number.";
-      if (!/^\d{2}\/[0-9]{2}$/.test(form.cardExpiry)) return "Expiry must be in MM/YY format.";
-      if (!/^\d{3,4}$/.test(form.cardCvc)) return "Please enter a valid CVC.";
+      const digits = (form.cardNumber || "").replace(/\s+/g, "");
+      if (!/^\d{12,19}$/.test(digits)) {
+        errs.cardNumber = "Enter a valid card number.";
+      }
+      if (!/^\d{2}\/[0-9]{2}$/.test(form.cardExpiry)) {
+        errs.cardExpiry = "Use MM/YY format.";
+      }
+      if (!/^\d{3,4}$/.test(form.cardCvc)) {
+        errs.cardCvc = "Enter a valid CVC.";
+      }
     }
-    return null;
+    return errs;
   };
 
   const placeOrder = async (e) => {
     e.preventDefault();
     setMessage(null);
-    const err = validate();
-    if (err) {
-      setMessage({ type: "error", text: err });
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      setMessage(errs.cart ? { type: "error", text: errs.cart } : null);
       return;
     }
+    setErrors({});
     setPlacing(true);
     try {
       const res = await fetch("/api/orders", {
@@ -164,16 +215,19 @@ export default function CheckoutPage() {
             <CardContent className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="fullName">Full Name</Label>
-                <Input id="fullName" name="fullName" value={form.fullName} onChange={onChange} placeholder="John Doe" required />
+                <Input id="fullName" name="fullName" value={form.fullName} onChange={onChange} placeholder="John Doe" aria-invalid={!!errors.fullName} required />
+                {errors.fullName && <p className="text-xs text-red-600">{errors.fullName}</p>}
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input type="email" id="email" name="email" value={form.email} onChange={onChange} placeholder="you@example.com" required />
+                  <Input type="email" id="email" name="email" value={form.email} onChange={onChange} placeholder="you@example.com" aria-invalid={!!errors.email} required />
+                  {errors.email && <p className="text-xs text-red-600">{errors.email}</p>}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" name="phone" value={form.phone} onChange={onChange} placeholder="01XXXXXXXXX" required />
+                  <Input id="phone" name="phone" value={form.phone} onChange={onChange} placeholder="01XXXXXXXXX" aria-invalid={!!errors.phone} required />
+                  {errors.phone && <p className="text-xs text-red-600">{errors.phone}</p>}
                 </div>
               </div>
             </CardContent>
@@ -192,7 +246,8 @@ export default function CheckoutPage() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="city">City</Label>
-                  <Input id="city" name="city" value={form.city} onChange={onChange} placeholder="Dhaka" required />
+                  <Input id="city" name="city" value={form.city} onChange={onChange} placeholder="Dhaka" aria-invalid={!!errors.city} required />
+                  {errors.city && <p className="text-xs text-red-600">{errors.city}</p>}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="area">Area</Label>
@@ -202,7 +257,8 @@ export default function CheckoutPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="address1">Address Line 1</Label>
-                  <Input id="address1" name="address1" value={form.address1} onChange={onChange} placeholder="House, Road" required />
+                  <Input id="address1" name="address1" value={form.address1} onChange={onChange} placeholder="House, Road" aria-invalid={!!errors.address1} required />
+                  {errors.address1 && <p className="text-xs text-red-600">{errors.address1}</p>}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="address2">Address Line 2</Label>
@@ -247,7 +303,8 @@ export default function CheckoutPage() {
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="billingCity">City</Label>
-                      <Input id="billingCity" name="billingCity" value={form.billingCity} onChange={onChange} placeholder="Dhaka" />
+                      <Input id="billingCity" name="billingCity" value={form.billingCity} onChange={onChange} placeholder="Dhaka" aria-invalid={!!errors.billingCity} />
+                      {errors.billingCity && <p className="text-xs text-red-600">{errors.billingCity}</p>}
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="billingArea">Area</Label>
@@ -257,7 +314,8 @@ export default function CheckoutPage() {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="billingAddress1">Address Line 1</Label>
-                      <Input id="billingAddress1" name="billingAddress1" value={form.billingAddress1} onChange={onChange} placeholder="House, Road" />
+                      <Input id="billingAddress1" name="billingAddress1" value={form.billingAddress1} onChange={onChange} placeholder="House, Road" aria-invalid={!!errors.billingAddress1} />
+                      {errors.billingAddress1 && <p className="text-xs text-red-600">{errors.billingAddress1}</p>}
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="billingAddress2">Address Line 2</Label>
@@ -354,11 +412,13 @@ export default function CheckoutPage() {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="bkashNumber">bKash Number</Label>
-                      <Input id="bkashNumber" name="bkashNumber" value={form.bkashNumber} onChange={onChange} placeholder="01XXXXXXXXX" />
+                      <Input id="bkashNumber" name="bkashNumber" value={form.bkashNumber} onChange={onChange} placeholder="01XXXXXXXXX" aria-invalid={!!errors.bkashNumber} />
+                      {errors.bkashNumber && <p className="text-xs text-red-600">{errors.bkashNumber}</p>}
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="bkashTxnId">Transaction ID</Label>
-                      <Input id="bkashTxnId" name="bkashTxnId" value={form.bkashTxnId} onChange={onChange} placeholder="e.g., 7G5H3K" />
+                      <Input id="bkashTxnId" name="bkashTxnId" value={form.bkashTxnId} onChange={onChange} placeholder="e.g., 7G5H3K" aria-invalid={!!errors.bkashTxnId} />
+                      {errors.bkashTxnId && <p className="text-xs text-red-600">{errors.bkashTxnId}</p>}
                     </div>
                   </div>
                 )}
@@ -367,15 +427,18 @@ export default function CheckoutPage() {
                   <div className="grid md:grid-cols-3 gap-4">
                     <div className="grid gap-2 md:col-span-2">
                       <Label htmlFor="cardNumber">Card Number</Label>
-                      <Input id="cardNumber" name="cardNumber" value={form.cardNumber} onChange={onChange} placeholder="1234 5678 9012 3456" />
+                      <Input id="cardNumber" name="cardNumber" value={form.cardNumber} onChange={onChange} placeholder="1234 5678 9012 3456" aria-invalid={!!errors.cardNumber} />
+                      {errors.cardNumber && <p className="text-xs text-red-600">{errors.cardNumber}</p>}
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="cardExpiry">Expiry (MM/YY)</Label>
-                      <Input id="cardExpiry" name="cardExpiry" value={form.cardExpiry} onChange={onChange} placeholder="MM/YY" />
+                      <Input id="cardExpiry" name="cardExpiry" value={form.cardExpiry} onChange={onChange} placeholder="MM/YY" aria-invalid={!!errors.cardExpiry} />
+                      {errors.cardExpiry && <p className="text-xs text-red-600">{errors.cardExpiry}</p>}
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="cardCvc">CVC</Label>
-                      <Input id="cardCvc" name="cardCvc" value={form.cardCvc} onChange={onChange} placeholder="CVC" />
+                      <Input id="cardCvc" name="cardCvc" value={form.cardCvc} onChange={onChange} placeholder="CVC" aria-invalid={!!errors.cardCvc} />
+                      {errors.cardCvc && <p className="text-xs text-red-600">{errors.cardCvc}</p>}
                     </div>
                   </div>
                 )}
