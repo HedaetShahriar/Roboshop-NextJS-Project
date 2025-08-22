@@ -8,10 +8,15 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import PageSizeSelect from "@/components/dashboard/PageSizeSelect";
+import { formatDate } from "@/lib/date";
+import AddressModalButton from "@/components/dashboard/AddressModalButton";
+import EditAddressModalButton from "@/components/dashboard/EditAddressModalButton";
 
 export const dynamic = 'force-dynamic';
 
 export default async function SellerOrdersPage({ searchParams }) {
+  const sp = await searchParams;
   const session = await getServerSession(authOptions);
   const role = session?.user?.role || 'customer';
   if (!session?.user?.email || role === 'customer') return notFound();
@@ -19,9 +24,9 @@ export default async function SellerOrdersPage({ searchParams }) {
   const client = await clientPromise;
   const db = client.db('roboshop');
   const where = {};
-  const status = searchParams?.status;
+  const status = sp?.status;
   if (status) where.status = status;
-  const q = (searchParams?.q || '').toString().trim();
+  const q = (sp?.q || '').toString().trim();
   if (q) {
     where.$or = [
       { orderNumber: { $regex: q, $options: 'i' } },
@@ -31,8 +36,8 @@ export default async function SellerOrdersPage({ searchParams }) {
     ];
   }
   // Optional date range and sort
-  const fromStr = (searchParams?.from || '').toString();
-  const toStr = (searchParams?.to || '').toString();
+  const fromStr = (sp?.from || '').toString();
+  const toStr = (sp?.to || '').toString();
   const created = {};
   const fromDate = fromStr ? new Date(fromStr) : null;
   if (fromDate && !isNaN(fromDate)) created.$gte = fromDate;
@@ -40,19 +45,42 @@ export default async function SellerOrdersPage({ searchParams }) {
   if (toDate && !isNaN(toDate)) created.$lte = toDate;
   if (Object.keys(created).length) where.createdAt = created;
 
-  const sortKey = (searchParams?.sort || 'newest').toString();
+  const sortKey = (sp?.sort || 'newest').toString();
   let sort = { createdAt: -1 };
   if (sortKey === 'oldest') sort = { createdAt: 1 };
+  if (sortKey === 'status-asc') sort = { status: 1, createdAt: -1 };
+  if (sortKey === 'status-desc') sort = { status: -1, createdAt: -1 };
 
-  let orders = await db.collection('orders').find(where).sort(sort).limit(200).toArray();
+  // Pagination
+  const page = Math.max(1, Number((sp?.page || '1')));
+  const rawSize = Number((sp?.pageSize || '20'));
+  const pageSize = Math.min(100, Math.max(10, isNaN(rawSize) ? 20 : rawSize));
+  const skip = (page - 1) * pageSize;
 
-  // Client-side amount sorting if requested
+  const total = await db.collection('orders').countDocuments(where);
+
+  // Fetch orders with server-side sorting and pagination
+  let orders;
   if (sortKey === 'amount-high' || sortKey === 'amount-low') {
-    orders = orders.sort((a, b) => {
-      const av = Number(a?.amounts?.total || 0);
-      const bv = Number(b?.amounts?.total || 0);
-      return sortKey === 'amount-high' ? bv - av : av - bv;
-    });
+    const dir = sortKey === 'amount-high' ? -1 : 1;
+    orders = await db.collection('orders').aggregate([
+      { $match: where },
+      { $addFields: { amountValue: { $toDouble: '$amounts.total' } } },
+      { $sort: { amountValue: dir, createdAt: -1 } },
+      { $skip: skip },
+      { $limit: pageSize },
+    ]).toArray();
+  } else {
+    const cursor = db.collection('orders')
+      .find(where)
+      .sort(sort)
+      .skip(skip)
+      .limit(pageSize);
+    // Apply case-insensitive collation when sorting by strings
+  if (sortKey.startsWith('status')) {
+      cursor.collation({ locale: 'en', strength: 2 });
+    }
+    orders = await cursor.toArray();
   }
 
   async function advance(formData) {
@@ -101,8 +129,43 @@ export default async function SellerOrdersPage({ searchParams }) {
     revalidatePath('/dashboard/orders');
   }
 
+  async function updateBillingAddress(formData) {
+    'use server';
+    const session = await getServerSession(authOptions);
+    const role = session?.user?.role || 'customer';
+    if (role === 'customer') return;
+    const id = formData.get('id')?.toString();
+    if (!id) return;
+    const client = await clientPromise;
+    const db = client.db('roboshop');
+    let _id;
+    try {
+      _id = new ObjectId(id);
+    } catch {
+      return;
+    }
+    const order = await db.collection('orders').findOne({ _id });
+    if (!order) return;
+    if (['delivered', 'cancelled'].includes(order.status)) {
+      return; // do not allow editing after finalization
+    }
+    const now = new Date();
+    const keys = ['fullName','email','phone','address1','address2','city','state','postalCode','country'];
+    const billingAddress = {};
+    for (const k of keys) {
+      const v = formData.get(k);
+      if (v !== null && v !== undefined) billingAddress[k] = String(v);
+    }
+    const update = {
+      $set: { billingAddress, updatedAt: now },
+      $push: { history: { code: 'billing-updated', label: 'Billing address updated', at: now } },
+    };
+    await db.collection('orders').updateOne({ _id }, update);
+    revalidatePath('/dashboard/orders');
+  }
+
   const fmtCurrency = (n) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(Number(n || 0));
-  const fmtDT = (d) => new Date(d).toLocaleString();
+  const fmtDT = (d) => formatDate(d, 'datetime');
   const statusClass = (s) => (
     s === 'processing' ? 'bg-amber-100 text-amber-800' :
     s === 'packed' ? 'bg-sky-100 text-sky-800' :
@@ -113,6 +176,26 @@ export default async function SellerOrdersPage({ searchParams }) {
   );
 
   const statuses = ['processing','packed','assigned','shipped','delivered','cancelled'];
+
+  const mkQS = (overrides = {}) => {
+    const sp = new URLSearchParams();
+    if (q) sp.set('q', q);
+    if (status) sp.set('status', status);
+    if (fromStr) sp.set('from', fromStr);
+    if (toStr) sp.set('to', toStr);
+    if (sortKey) sp.set('sort', sortKey);
+    sp.set('pageSize', String(pageSize));
+    Object.entries(overrides).forEach(([k, v]) => {
+      if (v === undefined || v === null || v === '') sp.delete(k);
+      else sp.set(k, String(v));
+    });
+    const s = sp.toString();
+    return s ? `?${s}` : '';
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const showingFrom = total === 0 ? 0 : skip + 1;
+  const showingTo = Math.min(total, skip + orders.length);
 
   return (
     <div className="py-4 md:py-6 space-y-4">
@@ -148,6 +231,8 @@ export default async function SellerOrdersPage({ searchParams }) {
             <option value="oldest">Oldest first</option>
             <option value="amount-high">Amount: high to low</option>
             <option value="amount-low">Amount: low to high</option>
+            <option value="status-asc">Status A→Z</option>
+            <option value="status-desc">Status Z→A</option>
           </select>
         </div>
         <div className="ml-auto">
@@ -168,46 +253,95 @@ export default async function SellerOrdersPage({ searchParams }) {
       {orders.length === 0 ? (
         <div className="text-muted-foreground text-sm">No orders found.</div>
       ) : (
-        <div className="grid gap-3">
-          {orders.map((o) => (
-            <Card key={o._id.toString()}>
-              <CardHeader className="pb-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <CardTitle className="text-base">Order #{o.orderNumber}</CardTitle>
-                    <CardDescription>{fmtDT(o.createdAt)}</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2 py-1 rounded text-xs capitalize ${statusClass(o.status)}`}>{o.status}</span>
-                    <span className="text-sm font-medium">{fmtCurrency(o?.amounts?.total)}</span>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="grid gap-1 text-sm text-muted-foreground">
-                  <div>Customer: <span className="text-foreground">{o.contact?.fullName}</span> ({o.contact?.email})</div>
-                  <div>Phone: <span className="text-foreground">{o.contact?.phone}</span></div>
-                  {o.shippingAddress && (
-                    <div>Ship to: <span className="text-foreground">{o.shippingAddress.address1}{o.shippingAddress.address2 ? `, ${o.shippingAddress.address2}` : ''}, {o.shippingAddress.city}</span></div>
-                  )}
-                  {o.rider?.name && <div>Rider: <span className="text-foreground">{o.rider.name}</span></div>}
-                </div>
-                <form action={advance} className="mt-4 flex flex-wrap items-center gap-2">
-                  <input type="hidden" name="id" value={o._id.toString()} />
-                  <select name="action" className="border rounded-md h-9 px-2 text-sm">
-                    <option value="pack">Mark packed</option>
-                    <option value="assign">Assign rider</option>
-                    <option value="ship">Mark shipped</option>
-                    <option value="deliver">Mark delivered</option>
-                    <option value="revert">Revert to processing</option>
-                  </select>
-                  <Input name="riderName" placeholder="Rider name (for assign)" className="h-9" />
-                  <Button type="submit" size="sm">Apply</Button>
-                </form>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="overflow-auto rounded border bg-white max-h-[65vh]">
+            <table className="min-w-full text-sm">
+              <thead className="sticky top-0 z-[1] bg-white shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.06)]">
+                <tr className="text-left">
+                  <th className="px-3 py-2 font-medium">Order #</th>
+                  <th className="px-3 py-2 font-medium">
+                    <Link href={`/dashboard/orders${mkQS({ sort: sortKey === 'oldest' ? 'newest' : 'oldest', page: 1 })}`} className="inline-flex items-center gap-1">
+                      Date
+                      <span className="text-xs text-muted-foreground">{sortKey === 'oldest' ? '▲' : sortKey === 'newest' ? '▼' : ''}</span>
+                    </Link>
+                  </th>
+                  <th className="px-3 py-2 font-medium">
+                    <Link href={`/dashboard/orders${mkQS({ sort: sortKey === 'status-asc' ? 'status-desc' : 'status-asc', page: 1 })}`} className="inline-flex items-center gap-1">
+                      Status
+                      <span className="text-xs text-muted-foreground">{sortKey?.startsWith('status-') ? (sortKey === 'status-asc' ? '▲' : '▼') : ''}</span>
+                    </Link>
+                  </th>
+                  <th className="px-3 py-2 font-medium">Billing address</th>
+                  <th className="px-3 py-2 font-medium">
+                    <Link href={`/dashboard/orders${mkQS({ sort: sortKey === 'amount-high' ? 'amount-low' : 'amount-high', page: 1 })}`} className="inline-flex items-center gap-1">
+                      Total
+                      <span className="text-xs text-muted-foreground">{sortKey?.startsWith('amount-') ? (sortKey === 'amount-high' ? '▼' : '▲') : ''}</span>
+                    </Link>
+                  </th>
+                  <th className="px-3 py-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((o) => (
+                  <tr key={o._id.toString()} className="border-t">
+                    <td className="px-3 py-2 font-medium">#{o.orderNumber}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{fmtDT(o.createdAt)}</td>
+                    <td className="px-3 py-2"><span className={`px-2 py-1 rounded text-xs capitalize ${statusClass(o.status)}`}>{o.status}</span></td>
+                    <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <AddressModalButton address={o.billingAddress || {
+                            fullName: o.contact?.fullName,
+                            email: o.contact?.email,
+                            phone: o.contact?.phone,
+                            ...o.shippingAddress,
+                          }} />
+                          <EditAddressModalButton
+                            orderId={o._id.toString()}
+                            initialAddress={o.billingAddress || {
+                              fullName: o.contact?.fullName,
+                              email: o.contact?.email,
+                              phone: o.contact?.phone,
+                              ...o.shippingAddress,
+                            }}
+                            action={updateBillingAddress}
+                            label="Edit"
+                            disabled={['delivered','cancelled'].includes(o.status)}
+                          />
+                        </div>
+                    </td>
+                    <td className="px-3 py-2">{fmtCurrency(o?.amounts?.total)}</td>
+                    <td className="px-3 py-2">
+                      <form action={advance} className="flex flex-wrap items-center gap-2">
+                        <input type="hidden" name="id" value={o._id.toString()} />
+                        <select name="action" className="border rounded-md h-9 px-2 text-xs">
+                          <option value="pack">Mark packed</option>
+                          <option value="assign">Assign rider</option>
+                          <option value="ship">Mark shipped</option>
+                          <option value="deliver">Mark delivered</option>
+                          <option value="revert">Revert</option>
+                        </select>
+                        <Input name="riderName" placeholder="Rider" className="h-9 w-[120px]" />
+                        <Button type="submit" size="sm">Apply</Button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-muted-foreground">Showing {showingFrom}–{showingTo} of {total}</div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Rows:</span>
+        <PageSizeSelect value={pageSize} />
+              <Link href={`/dashboard/orders${mkQS({ page: Math.max(1, page - 1) })}`} className={`px-3 py-1 rounded border text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Prev</Link>
+              <div className="text-sm">Page {page} / {totalPages}</div>
+              <Link href={`/dashboard/orders${mkQS({ page: Math.min(totalPages, page + 1) })}`} className={`px-3 py-1 rounded border text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Next</Link>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
