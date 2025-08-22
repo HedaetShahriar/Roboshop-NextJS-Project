@@ -36,6 +36,7 @@ export default function MetricsPanel() {
   useEffect(() => { load(days); }, [days, load]);
 
   const fmtCurrency = useMemo(() => (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n), []);
+  const fmtInteger = useMemo(() => (n) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n), []);
 
   return (
     <div className="space-y-4">
@@ -61,7 +62,7 @@ export default function MetricsPanel() {
           </CardHeader>
           <CardContent>
             {loading ? <div className="text-sm text-muted-foreground">Loading…</div> : (
-              <BarChart data={(data.series?.revenue || [])} color="#10b981" />
+              <BarChart data={(data.series?.revenue || [])} color="#10b981" showLine showArea valueFormatter={fmtCurrency} />
             )}
           </CardContent>
         </Card>
@@ -73,7 +74,7 @@ export default function MetricsPanel() {
           </CardHeader>
           <CardContent>
             {loading ? <div className="text-sm text-muted-foreground">Loading…</div> : (
-              <BarChart data={(data.series?.orders || [])} color="#3b82f6" />
+              <BarChart data={(data.series?.orders || [])} color="#3b82f6" showLine showArea valueFormatter={fmtInteger} />
             )}
           </CardContent>
         </Card>

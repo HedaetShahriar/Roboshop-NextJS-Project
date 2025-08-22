@@ -29,7 +29,7 @@ function normalize(series, width, height, padding = 24, formatDate) {
   return { bars, max };
 }
 
-function BarChartBase({ data, width = 640, height = 180, color = "#0ea5e9", grid = true, showLine = false, showArea = false, tooltip = true, dateFormatOptions = { month: 'short', day: 'numeric' }, locale }) {
+function BarChartBase({ data, width = 640, height = 180, color = "#0ea5e9", grid = true, showLine = false, showArea = false, tooltip = true, dateFormatOptions = { month: 'short', day: 'numeric' }, locale, valueFormatter }) {
   const formatter = useMemo(() => new Intl.DateTimeFormat(locale, dateFormatOptions), [locale, dateFormatOptions]);
   const formatDate = (d) => formatter.format(d);
   const { bars, max } = useMemo(() => normalize(data, width, height, 24, formatDate), [data, width, height, formatter]);
@@ -81,19 +81,19 @@ function BarChartBase({ data, width = 640, height = 180, color = "#0ea5e9", grid
         ))}
       </g>
       {/* axis labels (last and first) */}
-      {bars.length > 0 && (
+    {bars.length > 0 && (
         <g fill="#6b7280" fontSize="10">
           <text x="24" y={height - 8}>{bars[0].label}</text>
           <text x={width - 24} y={height - 8} textAnchor="end">{bars[bars.length - 1].label}</text>
-          <text x="24" y="20">Max: {max}</text>
+      <text x="24" y="20">Max: {valueFormatter ? valueFormatter(max) : max}</text>
         </g>
       )}
       {/* simple tooltip */}
       {tooltip && hover && (
         <g>
-          <rect x={hover.b.x} y={Math.max(hover.b.y - 28, 0)} width="110" height="24" rx="4" fill="#111827" opacity="0.9" />
+          <rect x={hover.b.x} y={Math.max(hover.b.y - 28, 0)} width="140" height="24" rx="4" fill="#111827" opacity="0.9" />
           <text x={hover.b.x + 6} y={Math.max(hover.b.y - 12, 12)} fill="#fff" fontSize="11">
-            {hover.b.label}: {hover.b.value}
+            {hover.b.label}: {valueFormatter ? valueFormatter(hover.b.value) : hover.b.value}
           </text>
         </g>
       )}
