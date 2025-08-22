@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Suspense } from "react";
 import OrdersTable from "./OrdersTable";
+import clientPromise from "@/lib/mongodb";
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,30 @@ export default async function SellerOrdersPage({ searchParams }) {
   const rawSize = Number((sp?.pageSize || '20'));
   const pageSize = Math.min(100, Math.max(10, isNaN(rawSize) ? 20 : rawSize));
   const statuses = ['processing','packed','assigned','shipped','delivered','cancelled'];
+  const view = 'server';
+
+  // Compute counts per status for current filters (ignoring status itself)
+  const client = await clientPromise;
+  const db = client.db('roboshop');
+  const baseWhere = {};
+  if (q) {
+    baseWhere.$or = [
+      { orderNumber: { $regex: q, $options: 'i' } },
+      { 'contact.fullName': { $regex: q, $options: 'i' } },
+      { 'contact.email': { $regex: q, $options: 'i' } },
+      { 'contact.phone': { $regex: q, $options: 'i' } },
+    ];
+  }
+  const created = {};
+  const fromDate = fromStr ? new Date(fromStr) : null;
+  if (fromDate && !isNaN(fromDate)) created.$gte = fromDate;
+  const toDate = toStr ? new Date(toStr) : null;
+  if (toDate && !isNaN(toDate)) created.$lte = toDate;
+  if (Object.keys(created).length) baseWhere.createdAt = created;
+  const counts = Object.fromEntries(await Promise.all([
+    db.collection('orders').countDocuments(baseWhere).then(n => ['all', n]),
+    ...statuses.map(s => db.collection('orders').countDocuments({ ...baseWhere, status: s }).then(n => [s, n]))
+  ]));
 
   return (
     <div className="py-4 md:py-6 space-y-4">
@@ -55,6 +80,9 @@ export default async function SellerOrdersPage({ searchParams }) {
             <option value="status-desc">Status Z→A</option>
           </select>
         </div>
+  {/* Reset to page 1 on submit and preserve current pageSize */}
+  <input type="hidden" name="page" value="1" />
+  <input type="hidden" name="pageSize" value={pageSize} />
         <div className="ml-auto flex items-center gap-2">
           <Link href={`/dashboard/orders?pageSize=${pageSize}`}>
             <Button type="button" size="sm" variant="outline">Clear</Button>
@@ -65,13 +93,17 @@ export default async function SellerOrdersPage({ searchParams }) {
 
       {/* Quick status tabs */}
       <div className="flex flex-wrap gap-2">
-        <Link href={`/dashboard/orders`}><Button variant={!status ? 'default' : 'outline'} size="sm">All</Button></Link>
+        <Link href={`/dashboard/orders`}>
+          <Button variant={!status ? 'default' : 'outline'} size="sm">All <span className="ml-1 text-xs text-muted-foreground">({counts.all || 0})</span></Button>
+        </Link>
         {statuses.map(s => (
           <Link key={s} href={`/dashboard/orders?status=${s}`}>
-            <Button variant={status === s ? 'default' : 'outline'} size="sm" className="capitalize">{s}</Button>
+            <Button variant={status === s ? 'default' : 'outline'} size="sm" className="capitalize">{s} <span className="ml-1 text-xs text-muted-foreground">({counts[s] || 0})</span></Button>
           </Link>
         ))}
       </div>
+      
+  {/* Server table only */}
       <Suspense fallback={
         <div className="overflow-auto rounded border bg-white max-h-[65vh]">
           <table className="min-w-full text-sm">
@@ -103,7 +135,7 @@ export default async function SellerOrdersPage({ searchParams }) {
         {/* Delegated table so only this area streams/replaces on filter submit */}
         {/* @ts-expect-error Async Server Component */}
         <OrdersTable sp={sp} />
-      </Suspense>
+  </Suspense>
     </div>
   );
 }
