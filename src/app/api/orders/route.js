@@ -68,10 +68,13 @@ export async function POST(request) {
           ? form.cardNumber.replace(/\s+/g, "").slice(-4)
           : undefined,
     },
-    status: "processing", // processing -> shipped -> delivered
+    status: "processing", // processing -> shipped -> delivered | cancelled
     orderNumber: `RB${Date.now()}`,
     createdAt: new Date(),
     updatedAt: new Date(),
+    history: [
+      { code: 'placed', label: 'Order placed', at: new Date() },
+    ],
   };
 
   const client = await clientPromise;
