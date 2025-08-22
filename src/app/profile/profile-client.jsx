@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,8 +10,13 @@ import { CircleUser, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 export default function ProfileClient({ initialProfile, initialAddresses }) {
+  const { data: session, update: updateSession } = useSession();
   const [tab, setTab] = useState("profile");
   const [profile, setProfile] = useState(initialProfile || { name: "", email: "", phone: "", image: "" });
+  const [savedProfile, setSavedProfile] = useState({
+    name: (initialProfile?.name || "").trim(),
+    phone: (initialProfile?.phone || "").trim(),
+  });
   const [saving, setSaving] = useState(false);
   const [addresses, setAddresses] = useState(initialAddresses || []);
   const [addrForm, setAddrForm] = useState({
@@ -25,6 +31,9 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
   });
   const [addrOpen, setAddrOpen] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+
+  const norm = (s) => (s || "").trim();
+  const isDirty = norm(profile.name) !== norm(savedProfile.name) || norm(profile.phone) !== norm(savedProfile.phone);
 
   // Compress an image file using a canvas. Returns a Blob.
   async function compressImage(file, { maxSize = 512, quality = 0.7, type = 'image/webp' } = {}) {
@@ -67,14 +76,17 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
   });
 
   const saveProfile = async () => {
+    if (!isDirty) return; // No-op if nothing changed
     setSaving(true);
     try {
       const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: profile.name, phone: profile.phone }),
+        body: JSON.stringify({ name: norm(profile.name), phone: norm(profile.phone) }),
       });
       if (!res.ok) throw new Error("Failed");
+      // Update baseline to current trimmed values after successful save
+      setSavedProfile({ name: norm(profile.name), phone: norm(profile.phone) });
     } finally {
       setSaving(false);
     }
@@ -94,7 +106,7 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
       // If compression fails, fallback to original file
       compressed = file;
     }
-    if (!cloudName || !uploadPreset) {
+  if (!cloudName || !uploadPreset) {
       try {
         const dataUrl = await blobToDataURL(compressed);
         setProfile((p) => ({ ...p, image: dataUrl }));
@@ -103,6 +115,7 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image: dataUrl }),
         });
+    try { await updateSession({ user: { image: dataUrl } }); } catch {}
       } finally {
         setAvatarUploading(false);
       }
@@ -122,11 +135,13 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
       if (!res.ok || !data.secure_url) throw new Error("Upload failed");
       const url = data.secure_url;
       setProfile((p) => ({ ...p, image: url }));
-      await fetch("/api/profile/avatar", {
+  await fetch("/api/profile/avatar", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: url }),
       });
+  // Update next-auth session so Navbar reflects new image
+  try { await updateSession({ user: { image: url } }); } catch {}
     } finally {
       setAvatarUploading(false);
     }
@@ -213,8 +228,9 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
                   <Label htmlFor="phone">Phone</Label>
                   <Input id="phone" value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} />
                 </div>
-                <div>
-                  <Button onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
+                <div className="flex items-center gap-3">
+                  <Button onClick={saveProfile} disabled={saving || !isDirty}>{saving ? "Saving..." : "Save Changes"}</Button>
+                  {!isDirty && <span className="text-sm text-zinc-500">No changes to save</span>}
                 </div>
               </div>
             </CardContent>

@@ -51,7 +51,7 @@ export const authOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       // Ensure token.sub is the MongoDB user id when possible
       try {
         if (!token?.email && !user?.email) return token;
@@ -65,12 +65,22 @@ export const authOptions = {
         if (existing?._id) token.sub = existing._id.toString();
         if (existing?.role) token.role = existing.role;
         else token.role = token.role || 'customer';
+        if (existing?.image && !session) {
+          // keep token.picture in sync with DB when reloading
+          token.picture = existing.image;
+        }
       } catch {}
+      // If a client calls session.update, propagate fields to token
+      if (trigger === 'update' && session?.user) {
+        if (typeof session.user.name === 'string') token.name = session.user.name;
+        if (typeof session.user.image === 'string') token.picture = session.user.image;
+      }
       return token;
     },
     async session({ session, token }) {
       session.user.id = token.sub;
       session.user.role = token.role || 'customer';
+      if (token.picture) session.user.image = token.picture;
       return session;
     },
   },
