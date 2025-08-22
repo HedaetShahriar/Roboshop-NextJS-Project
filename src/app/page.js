@@ -33,7 +33,7 @@ export default async function HomePage() {
   return (
     <>
       <Hero />
-      <section className="py-12 bg-white">
+      <section className="py-12 bg-white px-2">
         <div className="container mx-auto text-center">
           <h2 className="text-3xl font-bold tracking-tight mb-8">Featured Products</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
@@ -49,7 +49,7 @@ export default async function HomePage() {
         </div>
       </section>
       {onSaleProducts.length > 0 && (
-        <section className="py-12 bg-zinc-50">
+        <section className="py-12 bg-zinc-50 px-2">
           <div className="container mx-auto">
             <h2 className="text-3xl font-bold tracking-tight mb-8 text-center">On Sale Now</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
@@ -60,7 +60,9 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-      <WhyRoboshop />
+      <div className="px-2">
+        <WhyRoboshop />
+      </div>
     </>
   );
 }
