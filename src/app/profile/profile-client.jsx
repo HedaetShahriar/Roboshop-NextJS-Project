@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Image from "next/image";
-import { CircleUser } from "lucide-react";
+import { CircleUser, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 export default function ProfileClient({ initialProfile, initialAddresses }) {
@@ -25,6 +25,7 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
     postalCode: "",
   });
   const [addrOpen, setAddrOpen] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const saveProfile = async () => {
     setSaving(true);
@@ -43,19 +44,44 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
   const onPickAvatar = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Basic preview via object URL
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result;
-      setProfile((p) => ({ ...p, image: dataUrl }));
-      // Save to DB (data URL or external URL); in production, prefer uploading to cloud storage
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName || !uploadPreset) {
+      // Fallback to local preview only if Cloudinary envs are missing
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result;
+        setProfile((p) => ({ ...p, image: dataUrl }));
+        await fetch("/api/profile/avatar", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: dataUrl }),
+        });
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+    try {
+      setAvatarUploading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", uploadPreset);
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.secure_url) throw new Error("Upload failed");
+      const url = data.secure_url;
+      setProfile((p) => ({ ...p, image: url }));
       await fetch("/api/profile/avatar", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: dataUrl }),
+        body: JSON.stringify({ image: url }),
       });
-    };
-    reader.readAsDataURL(file);
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const openNewAddress = () => {
@@ -88,16 +114,17 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
 
   return (
     <div className="container mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold mb-6">My Profile</h1>
-
-      <div className="flex flex-wrap items-center gap-2 mb-6">
-        <Button variant={tab === "profile" ? "default" : "outline"} onClick={() => setTab("profile")}>Profile</Button>
-        <Button variant={tab === "addresses" ? "default" : "outline"} onClick={() => setTab("addresses")}>Addresses</Button>
-        <Button asChild variant="outline"><Link href="/my-orders">My Orders</Link></Button>
+      <div className="max-w-3xl mx-auto mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold">My Profile</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant={tab === "profile" ? "default" : "outline"} onClick={() => setTab("profile")}>Profile</Button>
+          <Button variant={tab === "addresses" ? "default" : "outline"} onClick={() => setTab("addresses")}>Addresses</Button>
+          <Button asChild variant="outline"><Link href="/my-orders">My Orders</Link></Button>
+        </div>
       </div>
 
       {tab === "profile" && (
-        <div className="max-w-3xl grid gap-6">
+        <div className="max-w-3xl mx-auto grid gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Profile</CardTitle>
@@ -114,9 +141,16 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
                   )}
                 </div>
                 <input id="avatar" type="file" accept="image/*" onChange={onPickAvatar} className="sr-only" />
-                <Button asChild variant="outline" size="sm">
-                  <label htmlFor="avatar" className="cursor-pointer">Change photo</label>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button asChild variant="outline" size="sm" disabled={avatarUploading}>
+                    <label htmlFor="avatar" className="cursor-pointer">Change photo</label>
+                  </Button>
+                  {avatarUploading && (
+                    <span className="inline-flex items-center text-sm text-zinc-500">
+                      <Loader2 className="mr-1 size-4 animate-spin" /> Uploading...
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="grid gap-4">
                 <div className="grid gap-2">
@@ -141,7 +175,7 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
       )}
 
       {tab === "addresses" && (
-        <div className="max-w-3xl grid gap-6">
+        <div className="max-w-3xl mx-auto grid gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Saved Addresses</CardTitle>
