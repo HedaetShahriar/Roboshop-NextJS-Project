@@ -159,6 +159,9 @@ export default async function OrderDetailPage({ params }) {
             <div className="font-semibold mb-2">Shipping Address</div>
             <div className="text-sm text-gray-700">
               <div>{order.contact?.fullName}</div>
+              {order.contact?.phone && (
+                <div>{order.contact.phone}</div>
+              )}
               <div>{order.shippingAddress?.address1}{order.shippingAddress?.address2 ? `, ${order.shippingAddress.address2}` : ""}</div>
               <div>{order.shippingAddress?.area ? `${order.shippingAddress.area}, ` : ""}{order.shippingAddress?.city}</div>
               <div>{order.shippingAddress?.country} {order.shippingAddress?.postalCode}</div>

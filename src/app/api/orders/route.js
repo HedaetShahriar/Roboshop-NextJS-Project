@@ -34,12 +34,26 @@ export async function POST(request) {
   if (!Array.isArray(items) || items.length === 0) return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
   if (!(total >= 0)) return NextResponse.json({ error: "Invalid totals" }, { status: 400 });
 
+  // Normalize phone to Bangladeshi E.164 format (+880...)
+  const normalizePhone = (rawPhone) => {
+    const str = (rawPhone ?? '').toString().trim();
+    if (!str) return '';
+    const digits = str.replace(/[^0-9]/g, '');
+    if (!digits) return '';
+    // Remove existing country code if present
+    let local = digits.startsWith('880') ? digits.slice(3) : digits;
+    // Remove trunk leading zeros
+    local = local.replace(/^0+/, '');
+    if (!local) return '';
+    return `+880${local}`;
+  };
+
   const order = {
     userId: session.user.email,
     items: items.map((it) => ({ id: it.id, name: it.name, price: Number(it.price || 0), qty: Number(it.qty || 1), image: it.image || null })),
     amounts: { subtotal: Number(subtotal || 0), discount: Number(discount || 0), shipping: Number(shipping || 0), total: Number(total || 0) },
     promoCode: promoCode || null,
-    contact: { fullName: form.fullName, email: form.email, phone: form.phone },
+  contact: { fullName: form.fullName, email: form.email, phone: normalizePhone(form.phone) },
     shippingAddress: {
       country: form.country,
       city: form.city,

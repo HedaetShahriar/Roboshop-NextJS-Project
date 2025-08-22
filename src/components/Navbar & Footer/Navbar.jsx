@@ -7,8 +7,11 @@ import { useCart } from "@/context/cart-context";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { Menu, X, ShoppingCart, CircleUser } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 export default function Navbar() {
+  const pathname = usePathname();
+  if (pathname?.startsWith('/dashboard')) return null;
   const { data: session, status } = useSession();
   const { items, count, subtotal, removeItem, updateQty } = useCart();
 
@@ -181,6 +184,15 @@ export default function Navbar() {
                   {status === 'authenticated' ? (
                     <>
                       <Link href="/profile" className="block px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => setProfileOpen(false)}>My Profile</Link>
+                      {session?.user?.role && session.user.role !== 'customer' && (
+                        <Link
+                          href={session.user.role === 'seller' ? '/dashboard/seller' : session.user.role === 'rider' ? '/dashboard/rider' : '/dashboard/admin'}
+                          className="block px-3 py-2 text-sm hover:bg-zinc-50"
+                          onClick={() => setProfileOpen(false)}
+                        >
+                          Dashboard
+                        </Link>
+                      )}
                       <Link href="/my-orders" className="block px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => setProfileOpen(false)}>My Orders</Link>
                       <div className="mt-1 border-t" />
                       <div className="px-2 pt-2">

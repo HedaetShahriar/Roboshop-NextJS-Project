@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 
 export default function Footer() {
   const { data: session } = useSession();
+  const pathname = usePathname();
+  if (pathname?.startsWith('/dashboard')) return null;
 
   return (
     <footer className="bg-zinc-900 text-zinc-400 py-8 mt-auto">
