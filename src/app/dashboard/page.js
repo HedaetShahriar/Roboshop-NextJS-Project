@@ -2,6 +2,10 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import clientPromise from "@/lib/mongodb";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Clock, Truck, CheckCircle2, XCircle, TriangleAlert, DollarSign, TrendingUp, Receipt } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 
@@ -39,53 +43,94 @@ export default async function SellerDashboardHome() {
   const revenueToday = Number(revenueTodayAgg?.[0]?.total || 0);
 
   const cards = [
-    { label: 'Processing', value: processing },
-    { label: 'In transit', value: inTransit },
-    { label: 'Delivered', value: delivered },
-    { label: 'Cancelled', value: cancelled },
-    { label: 'Open issues', value: openIssues },
+    { label: 'Processing', value: processing, icon: Clock, color: 'text-amber-600' },
+    { label: 'In transit', value: inTransit, icon: Truck, color: 'text-blue-600' },
+    { label: 'Delivered', value: delivered, icon: CheckCircle2, color: 'text-emerald-600' },
+    { label: 'Cancelled', value: cancelled, icon: XCircle, color: 'text-rose-600' },
+    { label: 'Open issues', value: openIssues, icon: TriangleAlert, color: 'text-yellow-600' },
   ];
 
+  const fmtCurrency = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n);
+
   return (
-    <div className="container mx-auto px-4 py-10">
-      <h1 className="text-2xl font-bold mb-6">Seller Dashboard</h1>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {cards.map((c) => (
-          <div key={c.label} className="rounded border bg-white p-4">
-            <div className="text-sm text-gray-600">{c.label}</div>
-            <div className="text-2xl font-bold">{c.value}</div>
-          </div>
-        ))}
+    <div className="py-4 md:py-6 space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold">Overview</h1>
+        <p className="text-sm text-muted-foreground">Key stats for your store</p>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded border bg-white p-4">
-          <div className="text-sm text-gray-600">Total revenue</div>
-          <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>
-        </div>
-        <div className="rounded border bg-white p-4">
-          <div className="text-sm text-gray-600">Revenue (24h)</div>
-          <div className="text-2xl font-bold">${revenueToday.toFixed(2)}</div>
-        </div>
-        <div className="rounded border bg-white p-4">
-          <div className="text-sm text-gray-600">New orders (24h)</div>
-          <div className="text-2xl font-bold">{ordersToday}</div>
-        </div>
+      {/* Status summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {cards.map((c) => {
+          const Icon = c.icon;
+          return (
+            <Card key={c.label}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{c.label}</CardTitle>
+                <Icon className={`size-5 ${c.color}`} />
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-2xl font-bold">{c.value}</div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      <div className="mt-8 grid gap-3">
+      {/* Revenue and new orders */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
+            <div>
+              <CardTitle>Total revenue</CardTitle>
+              <CardDescription>All-time delivered orders</CardDescription>
+            </div>
+            <DollarSign className="size-5 text-emerald-600" />
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-2xl font-bold">{fmtCurrency(totalRevenue)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
+            <div>
+              <CardTitle>Revenue (24h)</CardTitle>
+              <CardDescription>Delivered in the last 24 hours</CardDescription>
+            </div>
+            <TrendingUp className="size-5 text-blue-600" />
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-2xl font-bold">{fmtCurrency(revenueToday)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
+            <div>
+              <CardTitle>New orders (24h)</CardTitle>
+              <CardDescription>Created in the last 24 hours</CardDescription>
+            </div>
+            <Receipt className="size-5 text-amber-600" />
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-2xl font-bold">{ordersToday}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick filters and actions */}
+      <div className="grid gap-3">
         <div className="flex flex-wrap gap-2">
-          <a href="/dashboard/orders?status=processing" className="inline-flex items-center rounded border px-3 py-2 bg-white hover:bg-zinc-50 text-sm">Processing</a>
-          <a href="/dashboard/orders?status=packed" className="inline-flex items-center rounded border px-3 py-2 bg-white hover:bg-zinc-50 text-sm">Packed</a>
-          <a href="/dashboard/orders?status=assigned" className="inline-flex items-center rounded border px-3 py-2 bg-white hover:bg-zinc-50 text-sm">Assigned</a>
-          <a href="/dashboard/orders?status=shipped" className="inline-flex items-center rounded border px-3 py-2 bg-white hover:bg-zinc-50 text-sm">Shipped</a>
-          <a href="/dashboard/orders?status=delivered" className="inline-flex items-center rounded border px-3 py-2 bg-white hover:bg-zinc-50 text-sm">Delivered</a>
-          <a href="/dashboard/orders?status=cancelled" className="inline-flex items-center rounded border px-3 py-2 bg-white hover:bg-zinc-50 text-sm">Cancelled</a>
+          <Link href="/dashboard/orders?status=processing"><Button variant="outline" size="sm">Processing</Button></Link>
+          <Link href="/dashboard/orders?status=packed"><Button variant="outline" size="sm">Packed</Button></Link>
+          <Link href="/dashboard/orders?status=assigned"><Button variant="outline" size="sm">Assigned</Button></Link>
+          <Link href="/dashboard/orders?status=shipped"><Button variant="outline" size="sm">Shipped</Button></Link>
+          <Link href="/dashboard/orders?status=delivered"><Button variant="outline" size="sm">Delivered</Button></Link>
+          <Link href="/dashboard/orders?status=cancelled"><Button variant="outline" size="sm">Cancelled</Button></Link>
         </div>
         <div className="flex flex-wrap gap-2">
-          <a href="/dashboard/orders" className="inline-flex items-center rounded border px-3 py-2 bg-white hover:bg-zinc-50 text-sm">Manage orders</a>
-          <a href="/dashboard/issues" className="inline-flex items-center rounded border px-3 py-2 bg-white hover:bg-zinc-50 text-sm">Order issues</a>
-          <a href="/dashboard/add-product" className="inline-flex items-center rounded border px-3 py-2 bg-white hover:bg-zinc-50 text-sm">Add product</a>
+          <Link href="/dashboard/orders"><Button variant="ghost" size="sm">Manage orders</Button></Link>
+          <Link href="/dashboard/issues"><Button variant="ghost" size="sm">Order issues</Button></Link>
+          <Link href="/dashboard/add-product"><Button size="sm">Add product</Button></Link>
         </div>
       </div>
     </div>
