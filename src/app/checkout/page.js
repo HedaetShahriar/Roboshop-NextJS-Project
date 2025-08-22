@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCart } from "@/context/cart-context";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSession } from "next-auth/react";
 
 const KNOWN_PROMOS = {
   ROBO10: { type: "percent", value: 10, label: "10% OFF" },
@@ -18,6 +19,7 @@ const KNOWN_PROMOS = {
 export default function CheckoutPage() {
   const { items, subtotal, updateQty, removeItem, clear } = useCart();
   const router = useRouter();
+  const { data: session } = useSession();
 
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState(null);
@@ -64,6 +66,60 @@ export default function CheckoutPage() {
 
   const shipping = 0; // can be extended later
   const total = Math.max(0, subtotal - discount + shipping);
+
+  // Prefill from profile and saved addresses
+  useEffect(() => {
+    let cancelled = false;
+    async function prefill() {
+      try {
+        // Prefill name/email from session immediately
+        if (session?.user) {
+          setForm((f) => ({
+            ...f,
+            fullName: f.fullName || session.user.name || "",
+            email: f.email || session.user.email || "",
+          }));
+        }
+        // Fetch profile for phone/name overrides
+        const profRes = await fetch("/api/profile", { cache: "no-store" });
+        if (profRes.ok) {
+          const { profile } = await profRes.json();
+          if (!cancelled && profile) {
+            setForm((f) => ({
+              ...f,
+              fullName: f.fullName || profile.name || "",
+              email: f.email || profile.email || "",
+              phone: f.phone || profile.phone || "",
+            }));
+          }
+        }
+        // Fetch addresses and pick Home -> first
+        const addrRes = await fetch("/api/addresses", { cache: "no-store" });
+        if (addrRes.ok) {
+          const { addresses = [] } = await addrRes.json();
+          const preferred = addresses.find((a) => (a.label || "").toLowerCase() === "home") || addresses[0];
+          if (!cancelled && preferred) {
+            setForm((f) => ({
+              ...f,
+              country: f.country || preferred.country || f.country,
+              city: f.city || preferred.city || "",
+              area: f.area || preferred.area || "",
+              address1: f.address1 || preferred.address1 || "",
+              address2: f.address2 || preferred.address2 || "",
+              postalCode: f.postalCode || preferred.postalCode || "",
+              // keep billing as same by default
+            }));
+          }
+        }
+      } catch (_) {
+        // ignore prefill failures
+      }
+    }
+    prefill();
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user]);
 
   const applyPromo = () => {
     const code = promoCode.trim().toUpperCase();
