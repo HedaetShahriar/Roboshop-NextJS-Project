@@ -192,22 +192,31 @@ export default async function OrdersTable({ sp }) {
       {/* Mobile cards view */}
       <div className="sm:hidden space-y-2">
         {orders.map((o) => (
-          <div key={o._id.toString()} className="rounded border bg-white p-3">
+          <div key={o._id.toString()} className="rounded-md border bg-white p-3 shadow-sm">
+            {/* Header: Order number + status */}
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="font-medium">#{o.orderNumber}</div>
-                <div className="text-xs text-muted-foreground">{fmtDT(o.createdAt)}</div>
+              <div className="min-w-0">
+                <div className="font-medium truncate">#{o.orderNumber}</div>
               </div>
-              <span className={`px-2 py-1 rounded text-[10px] capitalize ${statusClass(o.status)}`}>{o.status}</span>
+              <span className={`px-2 py-1 rounded text-[10px] capitalize shrink-0 ${statusClass(o.status)}`}>{o.status}</span>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <div className="text-sm font-medium">{fmtCurrency(o?.amounts?.total)}</div>
-              {o?.rider?.name && (
+
+            {/* Meta: Date and Total */}
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <div className="text-xs text-muted-foreground truncate">{fmtDT(o.createdAt)}</div>
+              <div className="text-sm font-semibold">{fmtCurrency(o?.amounts?.total)}</div>
+            </div>
+
+            {/* Rider badge if present */}
+            {o?.rider?.name && (
+              <div className="mt-2">
                 <span className="inline-flex items-center rounded border px-2 py-0.5 text-[10px] text-zinc-700 bg-zinc-50">
                   Rider: <span className="ml-1 font-medium">{o.rider.name}</span>
                 </span>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Address actions */}
             <div className="mt-2 flex flex-wrap gap-2">
               <AddressModalButton address={o.billingAddress || {
                 fullName: o.contact?.fullName,
@@ -228,18 +237,55 @@ export default async function OrdersTable({ sp }) {
                 disabled={['delivered','cancelled'].includes(o.status)}
               />
             </div>
-            <form action={advance} className="mt-3 grid grid-cols-1 gap-2">
-              <input type="hidden" name="id" value={o._id.toString()} />
-              <select name="action" className="border rounded-md h-9 px-2 text-xs w-full">
-                <option value="pack">Mark packed</option>
-                <option value="assign">Assign rider</option>
-                <option value="ship">Mark shipped</option>
-                <option value="deliver">Mark delivered</option>
-                <option value="revert">Revert</option>
-              </select>
-              <Input name="riderName" placeholder="Rider" className="h-9 w-full" />
-              <Button type="submit" size="sm" className="w-full">Apply</Button>
-            </form>
+
+            {/* Quick actions */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {/* Pack */}
+              {o.status === 'processing' && (
+                <form action={advance}>
+                  <input type="hidden" name="id" value={o._id.toString()} />
+                  <input type="hidden" name="action" value="pack" />
+                  <Button type="submit" size="sm" variant="outline">Pack</Button>
+                </form>
+              )}
+
+              {/* Assign rider */}
+              {(['processing','packed'].includes(o.status)) && (
+                <form action={advance} className="flex items-center gap-2 w-full">
+                  <input type="hidden" name="id" value={o._id.toString()} />
+                  <input type="hidden" name="action" value="assign" />
+                  <Input name="riderName" placeholder="Rider name" className="h-9 flex-1" />
+                  <Button type="submit" size="sm" className="shrink-0">Assign</Button>
+                </form>
+              )}
+
+              {/* Ship */}
+              {(['assigned','packed'].includes(o.status)) && (
+                <form action={advance}>
+                  <input type="hidden" name="id" value={o._id.toString()} />
+                  <input type="hidden" name="action" value="ship" />
+                  <Button type="submit" size="sm" variant="outline">Ship</Button>
+                </form>
+              )}
+
+              {/* Deliver */}
+              {o.status === 'shipped' && (
+                <form action={advance}>
+                  <input type="hidden" name="id" value={o._id.toString()} />
+                  <input type="hidden" name="action" value="deliver" />
+                  <Button type="submit" size="sm" variant="outline">Deliver</Button>
+                </form>
+              )}
+
+              {/* Revert */}
+              {(!['delivered','cancelled'].includes(o.status)) && (
+                <form action={advance}>
+                  <input type="hidden" name="id" value={o._id.toString()} />
+                  <input type="hidden" name="action" value="revert" />
+                  <Button type="submit" size="sm" variant="ghost">Revert</Button>
+                </form>
+              )}
+            </div>
           </div>
         ))}
       </div>
