@@ -17,7 +17,7 @@ const KNOWN_PROMOS = {
 };
 
 export default function CheckoutPage() {
-  const { items, subtotal, updateQty, removeItem, clear } = useCart();
+  const { items, subtotal, updateQty, removeItem, clear, replaceCart } = useCart();
   const router = useRouter();
   const { data: session } = useSession();
 
@@ -120,6 +120,27 @@ export default function CheckoutPage() {
       cancelled = true;
     };
   }, [session?.user]);
+
+  // Sync cart from DB on load when authenticated
+  useEffect(() => {
+    let cancelled = false;
+    async function syncCart() {
+      if (!session?.user) return;
+      try {
+        const res = await fetch('/api/cart', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const serverItems = data?.cart?.items || [];
+        // If local has items and server is empty, keep local; else use server
+        if (serverItems.length > 0) {
+          replaceCart(serverItems);
+        }
+      } catch {}
+    }
+    syncCart();
+    return () => { cancelled = true; };
+  }, [session?.user, replaceCart]);
 
   const applyPromo = () => {
     const code = promoCode.trim().toUpperCase();

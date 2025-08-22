@@ -41,7 +41,7 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white">
-      <div className="mx-auto max-w-7xl px-4">
+  <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Left: mobile menu + logo */}
           <div className="flex items-center gap-2">
@@ -131,7 +131,21 @@ export default function Navbar() {
                   <span className="text-sm font-semibold">${subtotal.toFixed(2)}</span>
                 </div>
                 <div className="px-3 pb-2">
-                  <Link href="/checkout" className="block w-full text-center rounded-md bg-blue-600 text-white py-2 text-sm hover:bg-blue-700" onClick={() => setCartOpen(false)}>
+                  <Link
+                    href="/checkout"
+                    className="block w-full text-center rounded-md bg-blue-600 text-white py-2 text-sm hover:bg-blue-700"
+                    onClick={async (e) => {
+                      setCartOpen(false);
+                      // try to persist cart to DB; ignore failures
+                      try {
+                        await fetch('/api/cart', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ items, subtotal })
+                        });
+                      } catch {}
+                    }}
+                  >
                     Checkout
                   </Link>
                 </div>
