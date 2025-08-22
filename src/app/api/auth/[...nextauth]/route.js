@@ -63,11 +63,14 @@ export const authOptions = {
         const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const existing = await users.findOne({ email: { $regex: `^${escapeRegex(email)}$`, $options: 'i' } });
         if (existing?._id) token.sub = existing._id.toString();
+        if (existing?.role) token.role = existing.role;
+        else token.role = token.role || 'customer';
       } catch {}
       return token;
     },
     async session({ session, token }) {
       session.user.id = token.sub;
+      session.user.role = token.role || 'customer';
       return session;
     },
   },
@@ -95,6 +98,7 @@ export const authOptions = {
             update.oauthProvider = 'google';
           }
           if (!existing.createdAt) update.createdAt = now;
+          if (!existing.role) update.role = 'customer';
           await users.updateOne({ _id: existing._id }, { $set: update });
         } else {
           // Create new user for Google sign-in
@@ -105,6 +109,7 @@ export const authOptions = {
             createdAt: now,
             lastLoginAt: now,
             oauthProvider: account?.provider || 'google',
+            role: 'customer',
           };
           await users.insertOne(doc);
         }

@@ -40,6 +40,7 @@ export async function POST(request) {
       updatedAt: now,
       lastLoginAt: null,
       oauthProvider: null,
+  role: 'customer',
     };
     const result = await users.insertOne(doc);
     return NextResponse.json({ ok: true, id: result.insertedId.toString() }, { status: 201 });
