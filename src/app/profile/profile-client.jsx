@@ -26,6 +26,46 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
   const [addrOpen, setAddrOpen] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
+  // Compress an image file using a canvas. Returns a Blob.
+  async function compressImage(file, { maxSize = 512, quality = 0.7, type = 'image/webp' } = {}) {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = dataUrl;
+    });
+    const { width, height } = img;
+    const scale = Math.min(1, maxSize / Math.max(width, height));
+    const targetW = Math.max(1, Math.round(width * scale));
+    const targetH = Math.max(1, Math.round(height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, targetW, targetH);
+    const outType = type || 'image/webp';
+    const blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), outType, quality));
+    // Fallback to image/jpeg if WEBP not supported
+    if (!blob) {
+      const jpegBlob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', quality));
+      return jpegBlob;
+    }
+    return blob;
+  }
+
+  const blobToDataURL = async (blob) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+
   const saveProfile = async () => {
     setSaving(true);
     try {
@@ -45,25 +85,34 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
     if (!file) return;
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    // Always compress before upload/save
+    setAvatarUploading(true);
+    let compressed;
+    try {
+      compressed = await compressImage(file, { maxSize: 512, quality: 0.7, type: 'image/webp' });
+    } catch (err) {
+      // If compression fails, fallback to original file
+      compressed = file;
+    }
     if (!cloudName || !uploadPreset) {
-      // Fallback to local preview only if Cloudinary envs are missing
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const dataUrl = reader.result;
+      try {
+        const dataUrl = await blobToDataURL(compressed);
         setProfile((p) => ({ ...p, image: dataUrl }));
         await fetch("/api/profile/avatar", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image: dataUrl }),
         });
-      };
-      reader.readAsDataURL(file);
+      } finally {
+        setAvatarUploading(false);
+      }
       return;
     }
     try {
-      setAvatarUploading(true);
       const formData = new FormData();
-      formData.append("file", file);
+      const ext = compressed.type === 'image/png' ? 'png' : (compressed.type === 'image/webp' ? 'webp' : 'jpg');
+      const filename = (file.name?.split('.').slice(0, -1).join('.') || 'avatar') + '.' + ext;
+      formData.append("file", compressed, filename);
       formData.append("upload_preset", uploadPreset);
       const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: "POST",
