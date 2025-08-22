@@ -17,10 +17,12 @@ export default async function RootLayout({ children }) {
   const session = await getServerSession(authOptions);
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${inter.className} min-h-dvh grid grid-rows-[auto_1fr_auto]`}>
         <Providers session={session}>
           <Navbar />
-          {children}
+          <main>
+            {children}
+          </main>
           <Footer />
         </Providers>
       </body>

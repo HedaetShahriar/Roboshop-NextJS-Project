@@ -6,7 +6,7 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import { useCart } from "@/context/cart-context";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
-import { Menu, X, ShoppingCart } from "lucide-react";
+import { Menu, X, ShoppingCart, CircleUser } from "lucide-react";
 
 export default function Navbar() {
   const { data: session, status } = useSession();
@@ -142,42 +142,46 @@ export default function Navbar() {
 
             {/* Profile */}
             <div className="relative" ref={profileRef}>
-              {status === 'authenticated' ? (
-                <button
-                  className="inline-flex items-center gap-2 rounded-full hover:bg-zinc-100 p-1"
-                  aria-haspopup="menu"
-                  aria-expanded={profileOpen}
-                  onClick={() => { setProfileOpen(v => !v); setMenuOpen(false); setCartOpen(false); }}
-                >
-                  {session?.user?.image ? (
-                    <Image
-                      src={session.user.image}
-                      alt={session.user.name || 'User Avatar'}
-                      width={28}
-                      height={28}
-                      className="rounded-full"
-                    />
-                  ) : (
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-200 text-xs font-medium">
-                      {(session?.user?.name || session?.user?.email || '?').slice(0,1).toUpperCase()}
-                    </span>
-                  )}
-                </button>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => signIn()} disabled={status === 'loading'}>
-                  {status === 'loading' ? '...' : 'Login'}
-                </Button>
-              )}
-              {profileOpen && status === 'authenticated' && (
+              <button
+                className="inline-flex items-center gap-2 rounded-full hover:bg-zinc-100 p-1"
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+                onClick={() => { setProfileOpen(v => !v); setMenuOpen(false); setCartOpen(false); }}
+              >
+                {session?.user?.image ? (
+                  <Image
+                    src={session.user.image}
+                    alt={session.user.name || 'User Avatar'}
+                    width={28}
+                    height={28}
+                    className="rounded-full"
+                  />
+                ) : (
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-700">
+                    <CircleUser className="size-6" />
+                  </span>
+                )}
+              </button>
+              {profileOpen && (
                 <div role="menu" className="absolute right-0 mt-2 w-56 rounded-md border bg-white py-2 shadow-lg ring-1 ring-black/5">
-                  <Link href="/profile" className="block px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => setProfileOpen(false)}>My Profile</Link>
-                  <Link href="/my-orders" className="block px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => setProfileOpen(false)}>My Orders</Link>
-                  <div className="mt-1 border-t" />
-                  <div className="px-2 pt-2">
-                    <Button variant="destructive" size="sm" className="w-full" onClick={() => { setProfileOpen(false); signOut(); }}>
-                      Logout
-                    </Button>
-                  </div>
+                  {status === 'authenticated' ? (
+                    <>
+                      <Link href="/profile" className="block px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => setProfileOpen(false)}>My Profile</Link>
+                      <Link href="/my-orders" className="block px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => setProfileOpen(false)}>My Orders</Link>
+                      <div className="mt-1 border-t" />
+                      <div className="px-2 pt-2">
+                        <Button variant="destructive" size="sm" className="w-full" onClick={() => { setProfileOpen(false); signOut(); }}>
+                          Logout
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="px-2">
+                      <Button className="w-full" onClick={() => { setProfileOpen(false); signIn(); }} disabled={status === 'loading'}>
+                        {status === 'loading' ? '...' : 'Sign in'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
