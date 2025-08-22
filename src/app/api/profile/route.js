@@ -27,9 +27,26 @@ export async function PUT(request) {
   const client = await clientPromise;
   const db = client.db("roboshop");
   const users = db.collection("users");
+  const email = session.user.email;
+  const before = await users.findOne({ email });
+  // Audit only when there is a change
+  const nextName = String(name || "");
+  const nextPhone = String(phone || "");
+  const changed = (before?.name || "") !== nextName || (before?.phone || "") !== nextPhone;
+  if (changed) {
+    try {
+      await db.collection("profileAudits").insertOne({
+        email,
+        before: { name: before?.name || "", phone: before?.phone || "" },
+        after: { name: nextName, phone: nextPhone },
+        updatedBy: email,
+        updatedAt: new Date(),
+      });
+    } catch {}
+  }
   await users.updateOne(
-    { email: session.user.email },
-    { $set: { name: String(name || ""), phone: String(phone || "") } },
+    { email },
+    { $set: { name: nextName, phone: nextPhone, updatedAt: new Date() } },
     { upsert: true }
   );
   return NextResponse.json({ ok: true });

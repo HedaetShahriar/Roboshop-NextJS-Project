@@ -11,6 +11,22 @@ export async function PUT(request) {
   if (typeof image !== "string") return NextResponse.json({ error: "Invalid image" }, { status: 400 });
   const client = await clientPromise;
   const db = client.db("roboshop");
-  await db.collection("users").updateOne({ email: session.user.email }, { $set: { image } }, { upsert: true });
+  const users = db.collection("users");
+  const email = session.user.email;
+  const before = await users.findOne({ email });
+  const prevImage = before?.image || null;
+  if (prevImage !== image) {
+    try {
+      await db.collection("profileAudits").insertOne({
+        email,
+        before: { image: prevImage },
+        after: { image },
+        updatedBy: email,
+        updatedAt: new Date(),
+        type: 'avatar',
+      });
+    } catch {}
+  }
+  await users.updateOne({ email }, { $set: { image, updatedAt: new Date() } }, { upsert: true });
   return NextResponse.json({ ok: true });
 }

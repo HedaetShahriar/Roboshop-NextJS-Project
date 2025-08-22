@@ -58,6 +58,9 @@ export default function LoginPage() {
               <div className="grid gap-2">
                 <Label htmlFor="password">Password</Label>
                 <Input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <div className="text-right">
+                  <Link href="/forgot-password" className="text-xs text-blue-600 hover:underline">Forgot password?</Link>
+                </div>
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>{isLoading ? 'Signing in...' : 'Login with Email'}</Button>
             </form>
