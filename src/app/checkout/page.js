@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCart } from "@/context/cart-context";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ const KNOWN_PROMOS = {
 
 export default function CheckoutPage() {
   const { items, subtotal, updateQty, removeItem, clear } = useCart();
+  const router = useRouter();
 
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState(null);
@@ -110,11 +112,23 @@ export default function CheckoutPage() {
     }
     setPlacing(true);
     try {
-      // Here you would call your backend to create the order
-      // For now we just simulate success and clear the cart
-      await new Promise((r) => setTimeout(r, 800));
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items,
+          subtotal,
+          discount,
+          shipping,
+          total,
+          promoCode: appliedPromo,
+          form,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to place order");
       clear();
-      setMessage({ type: "success", text: "Order placed successfully!" });
+      router.push("/my-orders");
     } catch (e) {
       setMessage({ type: "error", text: "Failed to place order. Please try again." });
     } finally {

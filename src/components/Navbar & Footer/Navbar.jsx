@@ -12,6 +12,7 @@ export default function Navbar() {
   const { data: session, status } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const { items, count, subtotal, removeItem, updateQty } = useCart();
 
   const NavLinks = () => (
@@ -25,17 +26,20 @@ export default function Navbar() {
 
   const dropdownRef = useRef(null); // mobile menu
   const cartRef = useRef(null); // cart dropdown (desktop)
+  const profileRef = useRef(null); // profile dropdown (desktop)
   useEffect(() => {
     function onDocKey(e) {
-      if (e.key === 'Escape') { setMenuOpen(false); setCartOpen(false); }
+      if (e.key === 'Escape') { setMenuOpen(false); setCartOpen(false); setProfileOpen(false); }
     }
     function onDocClick(e) {
       const clickedOutsideMenu = dropdownRef.current && !dropdownRef.current.contains(e.target);
       const clickedOutsideCart = cartRef.current && !cartRef.current.contains(e.target);
+      const clickedOutsideProfile = profileRef.current && !profileRef.current.contains(e.target);
       if (menuOpen && clickedOutsideMenu) setMenuOpen(false);
       if (cartOpen && clickedOutsideCart) setCartOpen(false);
+      if (profileOpen && clickedOutsideProfile) setProfileOpen(false);
     }
-    if (menuOpen || cartOpen) {
+    if (menuOpen || cartOpen || profileOpen) {
       document.addEventListener('keydown', onDocKey);
       document.addEventListener('click', onDocClick);
     }
@@ -43,7 +47,7 @@ export default function Navbar() {
       document.removeEventListener('keydown', onDocKey);
       document.removeEventListener('click', onDocClick);
     };
-  }, [menuOpen, cartOpen]);
+  }, [menuOpen, cartOpen, profileOpen]);
 
   return (
     <nav className="bg-white border-b sticky top-0 z-50">
@@ -116,17 +120,34 @@ export default function Navbar() {
             )}
           </div>
           {status === 'authenticated' ? (
-            <div className="flex items-center gap-3">
-              {session?.user?.image && (
-                <Image
-                  src={session.user.image}
-                  alt={session.user.name || 'User Avatar'}
-                  width={28}
-                  height={28}
-                  className="rounded-full"
-                />
+            <div className="relative" ref={profileRef}>
+              <button
+                className="inline-flex items-center gap-2 rounded-full hover:bg-zinc-100 p-1"
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+                onClick={() => { setCartOpen(false); setProfileOpen(v => !v); }}
+              >
+                {session?.user?.image ? (
+                  <Image
+                    src={session.user.image}
+                    alt={session.user.name || 'User Avatar'}
+                    width={32}
+                    height={32}
+                    className="rounded-full"
+                  />
+                ) : (
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-zinc-200 text-sm font-medium">
+                    {(session?.user?.name || session?.user?.email || '?').slice(0,1).toUpperCase()}
+                  </span>
+                )}
+              </button>
+              {profileOpen && (
+                <div role="menu" className="absolute right-0 mt-2 w-56 rounded-md border bg-white py-2 shadow-lg ring-1 ring-black/5">
+                  <Link href="/profile" className="block px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => setProfileOpen(false)}>My Profile</Link>
+                  <Link href="/my-orders" className="block px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => setProfileOpen(false)}>My Orders</Link>
+                  <button className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => { setProfileOpen(false); signOut(); }}>Logout</button>
+                </div>
               )}
-              <Button size="sm" variant="outline" onClick={() => signOut()}>Logout</Button>
             </div>
           ) : (
             <Button size="sm" onClick={() => signIn()} disabled={status === 'loading'}>
@@ -204,19 +225,28 @@ export default function Navbar() {
               </div>
               <div className="mt-2 border-t" />
               {status === 'authenticated' ? (
-                <div className="px-2 pt-2 flex items-center gap-3">
-                  {session?.user?.image && (
-                    <Image
-                      src={session.user.image}
-                      alt={session.user.name || 'User Avatar'}
-                      width={28}
-                      height={28}
-                      className="rounded-full"
-                    />
-                  )}
-                  <Button className="flex-1" variant="outline" onClick={() => { setMenuOpen(false); signOut(); }}>
-                    Logout
-                  </Button>
+                <div className="px-2 pt-2">
+                  <div className="flex items-center gap-3 px-1 py-1.5">
+                    {session?.user?.image ? (
+                      <Image
+                        src={session.user.image}
+                        alt={session.user.name || 'User Avatar'}
+                        width={28}
+                        height={28}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-200 text-xs font-medium">
+                        {(session?.user?.name || session?.user?.email || '?').slice(0,1).toUpperCase()}
+                      </span>
+                    )}
+                    <div className="text-sm font-medium line-clamp-1">{session?.user?.name || session?.user?.email}</div>
+                  </div>
+                  <div className="mt-1">
+                    <Link href="/profile" className="block px-3 py-2 text-sm rounded hover:bg-zinc-50" onClick={() => setMenuOpen(false)}>My Profile</Link>
+                    <Link href="/my-orders" className="block px-3 py-2 text-sm rounded hover:bg-zinc-50" onClick={() => setMenuOpen(false)}>My Orders</Link>
+                    <button className="w-full text-left px-3 py-2 text-sm rounded hover:bg-zinc-50" onClick={() => { setMenuOpen(false); signOut(); }}>Logout</button>
+                  </div>
                 </div>
               ) : (
                 <div className="px-2 pt-2">
