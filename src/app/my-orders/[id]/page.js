@@ -5,6 +5,7 @@ import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { revalidatePath } from "next/cache";
 
 export default async function OrderDetailPage({ params }) {
@@ -117,9 +118,21 @@ export default async function OrderDetailPage({ params }) {
                   await db.collection('orders').updateOne({ _id: doc._id }, { $set: { status: 'cancelled', updatedAt: new Date() }, $push: { history: { code: 'cancelled', label: 'Order cancelled', at: new Date() } } });
                   revalidatePath(`/my-orders/${order._id}`);
                 }}
+                id="cancel-order-form"
               >
                 <div className="mt-4">
-                  <Button type="submit" variant="destructive" className="text-sm">Cancel Order</Button>
+                  <ConfirmSubmit
+                    formId="cancel-order-form"
+                    triggerText="Cancel Order"
+                    title="Cancel this order?"
+                    description="If you cancel, this action cannot be undone."
+                    confirmText="Yes, cancel"
+                    cancelText="Keep order"
+                    triggerVariant="destructive"
+                    confirmVariant="destructive"
+                    size="sm"
+                    className="text-sm"
+                  />
                 </div>
               </form>
             )}
