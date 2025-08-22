@@ -9,7 +9,7 @@ export default function Footer() {
   return (
     <footer className="bg-zinc-900 text-zinc-400 py-8 mt-auto">
       <div className="container mx-auto text-center">
-        <p className="mb-4">© {new Date().getFullYear()} Roboshop. All rights reserved.</p>
+        <p className="mb-4">© {new Date().getFullYear()} Md. Hedaet Shahriar Himon. All rights reserved.</p>
         <nav className="flex justify-center items-center gap-4 text-sm">
           <Link href="/" className="hover:text-white transition-colors">Home</Link>
           <Link href="/products" className="hover:text-white transition-colors">Products</Link>

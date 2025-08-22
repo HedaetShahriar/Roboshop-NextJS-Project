@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import Providers from "./providers";
 import Navbar from "@/components/Navbar & Footer/Navbar";
+import Footer from "@/components/Navbar & Footer/Footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,6 +21,7 @@ export default async function RootLayout({ children }) {
         <Providers session={session}>
           <Navbar />
           {children}
+          <Footer />
         </Providers>
       </body>
     </html>

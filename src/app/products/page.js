@@ -4,6 +4,7 @@ import clientPromise from "@/lib/mongodb";
 import { Button } from "@/components/ui/button";
 import productsStatic from "@/data/product.json";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import ProductCard from "@/components/ProductCard";
 
 export default async function ProductsPage() {
   const client = await clientPromise;
@@ -23,8 +24,11 @@ export default async function ProductsPage() {
           <p>No products found. Please check back later!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {products.map((product) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {products.map((product) => (
+              <ProductCard key={product._id} product={product} />
+            ))}
+          {/* {products.map((product) => {
             const hasDiscount = product.has_discount_price && Number(product.discount_price) > 0;
             const price = Number(product.price || 0);
             const discountPrice = Number(product.discount_price || 0);
@@ -69,7 +73,7 @@ export default async function ProductsPage() {
                 </CardFooter>
               </Card>
             );
-          })}
+          })} */}
         </div>
       )}
     </div>
