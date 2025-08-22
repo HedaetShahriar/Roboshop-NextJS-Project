@@ -29,7 +29,13 @@ export default async function MyOrdersPage() {
     <div className="container mx-auto px-4 py-10">
       <h1 className="text-3xl font-bold mb-6">My Orders</h1>
       {list.length === 0 ? (
-        <p className="text-gray-600">You have no orders yet.</p>
+        <div className="text-gray-600">
+          <p>You have no orders yet.</p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Link href="/" className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-white text-sm hover:bg-blue-700">Go to Home</Link>
+            <Link href="/products" className="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-zinc-50">Browse Products</Link>
+          </div>
+        </div>
       ) : (
         <div className="space-y-4">
           {list.map((o) => (
