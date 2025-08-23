@@ -23,12 +23,35 @@ export default function DashboardShell({ role, nav, children }) {
   const [expanded, setExpanded] = useState(true);
   const pathname = usePathname();
 
+  const pretty = (seg) => (seg || 'dashboard')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+
+  // Prefer matching a nav link to derive label, otherwise fallback to pathname parsing
+  const derivedLabel = (() => {
+    if (Array.isArray(nav)) {
+      const found = nav.find((l) => l.href === pathname);
+      if (found?.label) return found.label;
+    }
+    if (!pathname) return 'Dashboard';
+    const path = pathname.replace(/\/$/, '');
+    const parts = path.split('/').filter(Boolean);
+    if (parts[0] !== 'dashboard') return pretty(parts[parts.length - 1]);
+    const roleLeaves = new Set(['seller', 'rider', 'admin']);
+    if (parts.length === 1) return 'Dashboard';
+    if (roleLeaves.has(parts[1])) {
+      if (parts.length === 2) return 'Dashboard';
+      return pretty(parts[2]);
+    }
+    return pretty(parts[1]);
+  })();
+
   return (
     <div className="min-h-dvh bg-zinc-50">
-      <DashboardNavbar role={role} onMenuClick={() => setOpen(true)} />
+  <DashboardNavbar role={role} label={derivedLabel} onMenuClick={() => setOpen(true)} />
 
-  {/* Layout area below sticky header (h-14) */}
-  <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] h-[calc(100vh-3.5rem)]">
+      {/* Layout area below sticky header (h-14) */}
+      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] h-[calc(100vh-3.5rem)]">
         {/* Mobile overlay */}
         {open && (
           <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setOpen(false)} />

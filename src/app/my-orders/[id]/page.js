@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { revalidatePath } from "next/cache";
+import getDb from "@/lib/mongodb";
 
 export default async function OrderDetailPage({ params }) {
   const { id } = await params;
@@ -15,8 +15,7 @@ export default async function OrderDetailPage({ params }) {
     notFound();
   }
 
-  const client = await clientPromise;
-  const db = client.db("roboshop");
+  const db = await getDb();
   let order;
   try {
     const doc = await db.collection("orders").findOne({ _id: new ObjectId(id), userId: session.user.email });
@@ -111,8 +110,7 @@ export default async function OrderDetailPage({ params }) {
                   'use server';
                   const session = await getServerSession(authOptions);
                   if (!session?.user?.email) return;
-                  const client = await clientPromise;
-                  const db = client.db('roboshop');
+                  const db = await getDb();
                   const doc = await db.collection('orders').findOne({ _id: new ObjectId(order._id), userId: session.user.email });
                   if (!doc || doc.status !== 'processing') return;
                   await db.collection('orders').updateOne({ _id: doc._id }, { $set: { status: 'cancelled', updatedAt: new Date() }, $push: { history: { code: 'cancelled', label: 'Order cancelled', at: new Date() } } });
@@ -230,8 +228,7 @@ async function ReportIssueForm({ orderId }) {
     'use server';
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) return;
-    const client = await clientPromise;
-    const db = client.db('roboshop');
+    const db = await getDb();
     const order = await db.collection('orders').findOne({ _id: new ObjectId(orderId), userId: session.user.email });
     if (!order) return;
     const now = new Date();
@@ -290,8 +287,7 @@ async function AddIssueMessageForm({ issueId }) {
     'use server';
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) return;
-    const client = await clientPromise;
-    const db = client.db('roboshop');
+    const db = await getDb();
     const _id = new ObjectId(issueId);
     const issue = await db.collection('order_issues').findOne({ _id });
     if (!issue || issue.userId !== session.user.email) return;

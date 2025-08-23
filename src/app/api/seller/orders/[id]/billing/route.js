@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import clientPromise from "@/lib/mongodb";
+import { getAuthedSession, badRequest, ok } from "@/lib/api";
 import { ObjectId } from "mongodb";
+import getDb from "@/lib/mongodb";
 
 export async function PATCH(request, { params }) {
-  const session = await getServerSession(authOptions);
-  const role = session?.user?.role || 'customer';
-  if (!session?.user?.email || role === 'customer') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { error, session } = await getAuthedSession({ requireSeller: true });
+  if (error) return error;
   const { id } = await params;
   const body = await request.json();
   const keys = ['fullName','email','phone','address1','address2','city','state','postalCode','country'];
@@ -15,23 +13,22 @@ export async function PATCH(request, { params }) {
   for (const k of keys) {
     if (k in body) billingAddress[k] = String(body[k] ?? '');
   }
-  const client = await clientPromise;
-  const db = client.db('roboshop');
+  const db = await getDb();
   let _id;
   try {
     _id = new ObjectId(id);
   } catch {
-    return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    return badRequest('Invalid id');
   }
   const order = await db.collection('orders').findOne({ _id });
   if (!order) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   if (['delivered','cancelled'].includes(order.status)) {
-    return NextResponse.json({ error: 'Finalized order' }, { status: 400 });
+    return badRequest('Finalized order');
   }
   const now = new Date();
   await db.collection('orders').updateOne({ _id }, {
     $set: { billingAddress, updatedAt: now },
     $push: { history: { code: 'billing-updated', label: 'Billing address updated', at: now } },
   });
-  return NextResponse.json({ ok: true });
+  return ok({ ok: true });
 }

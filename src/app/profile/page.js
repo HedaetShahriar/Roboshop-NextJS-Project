@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import clientPromise from "@/lib/mongodb";
 import ProfileClient from "./profile-client";
+import getDb from "@/lib/mongodb";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +16,7 @@ export default async function ProfilePage() {
     );
   }
 
-  const client = await clientPromise;
-  const db = client.db("roboshop");
+  const db = await getDb();
   const users = db.collection("users");
   const user = await users.findOne({ email: session.user.email });
   const profile = {

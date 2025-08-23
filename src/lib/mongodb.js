@@ -24,4 +24,10 @@ if (process.env.NODE_ENV === 'development') {
   clientPromise = client.connect();
 }
 
-export default clientPromise;
+
+const getDb = async (dbName = "roboshop") => {
+  const client = await clientPromise;
+  return client.db(dbName);
+};
+
+export default getDb;

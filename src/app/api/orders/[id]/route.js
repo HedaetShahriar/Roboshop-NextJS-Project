@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import clientPromise from "@/lib/mongodb";
+import { getAuthedSession, getDb, badRequest, ok } from "@/lib/api";
 import { ObjectId } from "mongodb";
 
 export async function PATCH(request, { params }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { error, session } = await getAuthedSession();
+  if (error) return error;
   const { id } = await params;
-  const client = await clientPromise;
-  const db = client.db("roboshop");
+  const db = await getDb();
   let order;
   try {
     order = await db.collection("orders").findOne({ _id: new ObjectId(id), userId: session.user.email });
   } catch {
-    return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+    return badRequest("Invalid order id");
   }
   if (!order) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -28,5 +25,5 @@ export async function PATCH(request, { params }) {
     { $set: { status: 'cancelled', updatedAt: new Date() }, $push: { history: { code: 'cancelled', label: 'Order cancelled', at: new Date() } } }
   );
 
-  return NextResponse.json({ ok: true });
+  return ok({ ok: true });
 }

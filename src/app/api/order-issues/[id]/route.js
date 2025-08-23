@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import clientPromise from "@/lib/mongodb";
+import { getAuthedSession, forbidden, badRequest, notFound, ok } from "@/lib/api";
 import { ObjectId } from "mongodb";
+import getDb from "@/lib/mongodb";
 
 export async function PATCH(request, { params }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { error, session } = await getAuthedSession();
+  if (error) return error;
   const { id } = await params;
-  const client = await clientPromise;
-  const db = client.db("roboshop");
+  const db = await getDb();
   let issue;
   try {
     issue = await db.collection('order_issues').findOne({ _id: new ObjectId(id) });
   } catch {
-    return NextResponse.json({ error: 'Invalid issue id' }, { status: 400 });
+    return badRequest('Invalid issue id');
   }
-  if (!issue) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!issue) return notFound();
 
   const body = await request.json();
   const now = new Date();
@@ -35,12 +33,10 @@ export async function PATCH(request, { params }) {
   }
 
   if (body?.status) {
-    if (role === 'customer') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    if (role === 'customer') return forbidden();
     const next = body.status;
     if (!['open','in_progress','resolved'].includes(next)) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+      return badRequest('Invalid status');
     }
     updates.status = next;
   }
@@ -60,5 +56,5 @@ export async function PATCH(request, { params }) {
     } catch {}
   }
 
-  return NextResponse.json({ ok: true });
+  return ok({ ok: true });
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
 import bcrypt from "bcryptjs";
+import getDb from "@/lib/mongodb";
 
 export async function POST(request) {
   try {
@@ -16,8 +16,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
     }
 
-    const client = await clientPromise;
-    const db = client.db("roboshop");
+    const db = await getDb();
     const users = db.collection("users");
     // Ensure unique index for email (best-effort)
     try { await users.createIndex({ email: 1 }, { unique: true }); } catch {}

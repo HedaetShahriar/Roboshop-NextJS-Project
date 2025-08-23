@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
 import crypto from "crypto";
+import getDb from "@/lib/mongodb";
 
 export async function POST(request) {
   try {
@@ -8,8 +8,7 @@ export async function POST(request) {
     const normalized = String(email || "").toLowerCase().trim();
     if (!normalized) return NextResponse.json({ error: "Email required" }, { status: 400 });
 
-    const client = await clientPromise;
-    const db = client.db("roboshop");
+    const db = await getDb();
     const users = db.collection("users");
     const tokens = db.collection("passwordResets");
 

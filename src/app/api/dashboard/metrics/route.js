@@ -1,4 +1,5 @@
-import clientPromise from "@/lib/mongodb";
+import getDb from "@/lib/mongodb";
+
 
 export const dynamic = 'force-dynamic';
 
@@ -15,8 +16,7 @@ export async function GET(req) {
     const days = Number(searchParams.get('days') || '30');
     const start = parseDate(searchParams.get('start'), new Date(end.getTime() - days * 24 * 60 * 60 * 1000));
 
-    const client = await clientPromise;
-    const db = client.db('roboshop');
+  const db = await getDb();
 
     // Group key: UTC date string YYYY-MM-DD
     const dateFmt = { format: '%Y-%m-%d', date: '$$ROOT.updatedAt' };
@@ -42,7 +42,7 @@ export async function GET(req) {
       orders: ordersByDay.reduce((s, d) => s + Number(d.value || 0), 0),
     };
 
-    return Response.json({
+  return Response.json({
       range: { start: start.toISOString(), end: end.toISOString(), days },
       series: { revenue: revenueByDay, orders: ordersByDay },
       totals,

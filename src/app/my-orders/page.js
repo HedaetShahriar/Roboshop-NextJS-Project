@@ -1,11 +1,10 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import clientPromise from "@/lib/mongodb";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { revalidatePath } from "next/cache";
 import { ObjectId } from "mongodb";
+import getDb from "@/lib/mongodb";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +19,7 @@ export default async function MyOrdersPage() {
     );
   }
 
-  const client = await clientPromise;
-  const db = client.db("roboshop");
+  const db = await getDb();
   const orders = await db
     .collection("orders")
     .find({ userId: session.user.email })
@@ -71,8 +69,7 @@ export default async function MyOrdersPage() {
                             'use server';
                             const session = await getServerSession(authOptions);
                             if (!session?.user?.email) return;
-                            const client = await clientPromise;
-                            const db = client.db('roboshop');
+                            const db = await getDb();
                             const doc = await db.collection('orders').findOne({ _id: new ObjectId(o._id), userId: session.user.email });
                             if (!doc || doc.status !== 'processing') return;
                             await db.collection('orders').updateOne({ _id: doc._id }, { $set: { status: 'cancelled', updatedAt: new Date() }, $push: { history: { code: 'cancelled', label: 'Order cancelled', at: new Date() } } });

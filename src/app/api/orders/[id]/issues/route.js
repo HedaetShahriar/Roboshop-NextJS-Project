@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import clientPromise from "@/lib/mongodb";
+import { getAuthedSession, getDb, ok, badRequest } from "@/lib/api";
 import { ObjectId } from "mongodb";
 
 export async function GET(request, { params }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { error, session } = await getAuthedSession();
+  if (error) return error;
   const { id } = await params;
-  const client = await clientPromise;
-  const db = client.db("roboshop");
+  const db = await getDb();
   let order;
   try {
     order = await db.collection("orders").findOne({ _id: new ObjectId(id) });
   } catch {
-    return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+    return badRequest("Invalid order id");
   }
   if (!order) return NextResponse.json({ error: "Not found" }, { status: 404 });
   // Allow owner or non-customer roles to read
@@ -27,20 +24,19 @@ export async function GET(request, { params }) {
     .sort({ createdAt: -1 })
     .toArray();
   const mapped = issues.map((i) => ({ ...i, _id: i._id.toString(), orderId: i.orderId.toString() }));
-  return NextResponse.json({ issues: mapped });
+  return ok({ issues: mapped });
 }
 
 export async function POST(request, { params }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { error, session } = await getAuthedSession();
+  if (error) return error;
   const { id } = await params;
-  const client = await clientPromise;
-  const db = client.db("roboshop");
+  const db = await getDb();
   let order;
   try {
     order = await db.collection("orders").findOne({ _id: new ObjectId(id), userId: session.user.email });
   } catch {
-    return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+    return badRequest("Invalid order id");
   }
   if (!order) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -48,12 +44,12 @@ export async function POST(request, { params }) {
   const category = (body?.category || '').toString().slice(0, 50) || 'other';
   const subject = (body?.subject || '').toString().slice(0, 120) || 'Order issue';
   const description = (body?.description || '').toString().slice(0, 2000);
-  if (!description) return NextResponse.json({ error: "Description is required" }, { status: 400 });
+  if (!description) return badRequest("Description is required");
 
   // Prevent duplicate open issues per order
   const existingOpen = await db.collection('order_issues').findOne({ orderId: order._id, status: { $in: ['open', 'in_progress'] } });
   if (existingOpen) {
-    return NextResponse.json({ ok: true, id: existingOpen._id.toString(), duplicate: true });
+    return ok({ ok: true, id: existingOpen._id.toString(), duplicate: true });
   }
 
   const now = new Date();
@@ -81,5 +77,5 @@ export async function POST(request, { params }) {
     );
   } catch {}
 
-  return NextResponse.json({ ok: true, id: result.insertedId.toString() });
+  return ok({ ok: true, id: result.insertedId.toString() });
 }

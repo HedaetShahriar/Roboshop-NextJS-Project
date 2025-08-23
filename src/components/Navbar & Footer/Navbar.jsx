@@ -37,7 +37,7 @@ export default function Navbar() {
     <>
       <Link href="/products" className="px-3 py-2 rounded-md hover:bg-zinc-100">Products</Link>
       {status === 'authenticated' && (
-        <Link href="/dashboard/add-product" className="px-3 py-2 rounded-md hover:bg-zinc-100">Add Product</Link>
+        <Link href="/add-product" className="px-3 py-2 rounded-md hover:bg-zinc-100">Add Product</Link>
       )}
     </>
   );

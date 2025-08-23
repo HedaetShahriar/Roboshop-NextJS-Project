@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
 import bcrypt from "bcryptjs";
 import { ObjectId } from "mongodb";
+import getDb from "@/lib/mongodb";
 
 export async function POST(request) {
   try {
@@ -9,8 +9,7 @@ export async function POST(request) {
     if (!token || !password) return NextResponse.json({ error: "Token and password required" }, { status: 400 });
     if (String(password).length < 6) return NextResponse.json({ error: "Password too short" }, { status: 400 });
 
-    const client = await clientPromise;
-    const db = client.db("roboshop");
+    const db = await getDb();
     const tokens = db.collection("passwordResets");
     const users = db.collection("users");
 

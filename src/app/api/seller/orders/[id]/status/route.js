@@ -1,23 +1,19 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import clientPromise from "@/lib/mongodb";
+import { getAuthedSession, getDb, badRequest, ok } from "@/lib/api";
 import { ObjectId } from "mongodb";
 
 export async function PATCH(request, { params }) {
-  const session = await getServerSession(authOptions);
-  const role = session?.user?.role || 'customer';
-  if (!session?.user?.email || role === 'customer') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { error, session } = await getAuthedSession({ requireSeller: true });
+  if (error) return error;
 
   const { id } = await params;
   let _id;
-  try { _id = new ObjectId(id); } catch { return NextResponse.json({ error: 'Invalid id' }, { status: 400 }); }
+  try { _id = new ObjectId(id); } catch { return badRequest('Invalid id'); }
 
   const { action, riderName } = await request.json();
-  if (!action) return NextResponse.json({ error: 'Missing action' }, { status: 400 });
+  if (!action) return badRequest('Missing action');
 
-  const client = await clientPromise;
-  const db = client.db('roboshop');
+  const db = await getDb();
   const order = await db.collection('orders').findOne({ _id });
   if (!order) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
@@ -43,11 +39,11 @@ export async function PATCH(request, { params }) {
     set.status = 'processing';
     pushEvent('reverted', 'Reverted to processing');
   } else {
-    return NextResponse.json({ error: 'Invalid transition' }, { status: 400 });
+    return badRequest('Invalid transition');
   }
 
   const update = { $set: set };
   if (push.length) update.$push = { history: { $each: push } };
   await db.collection('orders').updateOne({ _id }, update);
-  return NextResponse.json({ ok: true });
+  return ok({ ok: true });
 }

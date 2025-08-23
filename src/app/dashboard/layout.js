@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import Link from "next/link";
-import DashboardShell from "@/components/dashboard/DashboardShell";
+import DashboardShell from "@/components/dashboard/Sidebar";
 
 export const dynamic = 'force-dynamic';
 
@@ -13,10 +13,10 @@ export default async function DashboardLayout({ children }) {
 
   const linksByRole = {
     seller: [
-  { href: '/dashboard/seller', label: 'Overview' },
-      { href: '/dashboard/orders', label: 'Orders' },
-      { href: '/dashboard/issues', label: 'Issues' },
-      { href: '/dashboard/add-product', label: 'Add Product' },
+      { href: '/dashboard/seller', label: 'Overview' },
+      { href: '/dashboard/seller/orders', label: 'Orders' },
+      { href: '/dashboard/seller/issues', label: 'Issues' },
+      { href: '/dashboard/seller/add-product', label: 'Add Product' },
     ],
     rider: [
       { href: '/dashboard/rider', label: 'Overview' },

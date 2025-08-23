@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import clientPromise from "@/lib/mongodb";
+import getDb from "@/lib/mongodb";
 
 export async function PUT(request) {
   const session = await getServerSession(authOptions);
@@ -9,8 +9,7 @@ export async function PUT(request) {
   const body = await request.json();
   const { image } = body || {};
   if (typeof image !== "string") return NextResponse.json({ error: "Invalid image" }, { status: 400 });
-  const client = await clientPromise;
-  const db = client.db("roboshop");
+  const db = await getDb();
   const users = db.collection("users");
   const email = session.user.email;
   const before = await users.findOne({ email });

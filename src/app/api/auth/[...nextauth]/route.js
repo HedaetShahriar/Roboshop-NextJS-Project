@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import clientPromise from "@/lib/mongodb";
+import getDb from "@/lib/mongodb";
 
 export const authOptions = {
   providers: [
@@ -19,8 +19,7 @@ export const authOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const client = await clientPromise;
-        const db = client.db("roboshop");
+        const db = await getDb();
         const usersCollection = db.collection("users");
 
         const email = credentials.email.toLowerCase().trim();
@@ -57,8 +56,7 @@ export const authOptions = {
         if (!token?.email && !user?.email) return token;
         const email = (token.email || user.email || "").toLowerCase().trim();
         if (!email) return token;
-        const client = await clientPromise;
-        const db = client.db("roboshop");
+        const db = await getDb();
         const users = db.collection("users");
         const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const existing = await users.findOne({ email: { $regex: `^${escapeRegex(email)}$`, $options: 'i' } });
@@ -90,8 +88,8 @@ export const authOptions = {
       try {
         const email = (user?.email || profile?.email || "").toLowerCase().trim();
         if (!email) return;
-        const client = await clientPromise;
-        const db = client.db("roboshop");
+
+        const db = await getDb();
         const users = db.collection("users");
         const now = new Date();
         const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

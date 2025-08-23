@@ -2,10 +2,10 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
-import PrintButton from "@/components/dashboard/PrintButton";
+import PrintButton from "@/components/dashboard/seller/order/PrintButton";
 import { Search } from "lucide-react";
 
-export default function FiltersClient({ sp }) {
+export default function FilterOrderTable({ sp }) {
   // read params from server-provided props
   const q = (sp?.q || '').toString().trim();
   const status = (sp?.status || '').toString();

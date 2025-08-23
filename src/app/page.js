@@ -1,5 +1,5 @@
 import Link from "next/link";
-import clientPromise from "@/lib/mongodb";
+import getDb  from "@/lib/mongodb";
 import productsStatic from "@/data/product.json";
 import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/ProductCard";
@@ -12,10 +12,8 @@ export default async function HomePage() {
   let highlightedProducts = [];
   let onSaleProducts = [];
   try {
-    const client = await clientPromise;
-    const db = client.db("roboshop");
-    const all = await db.collection("products").find({}).toArray();
-    // console.log("Fetched products from DB:", all);
+    const db = await getDb();
+    const all = await db.collection("products").find({}).limit(20).toArray();
     const products = all.map(p => ({ ...p, _id: p._id.toString() }));
     const discounted = products.filter(p => p.has_discount_price && Number(p.discount_price) > 0);
     highlightedProducts = (discounted.length ? discounted : products).slice(0, 4);

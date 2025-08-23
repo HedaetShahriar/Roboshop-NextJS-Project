@@ -1,20 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
-import clientPromise from "@/lib/mongodb";
 import { Button } from "@/components/ui/button";
-import productsStatic from "@/data/product.json";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import ProductCard from "@/components/ProductCard";
+import { getAllProducts } from "@/data/user/products";
 
 export default async function ProductsPage() {
-  const client = await clientPromise;
-  const db = client.db("roboshop");
-  const productsData = await db.collection("products").find({}).toArray();
-  let products = productsData.map((p) => ({ ...p, _id: p._id.toString() }));
-  // Fallback to static JSON if DB is empty
-  if (!products || products.length === 0) {
-    products = productsStatic;
-  }
+  const products = await getAllProducts();
 
   return (
     <div className="container mx-auto px-4 py-8">

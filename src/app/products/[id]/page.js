@@ -1,26 +1,12 @@
 import { notFound } from "next/navigation";
-import clientPromise from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
 import Image from "next/image";
 import AddToCartButton from "@/components/AddToCartButton";
+import { getProductById } from "@/data/user/products";
 
 export default async function ProductDetailPage({ params }) {
   const { id } = await params;
-  const client = await clientPromise;
-  const db = client.db("roboshop");
-  
-  let productData;
-  try {
-    productData = await db.collection("products").findOne({ _id: new ObjectId(id) });
-  } catch (error) {
-    notFound();
-  }
-
-  if (!productData) {
-    notFound();
-  }
-
-  const product = { ...productData, _id: productData._id.toString() };
+  const product = await getProductById(id);
+  if (!product) notFound();
   const hasDiscount = product.has_discount_price && Number(product.discount_price) > 0;
   const price = Number(product.price || 0);
   const discountPrice = Number(product.discount_price || 0);
@@ -31,12 +17,13 @@ export default async function ProductDetailPage({ params }) {
         <div className="grid md:grid-cols-2 gap-8">
           {product.image && (
             <div className="relative w-full aspect-[4/3] bg-gray-100 overflow-hidden rounded-lg">
-              <Image 
-              src={product.image} 
-              alt={product.name} 
-              fill="true"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-cover" />
+              <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                className="object-cover"
+              />
             </div>
           )}
           <div>

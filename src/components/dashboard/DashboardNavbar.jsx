@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { Menu, Home, User, LogOut } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-export default function DashboardNavbar({ role, onMenuClick }) {
+export default function DashboardNavbar({ role, onMenuClick, label }) {
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -26,24 +26,32 @@ export default function DashboardNavbar({ role, onMenuClick }) {
     : 'bg-amber-100 text-amber-800';
 
   const pathname = usePathname();
-  const currentLabel = (() => {
+  const currentLabel = label ?? (() => {
     if (!pathname) return 'Dashboard';
     const path = pathname.replace(/\/$/, '');
     const parts = path.split('/').filter(Boolean);
-    // If not under /dashboard, show last segment nicely formatted
-    if (parts[0] !== 'dashboard') {
-      return parts[parts.length - 1]
-        .replace(/-/g, ' ')
-        .replace(/\b\w/g, (m) => m.toUpperCase());
-    }
-    // Under /dashboard -> treat overview routes as Dashboard
-    const leaf = parts[1];
-    const overviewLeaves = new Set(['seller', 'rider', 'admin', undefined]);
-    if (overviewLeaves.has(leaf)) return 'Dashboard';
-    // Otherwise use the leaf segment as label (e.g., orders, issues, add-product)
-    return (leaf || 'dashboard')
+
+    const pretty = (seg) => (seg || 'dashboard')
       .replace(/-/g, ' ')
       .replace(/\b\w/g, (m) => m.toUpperCase());
+
+    // If not under /dashboard, show last segment nicely formatted
+    if (parts[0] !== 'dashboard') {
+      return pretty(parts[parts.length - 1]);
+    }
+
+    // Under /dashboard
+    const roleLeaves = new Set(['seller', 'rider', 'admin']);
+    if (parts.length === 1) return 'Dashboard'; // /dashboard
+
+    // /dashboard/{role}[/**]
+    if (roleLeaves.has(parts[1])) {
+      if (parts.length === 2) return 'Dashboard'; // /dashboard/{role}
+      return pretty(parts[2]); // /dashboard/{role}/{section}
+    }
+
+    // /dashboard/{section}
+    return pretty(parts[1]);
   })();
 
   return (

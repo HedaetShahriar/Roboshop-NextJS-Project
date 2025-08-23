@@ -1,25 +1,22 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import clientPromise from "@/lib/mongodb";
+import { getAuthedSession, getDb, badRequest, ok } from "@/lib/api";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const client = await clientPromise;
-  const db = client.db("roboshop");
+  const { error, session } = await getAuthedSession();
+  if (error) return error;
+  const db = await getDb();
   const orders = await db
     .collection("orders")
     .find({ userId: session.user.email })
     .sort({ createdAt: -1 })
     .toArray();
   const mapped = orders.map((o) => ({ ...o, _id: o._id.toString() }));
-  return NextResponse.json({ orders: mapped });
+  return ok({ orders: mapped });
 }
 
 export async function POST(request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { error, session } = await getAuthedSession();
+  if (error) return error;
   const body = await request.json();
   const {
     items = [],
@@ -31,8 +28,8 @@ export async function POST(request) {
     form = {},
   } = body || {};
 
-  if (!Array.isArray(items) || items.length === 0) return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
-  if (!(total >= 0)) return NextResponse.json({ error: "Invalid totals" }, { status: 400 });
+  if (!Array.isArray(items) || items.length === 0) return badRequest("Cart is empty");
+  if (!(total >= 0)) return badRequest("Invalid totals");
 
   // Normalize phone to Bangladeshi E.164 format (+880...)
   const normalizePhone = (rawPhone) => {
@@ -91,8 +88,7 @@ export async function POST(request) {
     ],
   };
 
-  const client = await clientPromise;
-  const db = client.db("roboshop");
+  const db = await getDb();
   const result = await db.collection("orders").insertOne(order);
-  return NextResponse.json({ ok: true, id: result.insertedId.toString(), orderNumber: order.orderNumber });
+  return ok({ ok: true, id: result.insertedId.toString(), orderNumber: order.orderNumber });
 }

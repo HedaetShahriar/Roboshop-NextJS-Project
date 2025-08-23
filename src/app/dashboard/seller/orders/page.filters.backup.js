@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Suspense } from "react";
-import OrdersTable from "./OrdersTable";
-import clientPromise from "@/lib/mongodb";
+import OrdersTable from "../../../../components/dashboard/seller/order/OrdersTable";
+import getDb from "@/lib/mongodb";
 
 export const dynamic = 'force-dynamic';
 
@@ -26,8 +26,7 @@ export default async function SellerOrdersPageBackup({ searchParams }) {
   const statuses = ['processing', 'packed', 'assigned', 'shipped', 'delivered', 'cancelled'];
   const view = 'server';
 
-  const client = await clientPromise;
-  const db = client.db('roboshop');
+  const db = await getDb();
   const baseWhere = {};
   if (q) {
     baseWhere.$or = [
