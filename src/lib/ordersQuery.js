@@ -4,7 +4,7 @@ export function escapeRegex(s = "") {
 }
 
 export function buildOrdersWhere(sp = {}) {
-  const q = (sp?.q || '').toString().trim();
+  const q = ((sp?.q || sp?.search) || '').toString().trim();
   const status = (sp?.status || '').toString();
   const fromStr = (sp?.from || '').toString();
   const toStr = (sp?.to || '').toString();

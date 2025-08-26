@@ -14,6 +14,8 @@ export default function useSearchFilters() {
     searchParams.forEach((value, key) => {
       obj[key] = value;
     });
+    // Normalize 'q' to 'search' while preserving explicit 'search'
+    if (!obj.search && obj.q) obj.search = obj.q;
     return obj;
   }, [searchParams]);
 
@@ -24,7 +26,9 @@ export default function useSearchFilters() {
       const params = new URLSearchParams(prevParams.toString());
 
       let changed = false;
-      for (const [key, raw] of Object.entries(newFilters)) {
+      for (const [key0, raw] of Object.entries(newFilters)) {
+        // Normalize incoming 'q' => 'search'
+        const key = key0 === 'q' ? 'search' : key0;
         const value = raw ?? '';
         if (value) {
           const next = String(value);

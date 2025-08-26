@@ -12,12 +12,30 @@ import AddressModalButton from "./AddressModalButton";
 import EditAddressModalButton from "./EditAddressModalButton";
 import PageSizeSelect from "../../shared/PageSizeSelect";
 
-export default async function OrdersTable({ sp }) {
+// Reuse formatters and style maps
+const currencyFmt = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+const STATUS_CLASS = {
+  processing: "bg-amber-100 text-amber-800",
+  packed: "bg-sky-100 text-sky-800",
+  assigned: "bg-blue-100 text-blue-800",
+  shipped: "bg-indigo-100 text-indigo-800",
+  delivered: "bg-emerald-100 text-emerald-800",
+  cancelled: "bg-rose-100 text-rose-800",
+};
+
+export default async function OrdersTable(props) {
+  // Accept both prop shapes for robustness
+  const sp = props?.sp ?? props?.params ?? {};
   // Fetch data via service layer
   const { orders, total, page, pageSize } = await getOrdersAndTotal(sp);
   // Extract current filters for link building
   const status = sp?.status;
-  const q = (sp?.q || '').toString().trim();
+  // Accept both 'q' and 'search' params; prefer 'search'
+  const q = (sp?.search || sp?.q || '').toString().trim();
   const fromStr = (sp?.from || '').toString();
   const toStr = (sp?.to || '').toString();
   const sortKey = (sp?.sort || 'newest').toString();
@@ -44,11 +62,11 @@ export default async function OrdersTable({ sp }) {
     if (action === 'pack' && order.status === 'processing') {
       set.status = 'packed';
       pushEvent('packed', 'Order packed');
-    } else if (action === 'assign' && ['packed','processing'].includes(order.status)) {
+    } else if (action === 'assign' && ['packed', 'processing'].includes(order.status)) {
       set.status = 'assigned';
       if (riderName) set.rider = { name: riderName.toString() };
       pushEvent('rider-assigned', riderName ? `Rider assigned: ${riderName}` : 'Rider assigned');
-    } else if (action === 'ship' && ['assigned','packed'].includes(order.status)) {
+    } else if (action === 'ship' && ['assigned', 'packed'].includes(order.status)) {
       set.status = 'shipped';
       pushEvent('shipped', 'Shipped');
     } else if (action === 'deliver' && order.status === 'shipped') {
@@ -64,7 +82,7 @@ export default async function OrdersTable({ sp }) {
     const update = { $set: set };
     if (push.length) update.$push = { history: { $each: push } };
     await db.collection('orders').updateOne({ _id }, update);
-    revalidatePath('/dashboard/orders');
+    revalidatePath('/dashboard/seller/orders');
   }
 
   async function updateBillingAddress(formData) {
@@ -87,7 +105,7 @@ export default async function OrdersTable({ sp }) {
       return;
     }
     const now = new Date();
-    const keys = ['fullName','email','phone','address1','address2','city','state','postalCode','country'];
+    const keys = ['fullName', 'email', 'phone', 'address1', 'address2', 'city', 'state', 'postalCode', 'country'];
     const billingAddress = {};
     for (const k of keys) {
       const v = formData.get(k);
@@ -98,23 +116,16 @@ export default async function OrdersTable({ sp }) {
       $push: { history: { code: 'billing-updated', label: 'Billing address updated', at: now } },
     };
     await db.collection('orders').updateOne({ _id }, update);
-    revalidatePath('/dashboard/orders');
+    revalidatePath('/dashboard/seller/orders');
   }
 
-  const fmtCurrency = (n) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(Number(n || 0));
+  const fmtCurrency = (n) => currencyFmt.format(Number(n || 0));
   const fmtDT = (d) => formatDate(d, 'datetime');
-  const statusClass = (s) => (
-    s === 'processing' ? 'bg-amber-100 text-amber-800' :
-    s === 'packed' ? 'bg-sky-100 text-sky-800' :
-    s === 'assigned' ? 'bg-blue-100 text-blue-800' :
-    s === 'shipped' ? 'bg-indigo-100 text-indigo-800' :
-    s === 'delivered' ? 'bg-emerald-100 text-emerald-800' :
-    s === 'cancelled' ? 'bg-rose-100 text-rose-800' : 'bg-zinc-100 text-zinc-800'
-  );
+  const statusClass = (s) => STATUS_CLASS[s] || 'bg-zinc-100 text-zinc-800';
 
   const mkQS = (overrides = {}) => {
     const usp = new URLSearchParams();
-    if (q) usp.set('q', q);
+    if (q) usp.set('search', q);
     if (status) usp.set('status', status);
     if (fromStr) usp.set('from', fromStr);
     if (toStr) usp.set('to', toStr);
@@ -136,8 +147,16 @@ export default async function OrdersTable({ sp }) {
     <>
       {/* Mobile cards view */}
       <div className="sm:hidden space-y-2">
-        {orders.map((o) => (
-          <div key={o._id.toString()} className="rounded-md border bg-white p-3 shadow-sm">
+        {orders.map((o) => {
+          const id = o._id.toString();
+          const billingAddr = o.billingAddress || {
+            fullName: o.contact?.fullName,
+            email: o.contact?.email,
+            phone: o.contact?.phone,
+            ...o.shippingAddress,
+          };
+          return (
+          <div key={id} className="rounded-md border bg-white p-3 shadow-sm">
             {/* Header: Order number + status */}
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -163,23 +182,13 @@ export default async function OrdersTable({ sp }) {
 
             {/* Address actions */}
             <div className="mt-2 flex flex-wrap gap-2">
-              <AddressModalButton address={o.billingAddress || {
-                fullName: o.contact?.fullName,
-                email: o.contact?.email,
-                phone: o.contact?.phone,
-                ...o.shippingAddress,
-              }} />
+              <AddressModalButton address={billingAddr} />
               <EditAddressModalButton
-                orderId={o._id.toString()}
-                initialAddress={o.billingAddress || {
-                  fullName: o.contact?.fullName,
-                  email: o.contact?.email,
-                  phone: o.contact?.phone,
-                  ...o.shippingAddress,
-                }}
+                orderId={id}
+                initialAddress={billingAddr}
                 action={updateBillingAddress}
                 label="Edit"
-                disabled={['delivered','cancelled'].includes(o.status)}
+                disabled={['delivered', 'cancelled'].includes(o.status)}
               />
             </div>
 
@@ -188,16 +197,16 @@ export default async function OrdersTable({ sp }) {
               {/* Pack */}
               {o.status === 'processing' && (
                 <form action={advance}>
-                  <input type="hidden" name="id" value={o._id.toString()} />
+                  <input type="hidden" name="id" value={id} />
                   <input type="hidden" name="action" value="pack" />
                   <Button type="submit" size="sm" variant="outline">Pack</Button>
                 </form>
               )}
 
               {/* Assign rider */}
-              {(['processing','packed'].includes(o.status)) && (
+              {(['processing', 'packed'].includes(o.status)) && (
                 <form action={advance} className="flex items-center gap-2 w-full">
-                  <input type="hidden" name="id" value={o._id.toString()} />
+                  <input type="hidden" name="id" value={id} />
                   <input type="hidden" name="action" value="assign" />
                   <Input name="riderName" placeholder="Rider name" className="h-9 flex-1" />
                   <Button type="submit" size="sm" className="shrink-0">Assign</Button>
@@ -205,9 +214,9 @@ export default async function OrdersTable({ sp }) {
               )}
 
               {/* Ship */}
-              {(['assigned','packed'].includes(o.status)) && (
+              {(['assigned', 'packed'].includes(o.status)) && (
                 <form action={advance}>
-                  <input type="hidden" name="id" value={o._id.toString()} />
+                  <input type="hidden" name="id" value={id} />
                   <input type="hidden" name="action" value="ship" />
                   <Button type="submit" size="sm" variant="outline">Ship</Button>
                 </form>
@@ -216,23 +225,23 @@ export default async function OrdersTable({ sp }) {
               {/* Deliver */}
               {o.status === 'shipped' && (
                 <form action={advance}>
-                  <input type="hidden" name="id" value={o._id.toString()} />
+                  <input type="hidden" name="id" value={id} />
                   <input type="hidden" name="action" value="deliver" />
                   <Button type="submit" size="sm" variant="outline">Deliver</Button>
                 </form>
               )}
 
               {/* Revert */}
-              {(!['delivered','cancelled'].includes(o.status)) && (
+              {(!['delivered', 'cancelled'].includes(o.status)) && (
                 <form action={advance}>
-                  <input type="hidden" name="id" value={o._id.toString()} />
+                  <input type="hidden" name="id" value={id} />
                   <input type="hidden" name="action" value="revert" />
                   <Button type="submit" size="sm" variant="ghost">Revert</Button>
                 </form>
               )}
             </div>
           </div>
-        ))}
+        );})}
       </div>
 
       {/* Desktop table */}
@@ -242,20 +251,20 @@ export default async function OrdersTable({ sp }) {
             <tr className="text-left">
               <th className="px-2 sm:px-3 py-2 font-medium">Order #</th>
               <th className="px-3 py-2 font-medium">
-                <Link href={`/dashboard/orders${mkQS({ sort: sortKey === 'oldest' ? 'newest' : 'oldest', page: 1 })}`} className="inline-flex items-center gap-1">
+                <Link href={`/dashboard/seller/orders${mkQS({ sort: sortKey === 'oldest' ? 'newest' : 'oldest', page: 1 })}`} className="inline-flex items-center gap-1">
                   Date
                   <span className="text-xs text-muted-foreground">{sortKey === 'oldest' ? '▲' : sortKey === 'newest' ? '▼' : ''}</span>
                 </Link>
               </th>
               <th className="px-2 sm:px-3 py-2 font-medium">
-                <Link href={`/dashboard/orders${mkQS({ sort: sortKey === 'status-asc' ? 'status-desc' : 'status-asc', page: 1 })}`} className="inline-flex items-center gap-1">
+                <Link href={`/dashboard/seller/orders${mkQS({ sort: sortKey === 'status-asc' ? 'status-desc' : 'status-asc', page: 1 })}`} className="inline-flex items-center gap-1">
                   Status
                   <span className="text-xs text-muted-foreground">{sortKey?.startsWith('status-') ? (sortKey === 'status-asc' ? '▲' : '▼') : ''}</span>
                 </Link>
               </th>
               <th className="px-2 sm:px-3 py-2 font-medium">Billing address</th>
               <th className="px-3 py-2 font-medium">
-                <Link href={`/dashboard/orders${mkQS({ sort: sortKey === 'amount-high' ? 'amount-low' : 'amount-high', page: 1 })}`} className="inline-flex items-center gap-1">
+                <Link href={`/dashboard/seller/orders${mkQS({ sort: sortKey === 'amount-high' ? 'amount-low' : 'amount-high', page: 1 })}`} className="inline-flex items-center gap-1">
                   Total
                   <span className="text-xs text-muted-foreground">{sortKey?.startsWith('amount-') ? (sortKey === 'amount-high' ? '▼' : '▲') : ''}</span>
                 </Link>
@@ -264,30 +273,28 @@ export default async function OrdersTable({ sp }) {
             </tr>
           </thead>
           <tbody>
-            {orders.map((o) => (
-              <tr key={o._id.toString()} className="border-t">
+            {orders.map((o) => {
+              const id = o._id.toString();
+              const billingAddr = o.billingAddress || {
+                fullName: o.contact?.fullName,
+                email: o.contact?.email,
+                phone: o.contact?.phone,
+                ...o.shippingAddress,
+              };
+              return (
+              <tr key={id} className="border-t">
                 <td className="px-2 sm:px-3 py-2 font-medium">#{o.orderNumber}</td>
                 <td className="px-3 py-2 text-muted-foreground">{fmtDT(o.createdAt)}</td>
                 <td className="px-3 py-2"><span className={`px-2 py-1 rounded text-xs capitalize ${statusClass(o.status)}`}>{o.status}</span></td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <AddressModalButton address={o.billingAddress || {
-                      fullName: o.contact?.fullName,
-                      email: o.contact?.email,
-                      phone: o.contact?.phone,
-                      ...o.shippingAddress,
-                    }} />
+                    <AddressModalButton address={billingAddr} />
                     <EditAddressModalButton
-                      orderId={o._id.toString()}
-                      initialAddress={o.billingAddress || {
-                        fullName: o.contact?.fullName,
-                        email: o.contact?.email,
-                        phone: o.contact?.phone,
-                        ...o.shippingAddress,
-                      }}
+                      orderId={id}
+                      initialAddress={billingAddr}
                       action={updateBillingAddress}
                       label="Edit"
-                      disabled={['delivered','cancelled'].includes(o.status)}
+                      disabled={['delivered', 'cancelled'].includes(o.status)}
                     />
                   </div>
                 </td>
@@ -300,7 +307,7 @@ export default async function OrdersTable({ sp }) {
                       </span>
                     )}
                     <form action={advance} className="flex flex-wrap items-center gap-2">
-                      <input type="hidden" name="id" value={o._id.toString()} />
+                      <input type="hidden" name="id" value={id} />
                       <select name="action" className="border rounded-md h-9 px-2 text-xs w-full sm:w-auto">
                         <option value="pack">Mark packed</option>
                         <option value="assign">Assign rider</option>
@@ -314,7 +321,7 @@ export default async function OrdersTable({ sp }) {
                   </div>
                 </td>
               </tr>
-            ))}
+            );})}
           </tbody>
         </table>
       </div>
@@ -325,9 +332,9 @@ export default async function OrdersTable({ sp }) {
         <div className="flex items-center gap-2">
           <span className="text-xs sm:text-sm">Rows:</span>
           <PageSizeSelect value={pageSize} />
-          <Link href={`/dashboard/orders${mkQS({ page: Math.max(1, page - 1) })}`} className={`px-3 py-1 rounded border text-xs sm:text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Prev</Link>
+          <Link href={`/dashboard/seller/orders${mkQS({ page: Math.max(1, page - 1) })}`} className={`px-3 py-1 rounded border text-xs sm:text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Prev</Link>
           <div className="text-xs sm:text-sm">Page {page} / {totalPages}</div>
-          <Link href={`/dashboard/orders${mkQS({ page: Math.min(totalPages, page + 1) })}`} className={`px-3 py-1 rounded border text-xs sm:text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Next</Link>
+          <Link href={`/dashboard/seller/orders${mkQS({ page: Math.min(totalPages, page + 1) })}`} className={`px-3 py-1 rounded border text-xs sm:text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Next</Link>
         </div>
       </div>
     </>
