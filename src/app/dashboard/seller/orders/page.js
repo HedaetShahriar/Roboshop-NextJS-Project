@@ -1,5 +1,4 @@
 import TableFilters from "@/components/dashboard/shared/table/TableFilters";
-import OrdersTable from "@/components/dashboard/seller/order/OrdersTable";
 import { getStatusCounts } from "@/lib/ordersService";
 
 export default async function Orders({ searchParams }) {
@@ -8,8 +7,10 @@ export default async function Orders({ searchParams }) {
   const counts = await getStatusCounts(params);
   return (
     <div className="p-4 space-y-4">
-      <TableFilters counts={counts} />
-      <OrdersTable params ={params} />
+      <div className="rounded-xl border bg-card p-4 md:p-6 shadow-sm">
+        <TableFilters counts={counts} />
+        {/* Generate a server side table for orders with server components here */}
+      </div>
     </div>
   );
 }

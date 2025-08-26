@@ -126,7 +126,8 @@ export default async function SellerDashboardHome() {
         <div className="flex flex-wrap gap-2">
           <Link href="/dashboard/seller/orders"><Button variant="ghost" size="sm">Manage orders</Button></Link>
           <Link href="/dashboard/seller/issues"><Button variant="ghost" size="sm">Order issues</Button></Link>
-          <Link href="/dashboard/add-product"><Button size="sm">Add product</Button></Link>
+          <Link href="/dashboard/seller/products"><Button variant="ghost" size="sm">Manage products</Button></Link>
+          <Link href="/dashboard/seller/add-product"><Button size="sm">Add product</Button></Link>
         </div>
       </div>
 

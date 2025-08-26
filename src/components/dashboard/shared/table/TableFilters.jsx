@@ -20,6 +20,8 @@ function TableFilters({
     rightActions,
     advancedExtra,
     counts, // optional: status counts { all, processing, packed, ... }
+    title,
+    subtitle,
 }) {
     // Backwards-compat: fall back to local URL-based hook if no controlled props
     const fallback = useSearchFilters();
@@ -27,19 +29,30 @@ function TableFilters({
     const setFilters = onChange ?? fallback.setFilters;
     const resetFilters = onClear ?? fallback.resetFilters;
 
-    const { search, status, from, to, sort } = filters;
+    const { search, status, from, to, sort, inStock, hasDiscount, minPrice, maxPrice } = filters;
 
     const [localSearch, setLocalSearch] = useState(search || '');
     // Local advanced filter state (apply on click)
     const [localFrom, setLocalFrom] = useState(from || '');
     const [localTo, setLocalTo] = useState(to || '');
     const [localSort, setLocalSort] = useState(sort || 'newest');
+    // Optional product extras
+    const [localInStock, setLocalInStock] = useState(Boolean(inStock) || false);
+    const [localHasDiscount, setLocalHasDiscount] = useState(Boolean(hasDiscount) || false);
+    const [localMinPrice, setLocalMinPrice] = useState(minPrice || '');
+    const [localMaxPrice, setLocalMaxPrice] = useState(maxPrice || '');
 
     useEffect(() => {
         setLocalFrom(from || '');
         setLocalTo(to || '');
         setLocalSort(sort || 'newest');
     }, [from, to, sort]);
+    useEffect(() => {
+        setLocalInStock(Boolean(inStock) || false);
+        setLocalHasDiscount(Boolean(hasDiscount) || false);
+        setLocalMinPrice(minPrice || '');
+        setLocalMaxPrice(maxPrice || '');
+    }, [inStock, hasDiscount, minPrice, maxPrice]);
 
     // Keep localSearch in sync if URL search changes (e.g., Clear All)
     useEffect(() => {
@@ -66,7 +79,12 @@ function TableFilters({
     const cfg = {
         search: true,
         dateRange: true,
-        sort: true,
+    sort: true,
+    // Product-specific extras
+    showPriceRange: false,
+    showHasDiscount: false,
+    showInStock: false,
+    showStatusBar: true,
         advancedButtonLabel: 'Advanced',
         ...(config || {}),
     };
@@ -94,9 +112,9 @@ function TableFilters({
             {/* Title + Advanced toggle */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                    <h2 className="text-lg font-bold tracking-tight">Search & Filter</h2>
+                    <h2 className="text-lg font-bold tracking-tight">{title || 'Search & Filter'}</h2>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                        Find your orders with advanced filtering
+                        {subtitle || 'Find items with advanced filtering'}
                     </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -106,9 +124,20 @@ function TableFilters({
                                 Sort: {sortLabelMap[sort] ?? sort}
                             </span>
                         )}
+                        {cfg.showInStock && localInStock && (
+                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">In stock</span>
+                        )}
+                        {cfg.showHasDiscount && localHasDiscount && (
+                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">Has discount</span>
+                        )}
                         {cfg.dateRange && (from || to) && (
                             <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">
                                 Date: {from || '…'} → {to || '…'}
+                            </span>
+                        )}
+                        {cfg.showPriceRange && (minPrice || maxPrice) && (
+                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">
+                                Price: {minPrice || '…'} → {maxPrice || '…'}
                             </span>
                         )}
                     </div>
@@ -124,6 +153,20 @@ function TableFilters({
                                 className="w-[min(90vw,420px)] p-4 rounded-xl shadow-lg border bg-white"
                             >
                                 <div className="grid grid-cols-1 gap-4">
+                                    {(cfg.showInStock || cfg.showHasDiscount) && (
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            {cfg.showInStock && (
+                                                <label className="inline-flex items-center gap-2 text-xs">
+                                                    <input type="checkbox" checked={!!localInStock} onChange={(e)=>setLocalInStock(e.target.checked)} /> In stock only
+                                                </label>
+                                            )}
+                                            {cfg.showHasDiscount && (
+                                                <label className="inline-flex items-center gap-2 text-xs">
+                                                    <input type="checkbox" checked={!!localHasDiscount} onChange={(e)=>setLocalHasDiscount(e.target.checked)} /> Has discount
+                                                </label>
+                                            )}
+                                        </div>
+                                    )}
                                     {cfg.dateRange && (
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="flex flex-col gap-1">
@@ -160,6 +203,18 @@ function TableFilters({
                                             </div>
                                         </div>
                                     )}
+                                    {cfg.showPriceRange && (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="flex flex-col gap-1">
+                                                <label htmlFor="minPrice" className="text-xs text-muted-foreground font-medium">Min price</label>
+                                                <Input id="minPrice" type="number" value={localMinPrice} onChange={(e)=>setLocalMinPrice(e.target.value)} className="h-9 w-full" />
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <label htmlFor="maxPrice" className="text-xs text-muted-foreground font-medium">Max price</label>
+                                                <Input id="maxPrice" type="number" value={localMaxPrice} onChange={(e)=>setLocalMaxPrice(e.target.value)} className="h-9 w-full" />
+                                            </div>
+                                        </div>
+                                    )}
                                     {cfg.sort && (
                                         <div className="flex flex-col gap-1">
                                             <label htmlFor="sort" className="text-xs text-muted-foreground font-medium">Sort</label>
@@ -186,7 +241,7 @@ function TableFilters({
                                     {advancedExtra}
 
                                     <div className="flex items-center justify-end gap-2 mt-2">
-                                        <Button onClick={() => { setLocalFrom(''); setLocalTo(''); setLocalSort('newest'); }} size="sm" variant="outline" className="font-medium">Reset</Button>
+                                        <Button onClick={() => { setLocalFrom(''); setLocalTo(''); setLocalSort('newest'); setLocalInStock(false); setLocalHasDiscount(false); setLocalMinPrice(''); setLocalMaxPrice(''); }} size="sm" variant="outline" className="font-medium">Reset</Button>
                                         <Button onClick={() => {
                                             const updates = {};
                                             let changed = false;
@@ -196,6 +251,16 @@ function TableFilters({
                                             }
                                             if (cfg.sort) {
                                                 if ((sort || '') !== (localSort || '')) { updates.sort = localSort; changed = true; }
+                                            }
+                                            if (cfg.showInStock) {
+                                                if (Boolean(inStock) !== Boolean(localInStock)) { updates.inStock = localInStock ? 1 : ''; changed = true; }
+                                            }
+                                            if (cfg.showHasDiscount) {
+                                                if (Boolean(hasDiscount) !== Boolean(localHasDiscount)) { updates.hasDiscount = localHasDiscount ? 1 : ''; changed = true; }
+                                            }
+                                            if (cfg.showPriceRange) {
+                                                if ((minPrice || '') !== (localMinPrice || '')) { updates.minPrice = localMinPrice; changed = true; }
+                                                if ((maxPrice || '') !== (localMaxPrice || '')) { updates.maxPrice = localMaxPrice; changed = true; }
                                             }
                                             if (changed) setFilters(updates);
                                         }} size="sm" className="font-medium">Apply</Button>
@@ -247,29 +312,31 @@ function TableFilters({
                 )}
 
                 {/* Status quick filters bar */}
-                <div className="flex items-center gap-2 overflow-x-auto flex-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                    <Button
-                        type="button"
-                        variant={!status ? 'default' : 'outline'}
-                        size="sm"
-                        className="shrink-0"
-                        onClick={() => { if ((status ?? '') !== '') setFilters({ status: '' }); }}
-                    >
-                        All <span className="ml-1 text-xs text-muted-foreground">({(counts?.all) ?? 0})</span>
-                    </Button>
-                    {statuses.map((s) => (
+                {cfg.showStatusBar && (
+                    <div className="flex items-center gap-2 overflow-x-auto flex-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                         <Button
-                            key={s}
                             type="button"
-                            variant={status === s ? 'default' : 'outline'}
+                            variant={!status ? 'default' : 'outline'}
                             size="sm"
-                            className="capitalize shrink-0"
-                            onClick={() => { if (status !== s) setFilters({ status: s }); }}
+                            className="shrink-0"
+                            onClick={() => { if ((status ?? '') !== '') setFilters({ status: '' }); }}
                         >
-                            {s} <span className="ml-1 text-xs text-muted-foreground">({(counts?.[s]) ?? 0})</span>
+                            All <span className="ml-1 text-xs text-muted-foreground">({(counts?.all) ?? 0})</span>
                         </Button>
-                    ))}
-                </div>
+                        {statuses.map((s) => (
+                            <Button
+                                key={s}
+                                type="button"
+                                variant={status === s ? 'default' : 'outline'}
+                                size="sm"
+                                className="capitalize shrink-0"
+                                onClick={() => { if (status !== s) setFilters({ status: s }); }}
+                            >
+                                {s} <span className="ml-1 text-xs text-muted-foreground">({(counts?.[s]) ?? 0})</span>
+                            </Button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Action row */}
