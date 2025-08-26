@@ -21,12 +21,15 @@ export async function getProductsAndTotal(sp = {}) {
     ]).toArray();
   } else {
     const sort = getProductsSort(sortKey);
-    products = await db.collection('products')
+    let cursor = db.collection('products')
       .find(where)
       .sort(sort)
       .skip(skip)
-      .limit(pageSize)
-      .toArray();
+      .limit(pageSize);
+    if (sortKey === 'name-asc' || sortKey === 'name-desc') {
+      cursor = cursor.collation({ locale: 'en', strength: 2 });
+    }
+    products = await cursor.toArray();
   }
   return { products, total, page, pageSize };
 }

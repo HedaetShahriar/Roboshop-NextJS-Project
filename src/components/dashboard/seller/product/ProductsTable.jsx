@@ -5,6 +5,8 @@ import { ObjectId } from "mongodb";
 import getDb from "@/lib/mongodb";
 import { revalidatePath } from "next/cache";
 import { getProductsAndTotal } from "@/lib/productsService";
+import { buildProductsWhere } from "@/lib/productsQuery";
+import { redirect } from "next/navigation";
 
 const currencyFmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 
@@ -18,6 +20,27 @@ export default async function ProductsTable(props) {
   const skip = (page - 1) * pageSize;
   const colsParam = (sp?.cols || '').toString();
   const allColsDefault = ['image','info','added','price','stock','rating','actions'];
+  // Preview support
+  const preview = (sp?.preview || '').toString() === '1';
+  const scopeParam = (sp?.scope || '').toString();
+  let previewCount = null;
+  if (preview) {
+    try {
+      const db = await getDb();
+      let where;
+      if (scopeParam === 'filtered' || !scopeParam) {
+        where = buildProductsWhere(sp);
+      } else if (scopeParam === 'page') {
+        const { products: pageProducts } = await getProductsAndTotal(sp);
+        const ids = pageProducts.map(p => p._id);
+        where = { _id: { $in: ids } };
+      } else if (scopeParam === 'selected') {
+        // selected preview via query is not supported (no ids in URL)
+        where = { _id: { $in: [] } };
+      }
+      if (where) previewCount = await db.collection('products').countDocuments(where);
+    } catch {}
+  }
   const visibleCols = new Set(
     colsParam
       ? colsParam.split(',').map(s => s.trim()).filter(Boolean)
@@ -68,11 +91,15 @@ export default async function ProductsTable(props) {
     const session = await getServerSession(authOptions);
     const role = session?.user?.role || 'customer';
     if (role === 'customer') return;
-    let ids = formData.getAll('ids');
     const action = formData.get('bulkAction');
-    const selectAll = formData.get('selectAll');
-    // derive current page items when selectAll is checked and ids are empty
-    if ((!ids || ids.length === 0) && selectAll) {
+    const scope = (formData.get('scope') || 'selected').toString(); // selected | page | filtered
+    const db = await getDb();
+    const now = new Date();
+
+    // Build targeting
+    let filter = null;
+    let ids = formData.getAll('ids');
+    if (scope === 'page') {
       const s = {
         search: formData.get('search')?.toString() || '',
         from: formData.get('from')?.toString() || undefined,
@@ -80,40 +107,96 @@ export default async function ProductsTable(props) {
         sort: formData.get('sort')?.toString() || 'newest',
         page: Number(formData.get('page')?.toString() || '1'),
         pageSize: Number(formData.get('pageSize')?.toString() || '20'),
+        inStock: formData.get('inStock')?.toString() || undefined,
+        hasDiscount: formData.get('hasDiscount')?.toString() || undefined,
+        minPrice: formData.get('minPrice')?.toString() || undefined,
+        maxPrice: formData.get('maxPrice')?.toString() || undefined,
       };
       const { products: pageProducts } = await getProductsAndTotal(s);
       ids = pageProducts.map(p => p._id.toString());
+    } else if (scope === 'filtered') {
+      const s = {
+        search: formData.get('search')?.toString() || '',
+        from: formData.get('from')?.toString() || undefined,
+        to: formData.get('to')?.toString() || undefined,
+        inStock: formData.get('inStock')?.toString() || undefined,
+        hasDiscount: formData.get('hasDiscount')?.toString() || undefined,
+        minPrice: formData.get('minPrice')?.toString() || undefined,
+        maxPrice: formData.get('maxPrice')?.toString() || undefined,
+      };
+      filter = buildProductsWhere(s);
     }
-    if (!ids?.length || !action) return;
-    const db = await getDb();
-    const now = new Date();
+
+    // Normalize ids to ObjectId filter when needed
+    const idsFilter = () => {
+      const list = (ids || []).map(x => {
+        try { return new ObjectId(String(x)); } catch { return null; }
+      }).filter(Boolean);
+      return list.length ? { _id: { $in: list } } : null;
+    };
+
+    if (!action) return;
+
+    // Helpers for choosing the final filter (selected/page vs filtered)
+    const targetFilter = () => (filter ? filter : idsFilter());
+    const tf = targetFilter();
+    if (!tf) return;
+
+    // Parse inputs
+    const stockDeltaRaw = Number(formData.get('bulkStockDelta'));
+    const stockSetRaw = Number(formData.get('bulkStockSet'));
+    const discountPriceRaw = Number(formData.get('bulkDiscountPrice'));
+    const discountPercentRaw = Number(formData.get('bulkDiscountPercent'));
+    const priceSetRaw = Number(formData.get('bulkPriceSet'));
+    const confirmDelete = (formData.get('confirmDelete') || '').toString();
+
+    const dryRun = (formData.get('dryRun') || '').toString() === '1';
+    // Execute
     if (action === 'stockInc' || action === 'stockDec') {
-      const deltaRaw = Number(formData.get('bulkStockDelta'));
-      const delta = isNaN(deltaRaw) ? 0 : (action === 'stockDec' ? -Math.abs(deltaRaw) : Math.abs(deltaRaw));
-      for (const id of ids) {
-        let _id; try { _id = new ObjectId(String(id)); } catch { continue; }
-        const doc = await db.collection('products').findOne({ _id });
-        if (!doc) continue;
-        const current = Number(doc.current_stock || 0);
-        const next = Math.max(0, current + delta);
-        await db.collection('products').updateOne({ _id }, { $set: { current_stock: next, updatedAt: now } });
-      }
+      const delta = isNaN(stockDeltaRaw) ? 0 : (action === 'stockDec' ? -Math.abs(stockDeltaRaw) : Math.abs(stockDeltaRaw));
+      if (delta === 0) return;
+      if (dryRun) return;
+      await db.collection('products').updateMany(tf, [
+        { $set: { current_stock: { $max: [0, { $add: [ { $ifNull: ['$current_stock', 0] }, delta ] }] }, updatedAt: now } }
+      ]);
+    } else if (action === 'stockSet') {
+      const next = Math.max(0, isNaN(stockSetRaw) ? 0 : stockSetRaw);
+      if (dryRun) return;
+      await db.collection('products').updateMany(tf, { $set: { current_stock: next, updatedAt: now } });
     } else if (action === 'setDiscount') {
-      const discount = Number(formData.get('bulkDiscountPrice'));
+      const discount = Number(discountPriceRaw);
       if (isNaN(discount) || discount <= 0) return;
-      for (const id of ids) {
-        let _id; try { _id = new ObjectId(String(id)); } catch { continue; }
-        const doc = await db.collection('products').findOne({ _id });
-        if (!doc) continue;
-        const price = Number(doc.price || 0);
-        if (discount >= price || price <= 0) continue;
-        await db.collection('products').updateOne({ _id }, { $set: { has_discount_price: true, discount_price: discount, updatedAt: now } });
-      }
+      // Ensure price > discount
+      const combined = filter ? { $and: [filter, { price: { $gt: discount } }] } : { ...tf, price: { $gt: discount } };
+      if (dryRun) return;
+      await db.collection('products').updateMany(combined, { $set: { has_discount_price: true, discount_price: discount, updatedAt: now } });
+    } else if (action === 'discountPercent') {
+      const pct = Number(discountPercentRaw);
+      if (isNaN(pct) || pct <= 0 || pct >= 100) return;
+      const factor = (100 - pct) / 100;
+      if (dryRun) return;
+      await db.collection('products').updateMany(tf, [
+        { $set: { discount_price: { $round: [ { $multiply: [ { $toDouble: { $ifNull: ['$price', 0] } }, factor ] }, 2 ] }, has_discount_price: true, updatedAt: now } }
+      ]);
     } else if (action === 'clearDiscount') {
-      for (const id of ids) {
-        let _id; try { _id = new ObjectId(String(id)); } catch { continue; }
-        await db.collection('products').updateOne({ _id }, { $set: { has_discount_price: false, discount_price: 0, updatedAt: now } });
-      }
+      if (dryRun) return;
+      await db.collection('products').updateMany(tf, { $set: { has_discount_price: false, discount_price: 0, updatedAt: now } });
+    } else if (action === 'priceSet') {
+      const p = Number(priceSetRaw);
+      if (isNaN(p) || p <= 0) return;
+      if (dryRun) return;
+      await db.collection('products').updateMany(tf, [
+        { $set: {
+          price: p,
+          has_discount_price: { $cond: [{ $gte: [ { $ifNull: ['$discount_price', 0] }, p ] }, false, { $ifNull: ['$has_discount_price', false] }] },
+          discount_price: { $cond: [{ $gte: [ { $ifNull: ['$discount_price', 0] }, p ] }, 0, { $ifNull: ['$discount_price', 0] }] },
+          updatedAt: now
+        }}
+      ]);
+    } else if (action === 'deleteProducts') {
+      if (confirmDelete !== 'DELETE') return;
+      if (dryRun) return;
+      await db.collection('products').deleteMany(tf);
     }
     revalidatePath('/dashboard/seller/products');
   }
@@ -125,6 +208,11 @@ export default async function ProductsTable(props) {
     if (toStr) usp.set('to', toStr);
     if (sortKey) usp.set('sort', sortKey);
     usp.set('pageSize', String(pageSize));
+    if (sp?.inStock) usp.set('inStock', String(sp.inStock));
+    if (sp?.hasDiscount) usp.set('hasDiscount', String(sp.hasDiscount));
+    if (sp?.minPrice) usp.set('minPrice', String(sp.minPrice));
+    if (sp?.maxPrice) usp.set('maxPrice', String(sp.maxPrice));
+    if (colsParam) usp.set('cols', colsParam);
     Object.entries(overrides).forEach(([k, v]) => {
       if (v === undefined || v === null || v === '') usp.delete(k);
       else usp.set(k, String(v));
@@ -172,36 +260,90 @@ export default async function ProductsTable(props) {
 
   {/* Bulk actions + table (single form) */}
       <form action={bulkProducts} className="space-y-2">
-        {/* carry current filters for selectAll-on-page */}
+  {/* carry current filters for scope targeting and dry run */}
         <input type="hidden" name="search" value={q} />
         {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
         {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
         {sortKey ? <input type="hidden" name="sort" value={sortKey} /> : null}
+        {/* carry product filter extras for filtered-scope */}
+        {sp?.inStock ? <input type="hidden" name="inStock" value={sp.inStock} /> : null}
+        {sp?.hasDiscount ? <input type="hidden" name="hasDiscount" value={sp.hasDiscount} /> : null}
+        {sp?.minPrice ? <input type="hidden" name="minPrice" value={sp.minPrice} /> : null}
+        {sp?.maxPrice ? <input type="hidden" name="maxPrice" value={sp.maxPrice} /> : null}
+  {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
         <input type="hidden" name="page" value={String(page)} />
         <input type="hidden" name="pageSize" value={String(pageSize)} />
 
         {products.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-zinc-50 p-2">
-          <span className="text-xs text-muted-foreground">Bulk:</span>
-          <select name="bulkAction" className="h-9 rounded border px-2 text-xs">
-            <option value="stockInc">Increase stock</option>
-            <option value="stockDec">Decrease stock</option>
-            <option value="setDiscount">Set discount price</option>
-            <option value="clearDiscount">Clear discount</option>
-          </select>
-          <input name="bulkStockDelta" placeholder="Qty" className="h-9 px-3 rounded border text-xs w-20" />
-          <input name="bulkDiscountPrice" placeholder="Discount" className="h-9 px-3 rounded border text-xs w-28" />
-          <button type="submit" className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Apply to selected</button>
-          <div className="ml-auto hidden sm:flex items-center gap-2 text-xs">
-            <label className="inline-flex items-center gap-1"><input type="checkbox" name="selectAll" value="1" /> Select all on page</label>
+        <div className="flex flex-col gap-2 rounded-md border bg-zinc-50 p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Bulk action:</span>
+            <select name="bulkAction" className="h-9 rounded border px-2 text-xs">
+              <optgroup label="Stock">
+                <option value="stockInc">Increase stock by…</option>
+                <option value="stockDec">Decrease stock by…</option>
+                <option value="stockSet">Set stock to…</option>
+              </optgroup>
+              <optgroup label="Discount">
+                <option value="setDiscount">Set discount price…</option>
+                <option value="discountPercent">Set discount by %…</option>
+                <option value="clearDiscount">Clear discount</option>
+              </optgroup>
+              <optgroup label="Pricing">
+                <option value="priceSet">Set price to…</option>
+              </optgroup>
+              <optgroup label="Danger">
+                <option value="deleteProducts">Delete products</option>
+              </optgroup>
+            </select>
+            <span className="text-xs text-muted-foreground">Scope:</span>
+            <label className="inline-flex items-center gap-1 text-xs"><input type="radio" name="scope" value="selected" defaultChecked /> Selected</label>
+            <label className="inline-flex items-center gap-1 text-xs"><input type="radio" name="scope" value="page" /> Current page</label>
+            <label className="inline-flex items-center gap-1 text-xs"><input type="radio" name="scope" value="filtered" /> All filtered</label>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input name="bulkStockDelta" placeholder="Qty delta" className="h-9 px-3 rounded border text-xs w-24" />
+            <input name="bulkStockSet" placeholder="Stock value" className="h-9 px-3 rounded border text-xs w-28" />
+            <input name="bulkDiscountPrice" placeholder="Discount price" className="h-9 px-3 rounded border text-xs w-32" />
+            <input name="bulkDiscountPercent" placeholder="Discount %" className="h-9 px-3 rounded border text-xs w-28" />
+            <input name="bulkPriceSet" placeholder="New price" className="h-9 px-3 rounded border text-xs w-28" />
+            <input name="confirmDelete" placeholder="Type DELETE to confirm" className="h-9 px-3 rounded border text-xs w-44" />
+            <label className="inline-flex items-center gap-2 text-xs ml-auto">
+              <input type="checkbox" name="dryRun" value="1" /> Dry run
+            </label>
+            <button type="submit" className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Apply</button>
+          </div>
+          <div className="text-[11px] text-muted-foreground" role="note">
+            Hints: use Qty delta for increase/decrease; Discount % applies across items; Set price will clear discount if 
+            <span aria-hidden>≥</span> current discount.
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <form method="GET" action={`/dashboard/seller/products`} className="flex items-center gap-2">
+              <input type="hidden" name="preview" value="1" />
+              <input type="hidden" name="scope" value="filtered" />
+              <input type="hidden" name="search" value={q} />
+              {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
+              {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
+              {sortKey ? <input type="hidden" name="sort" value={sortKey} /> : null}
+              {sp?.inStock ? <input type="hidden" name="inStock" value={sp.inStock} /> : null}
+              {sp?.hasDiscount ? <input type="hidden" name="hasDiscount" value={sp.hasDiscount} /> : null}
+              {sp?.minPrice ? <input type="hidden" name="minPrice" value={sp.minPrice} /> : null}
+              {sp?.maxPrice ? <input type="hidden" name="maxPrice" value={sp.maxPrice} /> : null}
+              {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
+              <button type="submit" className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Preview all filtered</button>
+            </form>
+            {preview && (
+              <div className="text-xs text-muted-foreground">Preview: {typeof previewCount === 'number' ? previewCount : '…'} items</div>
+            )}
+            {preview && (
+              <Link href={`/dashboard/seller/products${mkQS({ preview: '', scope: '', pcount: '' })}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Clear</Link>
+            )}
           </div>
         </div>) }
 
         {/* Mobile cards */}
         <div className="sm:hidden space-y-2">
-          {products.length > 0 && (
-            <label className="text-xs inline-flex items-center gap-1 px-1"><input type="checkbox" name="selectAll" value="1" /> Select all on page</label>
-          )}
+          {/* Removed select-all checkbox in favor of bulk scope controls above */}
           {products.map((p) => {
             const id = p._id?.toString?.() || p._id;
             return (
@@ -274,7 +416,7 @@ export default async function ProductsTable(props) {
         <table className="min-w-full text-xs sm:text-sm">
           <thead className="sticky top-0 z-[1] bg-white shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.06)]">
             <tr className="text-left">
-              <th className="px-2 py-2"><input type="checkbox" name="selectAll" value="1" aria-label="Select all on page (server)" /></th>
+              <th className="px-2 py-2 text-[11px] text-muted-foreground">Sel</th>
               {visibleCols.has('image') && <th className="px-2 sm:px-3 py-2 font-medium">Product</th>}
               {visibleCols.has('info') && (
                 <th className="px-3 py-2 font-medium">
@@ -426,9 +568,20 @@ export default async function ProductsTable(props) {
             </select>
             <button type="submit" className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Apply</button>
           </form>
-          <Link href={`/dashboard/seller/products${mkQS({ page: Math.max(1, page - 1) })}`} className={`px-3 py-1 rounded border text-xs sm:text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Prev</Link>
-          <div className="text-xs sm:text-sm">Page {page} / {totalPages}</div>
-          <Link href={`/dashboard/seller/products${mkQS({ page: Math.min(totalPages, page + 1) })}`} className={`px-3 py-1 rounded border text-xs sm:text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Next</Link>
+          <Link href={`/dashboard/seller/products${mkQS({ page: 1 })}`} className={`px-2 py-1 rounded border text-xs sm:text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>First</Link>
+          <Link href={`/dashboard/seller/products${mkQS({ page: Math.max(1, page - 1) })}`} className={`px-2 py-1 rounded border text-xs sm:text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Prev</Link>
+          <form method="GET" action={`/dashboard/seller/products`} className="flex items-center gap-1">
+            <input type="hidden" name="search" value={q} />
+            {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
+            {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
+            {sortKey ? <input type="hidden" name="sort" value={sortKey} /> : null}
+            {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
+            <label className="text-xs sm:text-sm text-muted-foreground">Page</label>
+            <input name="page" defaultValue={String(page)} className="w-14 h-8 border rounded text-center text-xs sm:text-sm" />
+            <span className="text-xs sm:text-sm">/ {totalPages}</span>
+          </form>
+          <Link href={`/dashboard/seller/products${mkQS({ page: Math.min(totalPages, page + 1) })}`} className={`px-2 py-1 rounded border text-xs sm:text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Next</Link>
+          <Link href={`/dashboard/seller/products${mkQS({ page: totalPages })}`} className={`px-2 py-1 rounded border text-xs sm:text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Last</Link>
         </div>
       </div>
     </div>

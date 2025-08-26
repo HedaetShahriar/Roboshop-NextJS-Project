@@ -23,11 +23,14 @@ export async function GET(req) {
       ]).toArray();
     } else {
       const sort = getProductsSort(sortKey);
-      products = await db.collection('products')
+      let cursor = db.collection('products')
         .find(where)
         .sort(sort)
-        .limit(limit)
-        .toArray();
+        .limit(limit);
+      if (sortKey === 'name-asc' || sortKey === 'name-desc') {
+        cursor = cursor.collation({ locale: 'en', strength: 2 });
+      }
+      products = await cursor.toArray();
     }
 
     const headers = ['Name','Slug','SKU','Price','HasDiscount','DiscountPrice','Stock','Rating','RatingCount','CreatedAt'];

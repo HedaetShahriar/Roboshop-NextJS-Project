@@ -141,6 +141,20 @@ function TableFilters({
                             </span>
                         )}
                     </div>
+                    {(cfg.showInStock || cfg.showHasDiscount) && (
+                        <div className="flex items-center gap-2">
+                            {cfg.showInStock && (
+                                <button type="button" className={`h-8 px-3 rounded border text-xs ${localInStock ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`} onClick={() => setFilters({ inStock: !localInStock ? 1 : '' })}>
+                                    In stock
+                                </button>
+                            )}
+                            {cfg.showHasDiscount && (
+                                <button type="button" className={`h-8 px-3 rounded border text-xs ${localHasDiscount ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`} onClick={() => setFilters({ hasDiscount: !localHasDiscount ? 1 : '' })}>
+                                    Has discount
+                                </button>
+                            )}
+                        </div>
+                    )}
                     {(cfg.dateRange || cfg.sort || advancedExtra) && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
