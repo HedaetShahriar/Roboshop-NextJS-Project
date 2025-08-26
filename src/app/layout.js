@@ -5,6 +5,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import Providers from "./providers";
 import Navbar from "@/components/Navbar & Footer/Navbar";
 import Footer from "@/components/Navbar & Footer/Footer";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,6 +20,7 @@ export default async function RootLayout({ children }) {
     <html lang="en">
       <body className={`${inter.className} min-h-dvh grid grid-rows-[auto_1fr_auto]`}>
         <Providers session={session}>
+          <Toaster />
           <Navbar />
           <main>
             {children}

@@ -33,13 +33,13 @@ export const authOptions = {
         const passwordsMatch = await bcrypt.compare(credentials.password, user.hashedPassword);
         if (!passwordsMatch) return null;
 
-  // Update login timestamps for credentials users
-  const now = new Date();
-  const update = { lastLoginAt: now };
-  if (!user.createdAt) update.createdAt = now;
-  await usersCollection.updateOne({ _id: user._id }, { $set: update });
+        // Update login timestamps for credentials users
+        const now = new Date();
+        const update = { lastLoginAt: now };
+        if (!user.createdAt) update.createdAt = now;
+        await usersCollection.updateOne({ _id: user._id }, { $set: update });
 
-  return { id: user._id.toString(), name: user.name, email: user.email };
+        return { id: user._id.toString(), name: user.name, email: user.email };
       },
     }),
   ],
@@ -67,7 +67,7 @@ export const authOptions = {
           // keep token.picture in sync with DB when reloading
           token.picture = existing.image;
         }
-      } catch {}
+      } catch { }
       // If a client calls session.update, propagate fields to token
       if (trigger === 'update' && session?.user) {
         if (typeof session.user.name === 'string') token.name = session.user.name;
@@ -121,7 +121,7 @@ export const authOptions = {
           };
           await users.insertOne(doc);
         }
-      } catch {}
+      } catch { }
     },
   },
 };

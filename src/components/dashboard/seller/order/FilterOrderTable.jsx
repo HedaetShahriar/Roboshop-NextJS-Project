@@ -1,11 +1,15 @@
+'use client'
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "@/components/ui/dropdown-menu";
 import PrintButton from "@/components/dashboard/seller/order/PrintButton";
 import { Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useCallback } from "react";
 
 export default function FilterOrderTable({ sp }) {
+
   // read params from server-provided props
   const q = (sp?.q || '').toString().trim();
   const status = (sp?.status || '').toString();
@@ -40,13 +44,6 @@ export default function FilterOrderTable({ sp }) {
     const s = usp.toString();
     return s ? `?${s}` : '';
   };
-
-  // Handlers for auto-apply
-  // Server: forms submit with GET to navigate
-
-  // status dropdown removed
-
-  // Clear links
   const clearAdvancedHref = `/dashboard/orders${mkQS({ from: '', to: '', sort: 'newest', page: '1' })}`;
   const clearAllHref = `/dashboard/orders`;
 
@@ -118,7 +115,6 @@ export default function FilterOrderTable({ sp }) {
                 className="h-10 pl-9 w-full"
               />
             </div>
-            <Button type="submit" size="sm">Search</Button>
           </div>
         </div>
         {/* preserve other filters */}
