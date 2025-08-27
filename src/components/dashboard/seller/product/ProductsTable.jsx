@@ -6,7 +6,6 @@ import getDb from "@/lib/mongodb";
 import { revalidatePath } from "next/cache";
 import { getProductsAndTotalCached as getProductsAndTotal, getProductsQuickStats, getProductsFilteredTotals } from "@/lib/productsService";
 import { buildProductsWhere } from "@/lib/productsQuery";
-import BulkActionsPanel from "./client/BulkActionsPanel";
 import RowActionsMenu from "./client/RowActionsMenu";
 import SavedViews from "./client/SavedViews";
 import SavedViewsServer from "./client/SavedViewsServer";
@@ -231,13 +230,13 @@ export default async function ProductsTable(props) {
     if (q) usp.set('search', q);
     if (fromStr) usp.set('from', fromStr);
     if (toStr) usp.set('to', toStr);
-    if (sortKey) usp.set('sort', sortKey);
-    usp.set('pageSize', String(pageSize));
+    if (sortKey && sortKey !== 'newest') usp.set('sort', sortKey);
+    if (pageSize && Number(pageSize) !== 10) usp.set('pageSize', String(pageSize));
     if (sp?.inStock) usp.set('inStock', String(sp.inStock));
     if (sp?.hasDiscount) usp.set('hasDiscount', String(sp.hasDiscount));
     if (sp?.minPrice) usp.set('minPrice', String(sp.minPrice));
     if (sp?.maxPrice) usp.set('maxPrice', String(sp.maxPrice));
-    if (colsParam) usp.set('cols', colsParam);
+    if (colsParam && colsParam !== allColsDefault.join(',')) usp.set('cols', colsParam);
     Object.entries(overrides).forEach(([k, v]) => {
       if (v === undefined || v === null || v === '') usp.delete(k);
       else usp.set(k, String(v));
@@ -283,7 +282,7 @@ export default async function ProductsTable(props) {
                       const nextCols = (() => { const set = new Set(visibleCols); if (set.has(c)) set.delete(c); else set.add(c); return Array.from(set).join(','); })();
                       return (
                         <li key={c}>
-                          <Link href={`/dashboard/seller/products${mkQS({ cols: nextCols, page: 1 })}`} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-zinc-50">
+                          <Link href={`/dashboard/seller/products${mkQS({ cols: nextCols, page: 1 })}`} replace scroll={false} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-zinc-50">
                             <input type="checkbox" readOnly checked={visibleCols.has(c)} className="h-4 w-4" />
                             <span className="capitalize text-sm">{c}</span>
                           </Link>
@@ -292,8 +291,8 @@ export default async function ProductsTable(props) {
                     })}
                   </ul>
                   <div className="mt-2 flex items-center justify-between gap-2 px-1">
-                    <Link href={`/dashboard/seller/products${mkQS({ cols: allColsDefault.join(','), page: 1 })}`} className="text-xs text-zinc-600 hover:underline">Show all</Link>
-                    <Link href={`/dashboard/seller/products${mkQS({ cols: '', page: 1 })}`} className="text-xs text-zinc-600 hover:underline">Hide all</Link>
+                    <Link href={`/dashboard/seller/products${mkQS({ cols: allColsDefault.join(','), page: 1 })}`} replace scroll={false} className="text-xs text-zinc-600 hover:underline">Show all</Link>
+                    <Link href={`/dashboard/seller/products${mkQS({ cols: '', page: 1 })}`} replace scroll={false} className="text-xs text-zinc-600 hover:underline">Hide all</Link>
                   </div>
                 </div>
                 <div className="my-2 h-px bg-zinc-100" />
@@ -461,45 +460,47 @@ export default async function ProductsTable(props) {
         </div>
 
   {products.length === 0 ? (
-          <div className="rounded-md border bg-white p-6 text-center text-sm text-muted-foreground">
+      <div className="rounded-md border bg-white p-6 text-center text-sm text-muted-foreground">
             <div>No products match your filters.</div>
             <div className="mt-3 flex items-center justify-center gap-2">
-              <Link href="/dashboard/seller/products" className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Reset filters</Link>
+        <Link href="/dashboard/seller/products" replace className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Reset filters</Link>
               <Link href="/dashboard/add-product" className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Add product</Link>
             </div>
           </div>
         ) : (
   <div className="hidden sm:block overflow-x-auto rounded border bg-white">
-  <table className="min-w-full table-fixed text-xs sm:text-sm">
+  <table className="min-w-full table-auto text-xs sm:text-sm">
           <thead className="sticky top-0 z-[1] bg-white shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.06)]">
             <tr className="text-left">
-              <th className="px-2 py-2 text-[11px] text-muted-foreground"><SelectAllOnPage /></th>
-              {visibleCols.has('image') && <th className="px-2 sm:px-3 py-2 font-medium">Product</th>}
+              <th scope="col" className="px-2 py-2 text-[11px] text-muted-foreground"><SelectAllOnPage /></th>
+              {visibleCols.has('image') && <th scope="col" className="px-2 sm:px-3 py-2 font-medium">Product</th>}
               {visibleCols.has('info') && (
-                <th className="px-3 py-2 font-medium">
-                  <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'name-asc' ? 'name-desc' : 'name-asc', page: 1 })}`} className="inline-flex items-center gap-1">Info <span className="text-xs text-muted-foreground">{sortKey?.startsWith('name-') ? (sortKey === 'name-asc' ? '▲' : '▼') : ''}</span></Link>
+                <th scope="col" aria-sort={(sortKey?.startsWith('name-') ? (sortKey === 'name-asc' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium">
+                  <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'name-asc' ? 'name-desc' : 'name-asc', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Info <span className="text-xs text-muted-foreground">{sortKey?.startsWith('name-') ? (sortKey === 'name-asc' ? '▲' : '▼') : ''}</span></Link>
                 </th>
               )}
               {visibleCols.has('added') && (
-                <th className="px-3 py-2 font-medium">
-                  <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'oldest' ? 'newest' : 'oldest', page: 1 })}`} className="inline-flex items-center gap-1">Added <span className="text-xs text-muted-foreground">{sortKey === 'oldest' ? '▲' : sortKey === 'newest' ? '▼' : ''}</span></Link>
+                <th scope="col" aria-sort={(sortKey === 'oldest' ? 'ascending' : sortKey === 'newest' ? 'descending' : 'none')} className="px-3 py-2 font-medium">
+                  <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'oldest' ? 'newest' : 'oldest', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Added <span className="text-xs text-muted-foreground">{sortKey === 'oldest' ? '▲' : sortKey === 'newest' ? '▼' : ''}</span></Link>
                 </th>
               )}
-              {visibleCols.has('price') && (<th className="px-3 py-2 font-medium">
-                <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'price-high' ? 'price-low' : 'price-high', page: 1 })}`} className="inline-flex items-center gap-1">Price <span className="text-xs text-muted-foreground">{sortKey?.startsWith('price-') ? (sortKey === 'price-high' ? '▼' : '▲') : ''}</span></Link>
+              {visibleCols.has('price') && (<th scope="col" aria-sort={(sortKey?.startsWith('price-') ? (sortKey === 'price-low' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium text-right">
+                <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'price-high' ? 'price-low' : 'price-high', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Price <span className="text-xs text-muted-foreground">{sortKey?.startsWith('price-') ? (sortKey === 'price-high' ? '▼' : '▲') : ''}</span></Link>
               </th>)}
-              {visibleCols.has('stock') && (<th className="px-3 py-2 font-medium">
-                <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'stock-high' ? 'stock-low' : 'stock-high', page: 1 })}`} className="inline-flex items-center gap-1">Stock <span className="text-xs text-muted-foreground">{sortKey?.startsWith('stock-') ? (sortKey === 'stock-high' ? '▼' : '▲') : ''}</span></Link>
+              {visibleCols.has('stock') && (<th scope="col" aria-sort={(sortKey?.startsWith('stock-') ? (sortKey === 'stock-low' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium text-center">
+                <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'stock-high' ? 'stock-low' : 'stock-high', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Stock <span className="text-xs text-muted-foreground">{sortKey?.startsWith('stock-') ? (sortKey === 'stock-high' ? '▼' : '▲') : ''}</span></Link>
               </th>)}
-              {visibleCols.has('rating') && (<th className="px-3 py-2 font-medium">
-                <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'rating-high' ? 'rating-low' : 'rating-high', page: 1 })}`} className="inline-flex items-center gap-1">Rating <span className="text-xs text-muted-foreground">{sortKey?.startsWith('rating-') ? (sortKey === 'rating-high' ? '▼' : '▲') : ''}</span></Link>
+              {visibleCols.has('rating') && (<th scope="col" aria-sort={(sortKey?.startsWith('rating-') ? (sortKey === 'rating-low' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium text-center">
+                <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'rating-high' ? 'rating-low' : 'rating-high', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Rating <span className="text-xs text-muted-foreground">{sortKey?.startsWith('rating-') ? (sortKey === 'rating-high' ? '▼' : '▲') : ''}</span></Link>
               </th>)}
-              {visibleCols.has('actions') && <th className="px-2 sm:px-3 py-2 font-medium">Actions</th>}
+              {visibleCols.has('actions') && <th scope="col" className="px-2 sm:px-3 py-2 font-medium text-right">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {products.map((p) => {
               const id = p._id?.toString?.() || p._id;
+              const ratingVal = typeof p.product_rating !== 'undefined' ? Number(p.product_rating) : null;
+              const ratingMax = Number(p.product_max_rating || 5);
               return (
                 <tr key={id} className="border-t odd:bg-zinc-50/40 hover:bg-zinc-50">
                   <td className="px-2 py-2"><input form="bulkProductsForm" type="checkbox" name="ids" value={id} aria-label={`Select ${p.name}`} /></td>
@@ -511,7 +512,9 @@ export default async function ProductsTable(props) {
                           <img src={p.image} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
                         </div>
                       ) : (
-                        <div className="h-10 w-10 rounded bg-zinc-100" />
+                        <div className="h-10 w-10 rounded bg-zinc-100 flex items-center justify-center text-[10px] font-medium text-zinc-500">
+                          {(p?.name || '?').slice(0,1).toUpperCase()}
+                        </div>
                       )}
                     </td>
                   )}
@@ -519,7 +522,7 @@ export default async function ProductsTable(props) {
                     <td className="px-2 sm:px-3 py-2">
                       <div className="flex flex-col min-w-0">
                         <div className="font-medium line-clamp-1"><Link prefetch={false} href={`/dashboard/seller/products/${id}`} className="hover:underline">{p.name}</Link></div>
-                        <div className="text-[11px] text-muted-foreground line-clamp-1">{p.slug || p.sku || '—'}</div>
+                        <div className="text-[11px] text-muted-foreground line-clamp-1"><code className="font-mono text-[10px] bg-zinc-50 rounded px-1 py-0.5">{p.slug || p.sku || '—'}</code></div>
                       </div>
                     </td>
                   )}
@@ -527,7 +530,7 @@ export default async function ProductsTable(props) {
                     <td className="px-3 py-2 text-muted-foreground">{p.createdAt ? new Date(p.createdAt).toLocaleString() : ''}</td>
                   )}
                   {visibleCols.has('price') && (
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2 text-right">
                       {p.has_discount_price && Number(p.discount_price) > 0 ? (
                         <div className="flex items-center gap-2">
                           <span className="text-rose-600 font-semibold">{currencyFmt.format(Number(p.discount_price || 0))}</span>
@@ -539,7 +542,7 @@ export default async function ProductsTable(props) {
                     </td>
                   )}
                   {visibleCols.has('stock') && (
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2 text-center">
                       {typeof p.current_stock !== 'undefined' ? (
                         <div className="flex items-center gap-2">
                           <span className={`${Number(p.current_stock) <= 5 ? 'text-amber-700' : ''}`}>{p.current_stock}</span>
@@ -555,14 +558,16 @@ export default async function ProductsTable(props) {
                     </td>
                   )}
                   {visibleCols.has('rating') && (
-                    <td className="px-3 py-2">
-                      {typeof p.product_rating !== 'undefined' ? (
-                        <span className="text-xs">{p.product_rating}/{p.product_max_rating || 5} <span className="text-muted-foreground">({p.product_rating_count || 0})</span></span>
+                    <td className="px-3 py-2 text-center">
+                      {ratingVal !== null ? (
+                        <span className="text-[11px]" aria-label={`Rating ${ratingVal} out of ${ratingMax}`}>
+                          {ratingVal}/{ratingMax} <span className="text-muted-foreground">({p.product_rating_count || 0})</span>
+                        </span>
                       ) : '—'}
                     </td>
                   )}
                   {visibleCols.has('actions') && (
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2 text-right">
                       <RowActionsMenu title={`Actions – ${p.name}`}> 
                         <ul className="space-y-1">
                             <li>
@@ -634,7 +639,7 @@ export default async function ProductsTable(props) {
       </form>
 
       {/* Pagination (server component) */}
-      <PaginationServer
+    <PaginationServer
         basePath="/dashboard/seller/products"
         total={total}
         page={page}
@@ -643,17 +648,18 @@ export default async function ProductsTable(props) {
           search: q || undefined,
           from: fromStr || undefined,
           to: toStr || undefined,
-          sort: sortKey || undefined,
-          cols: colsParam || undefined,
+      sort: (sortKey && sortKey !== 'newest') ? sortKey : undefined,
+      cols: colsParam || undefined,
           inStock: sp?.inStock || undefined,
           hasDiscount: sp?.hasDiscount || undefined,
           minPrice: sp?.minPrice || undefined,
           maxPrice: sp?.maxPrice || undefined,
+      pageSize: (pageSize && Number(pageSize) !== 10) ? pageSize : undefined,
         }}
       />
-      <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-4">
-        <span>Total stock (filtered): {totals.stockSum}</span>
-        <span>Inventory value (filtered): {currencyFmt.format(Number(totals.inventoryValue || 0))}</span>
+      <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">Total stock: <b className="ml-1 text-emerald-900">{totals.stockSum}</b></span>
+        <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-700">Inventory value: <b className="ml-1 text-sky-900">{currencyFmt.format(Number(totals.inventoryValue || 0))}</b></span>
       </div>
     </div>
   );

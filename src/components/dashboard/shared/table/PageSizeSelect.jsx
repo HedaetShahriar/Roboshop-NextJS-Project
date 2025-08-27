@@ -5,11 +5,12 @@ export default function PageSizeSelect({ current, options }) {
     <select
       className="border rounded-md h-9 px-2 text-sm"
       value={String(current)}
-      onChange={(e) => {
+    onChange={(e) => {
         const next = e.target.value;
         const match = options.find(o => String(o.value) === String(next));
         if (match?.href) {
-          window.location.assign(match.href);
+      // Replace history entry to avoid polluting back stack for a simple size change
+      window.location.replace(match.href);
         }
       }}
     >
