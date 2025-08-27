@@ -14,6 +14,7 @@ import SelectAllOnPage from "./client/SelectAllOnPage";
 import { addProductAudit } from "@/lib/audit";
 import TableFilters from "@/components/dashboard/shared/table/TableFilters";
 import BulkModalTrigger from "./client/BulkModalTrigger";
+import PaginationServer from "@/components/dashboard/shared/table/PaginationServer";
 
 const currencyFmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 
@@ -26,7 +27,7 @@ export default async function ProductsTable(props) {
   const fromStr = (sp?.from || '').toString();
   const toStr = (sp?.to || '').toString();
   const sortKey = (sp?.sort || 'newest').toString();
-  const skip = (page - 1) * pageSize;
+  // const skip = (page - 1) * pageSize; // no longer needed; PaginationServer computes range
   const colsParam = (sp?.cols || '').toString();
   const allColsDefault = ['image','info','added','price','stock','rating','actions'];
   const scopeParam = (sp?.scope || '').toString();
@@ -245,27 +246,9 @@ export default async function ProductsTable(props) {
     return s ? `?${s}` : '';
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const showingFrom = total === 0 ? 0 : skip + 1;
-  const showingTo = Math.min(total, skip + products.length);
+  // totalPages handled inside PaginationServer
 
-  // Build compact page items with ellipses
-  const pageItems = (() => {
-    const items = [];
-    const win = 2; // how many pages around current
-    const add = (type, value = null) => items.push({ type, value }); // type: 'page' | 'ellipsis'
-    const pushPage = (p) => add('page', p);
-    if (totalPages <= 1) return items;
-    // Always show first
-    pushPage(1);
-    const start = Math.max(2, page - win);
-    const end = Math.min(totalPages - 1, page + win);
-    if (start > 2) add('ellipsis');
-    for (let p = start; p <= end; p++) pushPage(p);
-    if (end < totalPages - 1) add('ellipsis');
-    if (totalPages > 1) pushPage(totalPages);
-    return items;
-  })();
+  // page items now rendered by PaginationServer
 
   return (
     <div className="space-y-3">
@@ -650,47 +633,24 @@ export default async function ProductsTable(props) {
         )}
       </form>
 
-      {/* Pagination */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="text-xs sm:text-sm text-muted-foreground">Showing {showingFrom}–{showingTo} of {total}</div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-          {/* Page size */}
-          <form method="GET" action={`/dashboard/seller/products`} className="flex items-center gap-2">
-            <span className="text-xs sm:text-sm">Rows:</span>
-            <input type="hidden" name="search" value={q} />
-            {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
-            {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
-            {sortKey ? <input type="hidden" name="sort" value={sortKey} /> : null}
-            {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
-            <select name="pageSize" defaultValue={String(pageSize)} className="border rounded-md h-9 px-2 text-sm">
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
-            <button type="submit" className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Apply</button>
-          </form>
-          {/* Pager */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Link href={`/dashboard/seller/products${mkQS({ page: Math.max(1, page - 1) })}`} className={`h-8 px-2 rounded border text-xs sm:text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'bg-white hover:bg-zinc-50'}`}>Prev</Link>
-            <div className="flex items-center gap-1">
-              {pageItems.map((it, idx) => it.type === 'ellipsis' ? (
-                <span key={`e-${idx}`} className="px-2 text-xs sm:text-sm text-muted-foreground">…</span>
-              ) : (
-                <Link
-                  key={`p-${it.value}`}
-                  href={`/dashboard/seller/products${mkQS({ page: it.value })}`}
-                  aria-current={it.value === page ? 'page' : undefined}
-                  className={`h-8 min-w-8 px-2 rounded border text-center text-xs sm:text-sm inline-flex items-center justify-center ${it.value === page ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`}
-                >
-                  {it.value}
-                </Link>
-              ))}
-            </div>
-            <Link href={`/dashboard/seller/products${mkQS({ page: Math.min(totalPages, page + 1) })}`} className={`h-8 px-2 rounded border text-xs sm:text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'bg-white hover:bg-zinc-50'}`}>Next</Link>
-          </div>
-        </div>
-      </div>
+      {/* Pagination (server component) */}
+      <PaginationServer
+        basePath="/dashboard/seller/products"
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        query={{
+          search: q || undefined,
+          from: fromStr || undefined,
+          to: toStr || undefined,
+          sort: sortKey || undefined,
+          cols: colsParam || undefined,
+          inStock: sp?.inStock || undefined,
+          hasDiscount: sp?.hasDiscount || undefined,
+          minPrice: sp?.minPrice || undefined,
+          maxPrice: sp?.maxPrice || undefined,
+        }}
+      />
       <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-4">
         <span>Total stock (filtered): {totals.stockSum}</span>
         <span>Inventory value (filtered): {currencyFmt.format(Number(totals.inventoryValue || 0))}</span>
