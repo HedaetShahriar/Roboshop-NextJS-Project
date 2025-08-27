@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import getDb from "@/lib/mongodb";
 
 export async function getAuthedSession(opts = {}) {
   const { requireSeller = false } = opts;
@@ -39,3 +40,6 @@ export function notFound(message = "Not found") {
 export function serverError(message = "Internal Server Error") {
   return NextResponse.json({ error: message }, { status: 500 });
 }
+
+// Convenience re-export so API routes can import { getDb } from "@/lib/api"
+export { getDb };

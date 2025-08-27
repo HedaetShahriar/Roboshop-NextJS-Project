@@ -8,25 +8,36 @@ export async function GET(req) {
     if (sp.search && !sp.q) sp.q = sp.search;
     const where = buildProductsWhere(sp);
     const sortKey = (sp?.sort || 'newest').toString();
-    const limitParam = Number(sp?.limit || 5000);
-    const limit = Math.min(20000, Math.max(100, isNaN(limitParam) ? 5000 : limitParam));
+  const limitParam = Number(sp?.limit || 5000);
+  const limit = Math.min(20000, Math.max(100, isNaN(limitParam) ? 5000 : limitParam));
+  const page = Number(sp?.page);
+  const pageSizeParam = Number(sp?.pageSize);
+  const hasPage = !isNaN(page) && page > 0;
+  const pageSize = hasPage ? (isNaN(pageSizeParam) ? 20 : Math.min(100, Math.max(10, pageSizeParam))) : undefined;
+  const skip = hasPage ? (page - 1) * pageSize : 0;
 
     const db = await getDb();
     let products;
     if (sortKey === 'price-high' || sortKey === 'price-low') {
       const dir = sortKey === 'price-high' ? -1 : 1;
-      products = await db.collection('products').aggregate([
+      const pipeline = [
         { $match: where },
         { $addFields: { priceValue: { $toDouble: '$price' } } },
         { $sort: { priceValue: dir, createdAt: -1 } },
-        { $limit: limit },
-      ]).toArray();
+      ];
+      if (hasPage) pipeline.push({ $skip: skip }, { $limit: pageSize });
+      else pipeline.push({ $limit: limit });
+      products = await db.collection('products').aggregate(pipeline).toArray();
     } else {
       const sort = getProductsSort(sortKey);
       let cursor = db.collection('products')
         .find(where)
-        .sort(sort)
-        .limit(limit);
+        .sort(sort);
+      if (hasPage) {
+        cursor = cursor.skip(skip).limit(pageSize);
+      } else {
+        cursor = cursor.limit(limit);
+      }
       if (sortKey === 'name-asc' || sortKey === 'name-desc') {
         cursor = cursor.collation({ locale: 'en', strength: 2 });
       }

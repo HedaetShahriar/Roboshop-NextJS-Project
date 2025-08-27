@@ -4,15 +4,19 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { ObjectId } from "mongodb";
 import getDb from "@/lib/mongodb";
 import { revalidatePath } from "next/cache";
-import { getProductsAndTotal } from "@/lib/productsService";
+import { getProductsAndTotalCached as getProductsAndTotal, getProductsQuickStats } from "@/lib/productsService";
 import { buildProductsWhere } from "@/lib/productsQuery";
-import { redirect } from "next/navigation";
+import BulkActionsPanel from "./client/BulkActionsPanel";
+import RowActionsMenu from "./client/RowActionsMenu";
+import SavedViews from "./client/SavedViews";
+import SelectAllOnPage from "./client/SelectAllOnPage";
 
 const currencyFmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 
 export default async function ProductsTable(props) {
   const sp = props?.sp ?? props?.params ?? {};
   const { products, total, page, pageSize } = await getProductsAndTotal(sp);
+  const stats = await getProductsQuickStats(sp);
   const q = (sp?.search || sp?.q || '').toString().trim();
   const fromStr = (sp?.from || '').toString();
   const toStr = (sp?.to || '').toString();
@@ -20,27 +24,7 @@ export default async function ProductsTable(props) {
   const skip = (page - 1) * pageSize;
   const colsParam = (sp?.cols || '').toString();
   const allColsDefault = ['image','info','added','price','stock','rating','actions'];
-  // Preview support
-  const preview = (sp?.preview || '').toString() === '1';
   const scopeParam = (sp?.scope || '').toString();
-  let previewCount = null;
-  if (preview) {
-    try {
-      const db = await getDb();
-      let where;
-      if (scopeParam === 'filtered' || !scopeParam) {
-        where = buildProductsWhere(sp);
-      } else if (scopeParam === 'page') {
-        const { products: pageProducts } = await getProductsAndTotal(sp);
-        const ids = pageProducts.map(p => p._id);
-        where = { _id: { $in: ids } };
-      } else if (scopeParam === 'selected') {
-        // selected preview via query is not supported (no ids in URL)
-        where = { _id: { $in: [] } };
-      }
-      if (where) previewCount = await db.collection('products').countDocuments(where);
-    } catch {}
-  }
   const visibleCols = new Set(
     colsParam
       ? colsParam.split(',').map(s => s.trim()).filter(Boolean)
@@ -83,6 +67,19 @@ export default async function ProductsTable(props) {
     const db = await getDb();
     let _id; try { _id = new ObjectId(String(id)); } catch { return; }
     await db.collection('products').updateOne({ _id }, { $set: { price, has_discount_price: !!hasDiscount, discount_price: discount, updatedAt: new Date() } });
+    revalidatePath('/dashboard/seller/products');
+  }
+
+  async function clearDiscountSingle(formData) {
+    'use server';
+    const session = await getServerSession(authOptions);
+    const role = session?.user?.role || 'customer';
+    if (role === 'customer') return;
+    const id = formData.get('id');
+    if (!id) return;
+    const db = await getDb();
+    let _id; try { _id = new ObjectId(String(id)); } catch { return; }
+    await db.collection('products').updateOne({ _id }, { $set: { has_discount_price: false, discount_price: 0, updatedAt: new Date() } });
     revalidatePath('/dashboard/seller/products');
   }
 
@@ -193,6 +190,15 @@ export default async function ProductsTable(props) {
           updatedAt: now
         }}
       ]);
+    } else if (action === 'priceRound99') {
+      if (dryRun) return;
+      // Compute floor to integer - 0.01 => xx.99
+      await db.collection('products').updateMany(tf, [
+        { $set: {
+          price: { $subtract: [ { $toInt: { $ifNull: ['$price', 0] } }, 0.01 ] },
+          updatedAt: now
+        }}
+      ]);
     } else if (action === 'deleteProducts') {
       if (confirmDelete !== 'DELETE') return;
       if (dryRun) return;
@@ -227,8 +233,8 @@ export default async function ProductsTable(props) {
 
   return (
     <div className="space-y-3">
-      {/* Controls row: Columns dropdown + Export */}
-      <div className="flex flex-wrap items-center gap-2 justify-between">
+  {/* Controls row: Columns dropdown + Export + Saved Views */}
+  <div className="flex flex-wrap items-center gap-2 justify-between">
         <div className="flex items-center gap-2">
           <details className="relative">
             <summary className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50 cursor-pointer select-none inline-flex items-center gap-1">Columns <span className="text-[10px]">▾</span></summary>
@@ -252,10 +258,18 @@ export default async function ProductsTable(props) {
               </div>
             </div>
           </details>
+          <SavedViews />
         </div>
         <div className="flex items-center gap-2">
           <Link href={`/api/seller/products/export${mkQS({})}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Export CSV</Link>
+          <Link href={`/api/seller/products/export${mkQS({ page, pageSize })}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Export current page</Link>
         </div>
+      </div>
+
+      {/* Quick stats for current filters */}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">In stock: {stats.inStock}</span>
+        <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-700">On discount: {stats.discounted}</span>
       </div>
 
   {/* Bulk actions + table (single form) */}
@@ -275,71 +289,8 @@ export default async function ProductsTable(props) {
         <input type="hidden" name="pageSize" value={String(pageSize)} />
 
         {products.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-md border bg-zinc-50 p-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">Bulk action:</span>
-            <select name="bulkAction" className="h-9 rounded border px-2 text-xs">
-              <optgroup label="Stock">
-                <option value="stockInc">Increase stock by…</option>
-                <option value="stockDec">Decrease stock by…</option>
-                <option value="stockSet">Set stock to…</option>
-              </optgroup>
-              <optgroup label="Discount">
-                <option value="setDiscount">Set discount price…</option>
-                <option value="discountPercent">Set discount by %…</option>
-                <option value="clearDiscount">Clear discount</option>
-              </optgroup>
-              <optgroup label="Pricing">
-                <option value="priceSet">Set price to…</option>
-              </optgroup>
-              <optgroup label="Danger">
-                <option value="deleteProducts">Delete products</option>
-              </optgroup>
-            </select>
-            <span className="text-xs text-muted-foreground">Scope:</span>
-            <label className="inline-flex items-center gap-1 text-xs"><input type="radio" name="scope" value="selected" defaultChecked /> Selected</label>
-            <label className="inline-flex items-center gap-1 text-xs"><input type="radio" name="scope" value="page" /> Current page</label>
-            <label className="inline-flex items-center gap-1 text-xs"><input type="radio" name="scope" value="filtered" /> All filtered</label>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <input name="bulkStockDelta" placeholder="Qty delta" className="h-9 px-3 rounded border text-xs w-24" />
-            <input name="bulkStockSet" placeholder="Stock value" className="h-9 px-3 rounded border text-xs w-28" />
-            <input name="bulkDiscountPrice" placeholder="Discount price" className="h-9 px-3 rounded border text-xs w-32" />
-            <input name="bulkDiscountPercent" placeholder="Discount %" className="h-9 px-3 rounded border text-xs w-28" />
-            <input name="bulkPriceSet" placeholder="New price" className="h-9 px-3 rounded border text-xs w-28" />
-            <input name="confirmDelete" placeholder="Type DELETE to confirm" className="h-9 px-3 rounded border text-xs w-44" />
-            <label className="inline-flex items-center gap-2 text-xs ml-auto">
-              <input type="checkbox" name="dryRun" value="1" /> Dry run
-            </label>
-            <button type="submit" className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Apply</button>
-          </div>
-          <div className="text-[11px] text-muted-foreground" role="note">
-            Hints: use Qty delta for increase/decrease; Discount % applies across items; Set price will clear discount if 
-            <span aria-hidden>≥</span> current discount.
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <form method="GET" action={`/dashboard/seller/products`} className="flex items-center gap-2">
-              <input type="hidden" name="preview" value="1" />
-              <input type="hidden" name="scope" value="filtered" />
-              <input type="hidden" name="search" value={q} />
-              {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
-              {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
-              {sortKey ? <input type="hidden" name="sort" value={sortKey} /> : null}
-              {sp?.inStock ? <input type="hidden" name="inStock" value={sp.inStock} /> : null}
-              {sp?.hasDiscount ? <input type="hidden" name="hasDiscount" value={sp.hasDiscount} /> : null}
-              {sp?.minPrice ? <input type="hidden" name="minPrice" value={sp.minPrice} /> : null}
-              {sp?.maxPrice ? <input type="hidden" name="maxPrice" value={sp.maxPrice} /> : null}
-              {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
-              <button type="submit" className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Preview all filtered</button>
-            </form>
-            {preview && (
-              <div className="text-xs text-muted-foreground">Preview: {typeof previewCount === 'number' ? previewCount : '…'} items</div>
-            )}
-            {preview && (
-              <Link href={`/dashboard/seller/products${mkQS({ preview: '', scope: '', pcount: '' })}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Clear</Link>
-            )}
-          </div>
-        </div>) }
+          <BulkActionsPanel defaultScope={(!scopeParam || scopeParam === 'selected') ? 'selected' : scopeParam} pageCount={products.length} total={total} />
+        )}
 
         {/* Mobile cards */}
         <div className="sm:hidden space-y-2">
@@ -384,16 +335,65 @@ export default async function ProductsTable(props) {
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Link href={`/dashboard/seller/products/${id}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">View</Link>
                   <Link href={`/dashboard/seller/products/${id}/edit`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Edit</Link>
-                  <form action={adjustStock}>
-                    <input type="hidden" name="id" value={id} />
-                    <input type="hidden" name="delta" value="1" />
-                    <button type="submit" className="h-8 px-2 rounded border text-xs bg-white hover:bg-zinc-50">+1</button>
-                  </form>
-                  <form action={adjustStock}>
-                    <input type="hidden" name="id" value={id} />
-                    <input type="hidden" name="delta" value="-1" />
-                    <button type="submit" className="h-8 px-2 rounded border text-xs bg-white hover:bg-zinc-50">-1</button>
-                  </form>
+                  <RowActionsMenu title={`Actions – ${p.name}`}>
+                    <ul className="space-y-1">
+                      <li>
+                        <Link href={`/dashboard/seller/products/${id}`} className="block rounded px-2 py-1 hover:bg-zinc-50">View</Link>
+                      </li>
+                      <li>
+                        <Link href={`/dashboard/seller/products/${id}/edit`} className="block rounded px-2 py-1 hover:bg-zinc-50">Edit</Link>
+                      </li>
+                      <li className="my-1 h-px bg-zinc-100" />
+                      <li className="flex items-center gap-2 px-2">
+                        <form action={adjustStock} className="inline">
+                          <input type="hidden" name="id" value={id} />
+                          <input type="hidden" name="delta" value="1" />
+                          <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">+1</button>
+                        </form>
+                        <form action={adjustStock} className="inline">
+                          <input type="hidden" name="id" value={id} />
+                          <input type="hidden" name="delta" value="-1" />
+                          <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">-1</button>
+                        </form>
+                        <form action={adjustStock} className="ml-auto inline-flex items-center gap-1">
+                          <input type="hidden" name="id" value={id} />
+                          <input name="delta" type="number" step="1" className="h-7 w-16 rounded border px-2" placeholder="Δ" />
+                          <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">Apply</button>
+                        </form>
+                      </li>
+                      <li className="my-1 h-px bg-zinc-100" />
+                      <li>
+                        <details>
+                          <summary className="cursor-pointer select-none rounded px-2 py-1 hover:bg-zinc-50">Pricing editor</summary>
+                          <form action={updatePricing} className="mt-2 grid grid-cols-2 gap-2 p-2 border rounded bg-white">
+                            <input type="hidden" name="id" value={id} />
+                            <label className="flex flex-col gap-1">
+                              <span className="text-[10px] text-muted-foreground">Price</span>
+                              <input name="price" type="number" step="0.01" min="0.01" defaultValue={Number(p.price || 0)} className="h-8 px-2 rounded border text-xs" />
+                            </label>
+                            <label className="flex flex-col gap-1">
+                              <span className="text-[10px] text-muted-foreground">Discount</span>
+                              <input name="discountPrice" type="number" step="0.01" min="0" defaultValue={Number(p.discount_price || 0)} className="h-8 px-2 rounded border text-xs" />
+                            </label>
+                            <label className="col-span-2 inline-flex items-center gap-2 text-[12px]">
+                              <input type="checkbox" name="hasDiscount" defaultChecked={!!p.has_discount_price} /> Has discount
+                            </label>
+                            <div className="col-span-2 flex items-center justify-end">
+                              <button type="submit" className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Save</button>
+                            </div>
+                          </form>
+                        </details>
+                      </li>
+                      {p.has_discount_price ? (
+                        <li>
+                          <form action={clearDiscountSingle} className="px-2">
+                            <input type="hidden" name="id" value={id} />
+                            <button type="submit" className="w-full text-left rounded px-2 py-1 hover:bg-zinc-50">Clear discount</button>
+                          </form>
+                        </li>
+                      ) : null}
+                    </ul>
+                  </RowActionsMenu>
                   {p.has_discount_price && Number(p.discount_price) > 0 ? (
                     <span className="ml-auto inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] text-rose-700">On sale</span>
                   ) : null}
@@ -403,7 +403,7 @@ export default async function ProductsTable(props) {
           })}
         </div>
 
-        {products.length === 0 ? (
+  {products.length === 0 ? (
           <div className="rounded-md border bg-white p-6 text-center text-sm text-muted-foreground">
             <div>No products match your filters.</div>
             <div className="mt-3 flex items-center justify-center gap-2">
@@ -412,20 +412,22 @@ export default async function ProductsTable(props) {
             </div>
           </div>
         ) : (
-        <div className="hidden sm:block overflow-auto rounded border bg-white max-h-[65vh]">
-        <table className="min-w-full text-xs sm:text-sm">
+  <div className="hidden sm:block overflow-auto rounded border bg-white max-h-[65vh]">
+  <table className="min-w-full table-fixed text-xs sm:text-sm">
           <thead className="sticky top-0 z-[1] bg-white shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.06)]">
             <tr className="text-left">
-              <th className="px-2 py-2 text-[11px] text-muted-foreground">Sel</th>
+              <th className="px-2 py-2 text-[11px] text-muted-foreground"><SelectAllOnPage /></th>
               {visibleCols.has('image') && <th className="px-2 sm:px-3 py-2 font-medium">Product</th>}
               {visibleCols.has('info') && (
                 <th className="px-3 py-2 font-medium">
                   <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'name-asc' ? 'name-desc' : 'name-asc', page: 1 })}`} className="inline-flex items-center gap-1">Info <span className="text-xs text-muted-foreground">{sortKey?.startsWith('name-') ? (sortKey === 'name-asc' ? '▲' : '▼') : ''}</span></Link>
                 </th>
               )}
-              <th className="px-3 py-2 font-medium">
-                <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'oldest' ? 'newest' : 'oldest', page: 1 })}`} className="inline-flex items-center gap-1">Added <span className="text-xs text-muted-foreground">{sortKey === 'oldest' ? '▲' : sortKey === 'newest' ? '▼' : ''}</span></Link>
-              </th>
+              {visibleCols.has('added') && (
+                <th className="px-3 py-2 font-medium">
+                  <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'oldest' ? 'newest' : 'oldest', page: 1 })}`} className="inline-flex items-center gap-1">Added <span className="text-xs text-muted-foreground">{sortKey === 'oldest' ? '▲' : sortKey === 'newest' ? '▼' : ''}</span></Link>
+                </th>
+              )}
               {visibleCols.has('price') && (<th className="px-3 py-2 font-medium">
                 <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'price-high' ? 'price-low' : 'price-high', page: 1 })}`} className="inline-flex items-center gap-1">Price <span className="text-xs text-muted-foreground">{sortKey?.startsWith('price-') ? (sortKey === 'price-high' ? '▼' : '▲') : ''}</span></Link>
               </th>)}
@@ -449,7 +451,7 @@ export default async function ProductsTable(props) {
                       {p.image ? (
                         <div className="relative h-10 w-10 overflow-hidden rounded bg-zinc-100">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={p.image} alt={p.name} className="h-full w-full object-cover" />
+                          <img src={p.image} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
                         </div>
                       ) : (
                         <div className="h-10 w-10 rounded bg-zinc-100" />
@@ -459,12 +461,14 @@ export default async function ProductsTable(props) {
                   {visibleCols.has('info') && (
                     <td className="px-2 sm:px-3 py-2">
                       <div className="flex flex-col min-w-0">
-                        <div className="font-medium line-clamp-1"><Link href={`/dashboard/seller/products/${id}`} className="hover:underline">{p.name}</Link></div>
+                        <div className="font-medium line-clamp-1"><Link prefetch={false} href={`/dashboard/seller/products/${id}`} className="hover:underline">{p.name}</Link></div>
                         <div className="text-[11px] text-muted-foreground line-clamp-1">{p.slug || p.sku || '—'}</div>
                       </div>
                     </td>
                   )}
-                  <td className="px-3 py-2 text-muted-foreground">{p.createdAt ? new Date(p.createdAt).toLocaleString() : ''}</td>
+                  {visibleCols.has('added') && (
+                    <td className="px-3 py-2 text-muted-foreground">{p.createdAt ? new Date(p.createdAt).toLocaleString() : ''}</td>
+                  )}
                   {visibleCols.has('price') && (
                     <td className="px-3 py-2">
                       {p.has_discount_price && Number(p.discount_price) > 0 ? (
@@ -502,42 +506,65 @@ export default async function ProductsTable(props) {
                   )}
                   {visibleCols.has('actions') && (
                     <td className="px-3 py-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link href={`/dashboard/seller/products/${id}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">View</Link>
-                        <Link href={`/dashboard/seller/products/${id}/edit`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Edit</Link>
-                        {/* Quick stock +/- */}
-                        <form action={adjustStock}>
-                          <input type="hidden" name="id" value={id} />
-                          <input type="hidden" name="delta" value="1" />
-                          <button type="submit" className="h-8 px-2 rounded border text-xs bg-white hover:bg-zinc-50">+1</button>
-                        </form>
-                        <form action={adjustStock}>
-                          <input type="hidden" name="id" value={id} />
-                          <input type="hidden" name="delta" value="-1" />
-                          <button type="submit" className="h-8 px-2 rounded border text-xs bg-white hover:bg-zinc-50">-1</button>
-                        </form>
-                        {/* Inline pricing editor */}
-                        <details className="text-xs">
-                          <summary className="cursor-pointer select-none inline-flex items-center rounded border px-2 py-1">Pricing</summary>
-                          <form action={updatePricing} className="mt-2 grid grid-cols-2 gap-2 p-2 border rounded bg-white">
-                            <input type="hidden" name="id" value={id} />
-                            <label className="flex flex-col gap-1">
-                              <span className="text-[10px] text-muted-foreground">Price</span>
-                              <input name="price" defaultValue={Number(p.price || 0)} className="h-8 px-2 rounded border text-xs" />
-                            </label>
-                            <label className="flex flex-col gap-1">
-                              <span className="text-[10px] text-muted-foreground">Discount</span>
-                              <input name="discountPrice" defaultValue={Number(p.discount_price || 0)} className="h-8 px-2 rounded border text-xs" />
-                            </label>
-                            <label className="col-span-2 inline-flex items-center gap-2 text-[12px]">
-                              <input type="checkbox" name="hasDiscount" defaultChecked={!!p.has_discount_price} /> Has discount
-                            </label>
-                            <div className="col-span-2 flex items-center justify-end">
-                              <button type="submit" className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Save</button>
-                            </div>
-                          </form>
-                        </details>
-                      </div>
+                      <RowActionsMenu title={`Actions – ${p.name}`}> 
+                        <ul className="space-y-1">
+                            <li>
+                              <Link href={`/dashboard/seller/products/${id}`} className="block rounded px-2 py-1 hover:bg-zinc-50">View</Link>
+                            </li>
+                            <li>
+                              <Link href={`/dashboard/seller/products/${id}/edit`} className="block rounded px-2 py-1 hover:bg-zinc-50">Edit</Link>
+                            </li>
+                            <li className="my-1 h-px bg-zinc-100" />
+                            <li className="flex items-center gap-2 px-2">
+                              <form action={adjustStock} className="inline">
+                                <input type="hidden" name="id" value={id} />
+                                <input type="hidden" name="delta" value="1" />
+                                <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">+1</button>
+                              </form>
+                              <form action={adjustStock} className="inline">
+                                <input type="hidden" name="id" value={id} />
+                                <input type="hidden" name="delta" value="-1" />
+                                <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">-1</button>
+                              </form>
+                              <form action={adjustStock} className="ml-auto inline-flex items-center gap-1">
+                                <input type="hidden" name="id" value={id} />
+                                <input name="delta" type="number" step="1" className="h-7 w-16 rounded border px-2" placeholder="Δ" />
+                                <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">Apply</button>
+                              </form>
+                            </li>
+                            <li className="my-1 h-px bg-zinc-100" />
+                            <li>
+                              <details>
+                                <summary className="cursor-pointer select-none rounded px-2 py-1 hover:bg-zinc-50">Pricing editor</summary>
+                                <form action={updatePricing} className="mt-2 grid grid-cols-2 gap-2 p-2 border rounded bg-white">
+                                  <input type="hidden" name="id" value={id} />
+                                  <label className="flex flex-col gap-1">
+                                    <span className="text-[10px] text-muted-foreground">Price</span>
+                                    <input name="price" type="number" step="0.01" min="0.01" defaultValue={Number(p.price || 0)} className="h-8 px-2 rounded border text-xs" />
+                                  </label>
+                                  <label className="flex flex-col gap-1">
+                                    <span className="text-[10px] text-muted-foreground">Discount</span>
+                                    <input name="discountPrice" type="number" step="0.01" min="0" defaultValue={Number(p.discount_price || 0)} className="h-8 px-2 rounded border text-xs" />
+                                  </label>
+                                  <label className="col-span-2 inline-flex items-center gap-2 text-[12px]">
+                                    <input type="checkbox" name="hasDiscount" defaultChecked={!!p.has_discount_price} /> Has discount
+                                  </label>
+                                  <div className="col-span-2 flex items-center justify-end">
+                                    <button type="submit" className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Save</button>
+                                  </div>
+                                </form>
+                              </details>
+                            </li>
+                            {p.has_discount_price ? (
+                              <li>
+                                <form action={clearDiscountSingle} className="px-2">
+                                  <input type="hidden" name="id" value={id} />
+                                  <button type="submit" className="w-full text-left rounded px-2 py-1 hover:bg-zinc-50">Clear discount</button>
+                                </form>
+                              </li>
+                            ) : null}
+              </ul>
+            </RowActionsMenu>
                     </td>
                   )}
                 </tr>

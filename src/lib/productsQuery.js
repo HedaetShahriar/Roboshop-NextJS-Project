@@ -52,7 +52,7 @@ export function getProductsSort(sortKey = 'newest') {
 
 export function getPageAndSize(sp = {}) {
   const page = Math.max(1, Number((sp?.page || '1')));
-  const rawSize = Number((sp?.pageSize || '20'));
-  const pageSize = Math.min(100, Math.max(10, isNaN(rawSize) ? 20 : rawSize));
+  const rawSize = Number((sp?.pageSize || '15'));
+  const pageSize = Math.min(100, Math.max(5, isNaN(rawSize) ? 15 : rawSize));
   return { page, pageSize };
 }

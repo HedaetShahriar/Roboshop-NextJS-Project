@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start",
-    "lint": "eslint"
+  "dev": "next dev --turbopack",
+  "build": "next build",
+  "start": "next start",
+  "lint": "eslint",
+  "db:indexes": "node ./scripts/ensureIndexes.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.6",
