@@ -19,6 +19,7 @@ function TableFilters({
     searchPlaceholder,
     rightActions,
     advancedExtra,
+    persistentExtra,
     counts, // optional: status counts { all, processing, packed, ... }
     title,
     subtitle,
@@ -108,12 +109,12 @@ function TableFilters({
     ), [sortOptions]);
 
     return (
-        <div className="rounded-xl border bg-card p-4 md:p-6 shadow-sm">
+        <div className="space-y-3">
             {/* Title + Advanced toggle */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
                     <h2 className="text-lg font-bold tracking-tight">{title || 'Search & Filter'}</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground">
                         {subtitle || 'Find items with advanced filtering'}
                     </p>
                 </div>
@@ -286,10 +287,11 @@ function TableFilters({
                 </div>
             </div>
 
+
             {/* Primary row: Search */}
-            <div className="mt-4 grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-3">
                 {cfg.search && (
-                    <form className="flex items-center gap-2 w-full" onSubmit={(e) => { 
+                    <form className="flex items-center gap-3 w-full" onSubmit={(e) => { 
                         e.preventDefault(); 
                         if ((search ?? '') !== (localSearch ?? '')) {
                             setFilters({ search: localSearch });
@@ -325,6 +327,7 @@ function TableFilters({
                     </form>
                 )}
 
+
                 {/* Status quick filters bar */}
                 {cfg.showStatusBar && (
                     <div className="flex items-center gap-2 overflow-x-auto flex-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
@@ -354,11 +357,16 @@ function TableFilters({
             </div>
 
             {/* Action row */}
-            <div className="mt-4 flex flex-col md:flex-row items-center justify-end gap-2">
-                <Button onClick={() => (resetFilters ? resetFilters() : setFilters({ search: '', from: '', to: '', sort: '' }))} size="sm" variant="outline" className="font-medium">
-                    Clear All Filters
-                </Button>
-                {rightActions}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    {persistentExtra ?? null}
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button onClick={() => (resetFilters ? resetFilters() : setFilters({ search: '', from: '', to: '', sort: '' }))} size="sm" variant="outline" className="font-medium">
+                        Clear All Filters
+                    </Button>
+                    {rightActions}
+                </div>
             </div>
         </div>
     );

@@ -10,6 +10,7 @@ export function buildProductsWhere(sp = {}) {
   // product extras
   const inStock = sp?.inStock ? true : false;
   const hasDiscount = sp?.hasDiscount ? true : false;
+  const lowStock = sp?.lowStock ? true : false;
   const minPrice = sp?.minPrice !== undefined && sp?.minPrice !== '' ? Number(sp.minPrice) : undefined;
   const maxPrice = sp?.maxPrice !== undefined && sp?.maxPrice !== '' ? Number(sp.maxPrice) : undefined;
   if (q) {
@@ -21,6 +22,7 @@ export function buildProductsWhere(sp = {}) {
     ];
   }
   if (inStock) where.current_stock = { $gt: 0 };
+  if (lowStock) where.current_stock = { ...(where.current_stock || {}), $gt: 0, $lte: 5 };
   if (hasDiscount) where.has_discount_price = true;
   if (minPrice !== undefined || maxPrice !== undefined) {
     const price = {};

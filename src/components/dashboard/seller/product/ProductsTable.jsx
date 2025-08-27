@@ -4,12 +4,16 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { ObjectId } from "mongodb";
 import getDb from "@/lib/mongodb";
 import { revalidatePath } from "next/cache";
-import { getProductsAndTotalCached as getProductsAndTotal, getProductsQuickStats } from "@/lib/productsService";
+import { getProductsAndTotalCached as getProductsAndTotal, getProductsQuickStats, getProductsFilteredTotals } from "@/lib/productsService";
 import { buildProductsWhere } from "@/lib/productsQuery";
 import BulkActionsPanel from "./client/BulkActionsPanel";
 import RowActionsMenu from "./client/RowActionsMenu";
 import SavedViews from "./client/SavedViews";
+import SavedViewsServer from "./client/SavedViewsServer";
 import SelectAllOnPage from "./client/SelectAllOnPage";
+import { addProductAudit } from "@/lib/audit";
+import TableFilters from "@/components/dashboard/shared/table/TableFilters";
+import BulkModalTrigger from "./client/BulkModalTrigger";
 
 const currencyFmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 
@@ -17,6 +21,7 @@ export default async function ProductsTable(props) {
   const sp = props?.sp ?? props?.params ?? {};
   const { products, total, page, pageSize } = await getProductsAndTotal(sp);
   const stats = await getProductsQuickStats(sp);
+  const totals = await getProductsFilteredTotals(sp);
   const q = (sp?.search || sp?.q || '').toString().trim();
   const fromStr = (sp?.from || '').toString();
   const toStr = (sp?.to || '').toString();
@@ -88,7 +93,7 @@ export default async function ProductsTable(props) {
     const session = await getServerSession(authOptions);
     const role = session?.user?.role || 'customer';
     if (role === 'customer') return;
-    const action = formData.get('bulkAction');
+  const action = formData.get('bulkAction');
     const scope = (formData.get('scope') || 'selected').toString(); // selected | page | filtered
     const db = await getDb();
     const now = new Date();
@@ -132,9 +137,9 @@ export default async function ProductsTable(props) {
       return list.length ? { _id: { $in: list } } : null;
     };
 
-    if (!action) return;
+  if (!action) return;
 
-    // Helpers for choosing the final filter (selected/page vs filtered)
+  // Helpers for choosing the final filter (selected/page vs filtered)
     const targetFilter = () => (filter ? filter : idsFilter());
     const tf = targetFilter();
     if (!tf) return;
@@ -148,7 +153,7 @@ export default async function ProductsTable(props) {
     const confirmDelete = (formData.get('confirmDelete') || '').toString();
 
     const dryRun = (formData.get('dryRun') || '').toString() === '1';
-    // Execute
+  // Execute
     if (action === 'stockInc' || action === 'stockDec') {
       const delta = isNaN(stockDeltaRaw) ? 0 : (action === 'stockDec' ? -Math.abs(stockDeltaRaw) : Math.abs(stockDeltaRaw));
       if (delta === 0) return;
@@ -204,6 +209,19 @@ export default async function ProductsTable(props) {
       if (dryRun) return;
       await db.collection('products').deleteMany(tf);
     }
+    // Audit (best-effort)
+    try {
+      await addProductAudit({
+        userEmail: session?.user?.email,
+        action: String(action),
+        scope,
+        ids: Array.isArray(ids) ? ids : [],
+        filters: filter || {},
+        params: {
+          stockDeltaRaw, stockSetRaw, discountPriceRaw, discountPercentRaw, priceSetRaw,
+        }
+      });
+    } catch {}
     revalidatePath('/dashboard/seller/products');
   }
 
@@ -231,50 +249,110 @@ export default async function ProductsTable(props) {
   const showingFrom = total === 0 ? 0 : skip + 1;
   const showingTo = Math.min(total, skip + products.length);
 
+  // Build compact page items with ellipses
+  const pageItems = (() => {
+    const items = [];
+    const win = 2; // how many pages around current
+    const add = (type, value = null) => items.push({ type, value }); // type: 'page' | 'ellipsis'
+    const pushPage = (p) => add('page', p);
+    if (totalPages <= 1) return items;
+    // Always show first
+    pushPage(1);
+    const start = Math.max(2, page - win);
+    const end = Math.min(totalPages - 1, page + win);
+    if (start > 2) add('ellipsis');
+    for (let p = start; p <= end; p++) pushPage(p);
+    if (end < totalPages - 1) add('ellipsis');
+    if (totalPages > 1) pushPage(totalPages);
+    return items;
+  })();
+
   return (
     <div className="space-y-3">
-  {/* Controls row: Columns dropdown + Export + Saved Views */}
-  <div className="flex flex-wrap items-center gap-2 justify-between">
-        <div className="flex items-center gap-2">
-          <details className="relative">
-            <summary className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50 cursor-pointer select-none inline-flex items-center gap-1">Columns <span className="text-[10px]">▾</span></summary>
-            <div className="absolute left-0 mt-2 w-56 rounded-md border bg-white shadow-md p-2 z-10">
-              <ul className="max-h-64 overflow-auto">
-                {allColsDefault.map((c) => {
-                  const nextCols = (() => { const set = new Set(visibleCols); if (set.has(c)) set.delete(c); else set.add(c); return Array.from(set).join(','); })();
-                  return (
-                    <li key={c}>
-                      <Link href={`/dashboard/seller/products${mkQS({ cols: nextCols, page: 1 })}`} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-zinc-50">
-                        <input type="checkbox" readOnly checked={visibleCols.has(c)} className="h-4 w-4" />
-                        <span className="capitalize text-sm">{c}</span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="mt-2 flex items-center justify-between gap-2 px-1">
-                <Link href={`/dashboard/seller/products${mkQS({ cols: allColsDefault.join(','), page: 1 })}`} className="text-xs text-zinc-600 hover:underline">Show all</Link>
-                <Link href={`/dashboard/seller/products${mkQS({ cols: '', page: 1 })}`} className="text-xs text-zinc-600 hover:underline">Hide all</Link>
+      <div>
+        <TableFilters
+        title="Products"
+        subtitle="Filter, sort, and bulk manage in one place"
+        config={{ showStatusBar: false, showInStock: true, showHasDiscount: true, showPriceRange: true }}
+        sortOptions={[
+          { value: 'newest', label: 'Newest first' },
+          { value: 'oldest', label: 'Oldest first' },
+          { value: 'name-asc', label: 'Name A→Z' },
+          { value: 'name-desc', label: 'Name Z→A' },
+          { value: 'price-high', label: 'Price: high → low' },
+          { value: 'price-low', label: 'Price: low → high' },
+          { value: 'stock-high', label: 'Stock: high → low' },
+          { value: 'stock-low', label: 'Stock: low → high' },
+          { value: 'rating-high', label: 'Rating: high → low' },
+          { value: 'rating-low', label: 'Rating: low → high' },
+        ]}
+        searchPlaceholder="Search products by name, SKU, category"
+        rightActions={(
+          <div className="flex items-center gap-2">
+            <BulkModalTrigger formId="bulkProductsForm" scope={(!scopeParam || scopeParam === 'selected') ? 'selected' : scopeParam} pageCount={products.length} total={total} />
+            <details className="relative">
+              <summary className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50 cursor-pointer select-none inline-flex items-center gap-1">Display <span className="text-[10px]">▾</span></summary>
+              <div className="absolute right-0 mt-2 w-[min(92vw,420px)] rounded-md border bg-white shadow-md p-3 z-10">
+                <div>
+                  <div className="text-[11px] font-medium text-muted-foreground px-1 mb-1">Columns</div>
+                  <ul className="max-h-56 overflow-auto">
+                    {allColsDefault.map((c) => {
+                      const nextCols = (() => { const set = new Set(visibleCols); if (set.has(c)) set.delete(c); else set.add(c); return Array.from(set).join(','); })();
+                      return (
+                        <li key={c}>
+                          <Link href={`/dashboard/seller/products${mkQS({ cols: nextCols, page: 1 })}`} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-zinc-50">
+                            <input type="checkbox" readOnly checked={visibleCols.has(c)} className="h-4 w-4" />
+                            <span className="capitalize text-sm">{c}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="mt-2 flex items-center justify-between gap-2 px-1">
+                    <Link href={`/dashboard/seller/products${mkQS({ cols: allColsDefault.join(','), page: 1 })}`} className="text-xs text-zinc-600 hover:underline">Show all</Link>
+                    <Link href={`/dashboard/seller/products${mkQS({ cols: '', page: 1 })}`} className="text-xs text-zinc-600 hover:underline">Hide all</Link>
+                  </div>
+                </div>
+                <div className="my-2 h-px bg-zinc-100" />
+                <div className="space-y-2">
+                  <div className="text-[11px] font-medium text-muted-foreground px-1">Saved views</div>
+                  <div className="flex flex-col gap-2">
+                    <SavedViews />
+                    <SavedViewsServer />
+                  </div>
+                </div>
               </div>
-            </div>
-          </details>
-          <SavedViews />
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/api/seller/products/export${mkQS({})}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Export CSV</Link>
-          <Link href={`/api/seller/products/export${mkQS({ page, pageSize })}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Export current page</Link>
-        </div>
+            </details>
+            <details className="relative">
+              <summary className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50 cursor-pointer select-none inline-flex items-center gap-1">Export <span className="text-[10px]">▾</span></summary>
+              <div className="absolute right-0 mt-2 w-44 rounded-md border bg-white shadow-md p-2 z-10">
+                <ul>
+                  <li>
+                    <Link href={`/api/seller/products/export${mkQS({})}`} className="block rounded px-2 py-1 hover:bg-zinc-50 text-xs">All (filtered)</Link>
+                  </li>
+                  <li>
+                    <Link href={`/api/seller/products/export${mkQS({ page, pageSize })}`} className="block rounded px-2 py-1 hover:bg-zinc-50 text-xs">Current page</Link>
+                  </li>
+                </ul>
+              </div>
+            </details>
+          </div>
+        )}
+        advancedExtra={null}
+        persistentExtra={(
+          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">In <b className="ml-1 text-emerald-900">{stats.inStock}</b></span>
+            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-700">Low <b className="ml-1 text-amber-900">{stats.lowStock}</b></span>
+            <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-700">Out <b className="ml-1 text-rose-900">{stats.outOfStock}</b></span>
+            <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-violet-700">Sale <b className="ml-1 text-violet-900">{stats.discounted}</b></span>
+          </div>
+        )}
+        />
       </div>
 
-      {/* Quick stats for current filters */}
-      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">In stock: {stats.inStock}</span>
-        <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-700">On discount: {stats.discounted}</span>
-      </div>
-
-  {/* Bulk actions + table (single form) */}
-      <form action={bulkProducts} className="space-y-2">
-  {/* carry current filters for scope targeting and dry run */}
+      {/* Bulk form wraps the table so selection works */}
+      <form id="bulkProductsForm" action={bulkProducts} className="space-y-2">
+        {/* carry current filters for scope targeting and dry run */}
         <input type="hidden" name="search" value={q} />
         {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
         {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
@@ -284,13 +362,9 @@ export default async function ProductsTable(props) {
         {sp?.hasDiscount ? <input type="hidden" name="hasDiscount" value={sp.hasDiscount} /> : null}
         {sp?.minPrice ? <input type="hidden" name="minPrice" value={sp.minPrice} /> : null}
         {sp?.maxPrice ? <input type="hidden" name="maxPrice" value={sp.maxPrice} /> : null}
-  {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
+        {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
         <input type="hidden" name="page" value={String(page)} />
         <input type="hidden" name="pageSize" value={String(pageSize)} />
-
-        {products.length > 0 && (
-          <BulkActionsPanel defaultScope={(!scopeParam || scopeParam === 'selected') ? 'selected' : scopeParam} pageCount={products.length} total={total} />
-        )}
 
         {/* Mobile cards */}
         <div className="sm:hidden space-y-2">
@@ -311,7 +385,7 @@ export default async function ProductsTable(props) {
                     <div className="text-[11px] text-muted-foreground truncate">{p.slug || p.sku || '—'}</div>
                     <div className="mt-1 text-xs text-muted-foreground">{p.createdAt ? new Date(p.createdAt).toLocaleString() : ''}</div>
                   </div>
-                  <label className="text-xs inline-flex items-center gap-1"><input type="checkbox" name="ids" value={id} aria-label={`Select ${p.name}`} /> Select</label>
+                  <label className="text-xs inline-flex items-center gap-1"><input form="bulkProductsForm" type="checkbox" name="ids" value={id} aria-label={`Select ${p.name}`} /> Select</label>
                 </div>
                 <div className="mt-2 flex items-center justify-between">
                   <div className="text-sm font-semibold">
@@ -412,7 +486,7 @@ export default async function ProductsTable(props) {
             </div>
           </div>
         ) : (
-  <div className="hidden sm:block overflow-auto rounded border bg-white max-h-[65vh]">
+  <div className="hidden sm:block overflow-x-auto rounded border bg-white">
   <table className="min-w-full table-fixed text-xs sm:text-sm">
           <thead className="sticky top-0 z-[1] bg-white shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.06)]">
             <tr className="text-left">
@@ -445,7 +519,7 @@ export default async function ProductsTable(props) {
               const id = p._id?.toString?.() || p._id;
               return (
                 <tr key={id} className="border-t odd:bg-zinc-50/40 hover:bg-zinc-50">
-                  <td className="px-2 py-2"><input type="checkbox" name="ids" value={id} aria-label={`Select ${p.name}`} /></td>
+                  <td className="px-2 py-2"><input form="bulkProductsForm" type="checkbox" name="ids" value={id} aria-label={`Select ${p.name}`} /></td>
                   {visibleCols.has('image') && (
                     <td className="px-2 sm:px-3 py-2 w-[64px]">
                       {p.image ? (
@@ -577,11 +651,12 @@ export default async function ProductsTable(props) {
       </form>
 
       {/* Pagination */}
-      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="text-xs sm:text-sm text-muted-foreground">Showing {showingFrom}–{showingTo} of {total}</div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs sm:text-sm">Rows:</span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          {/* Page size */}
           <form method="GET" action={`/dashboard/seller/products`} className="flex items-center gap-2">
+            <span className="text-xs sm:text-sm">Rows:</span>
             <input type="hidden" name="search" value={q} />
             {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
             {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
@@ -595,21 +670,30 @@ export default async function ProductsTable(props) {
             </select>
             <button type="submit" className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Apply</button>
           </form>
-          <Link href={`/dashboard/seller/products${mkQS({ page: 1 })}`} className={`px-2 py-1 rounded border text-xs sm:text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>First</Link>
-          <Link href={`/dashboard/seller/products${mkQS({ page: Math.max(1, page - 1) })}`} className={`px-2 py-1 rounded border text-xs sm:text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Prev</Link>
-          <form method="GET" action={`/dashboard/seller/products`} className="flex items-center gap-1">
-            <input type="hidden" name="search" value={q} />
-            {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
-            {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
-            {sortKey ? <input type="hidden" name="sort" value={sortKey} /> : null}
-            {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
-            <label className="text-xs sm:text-sm text-muted-foreground">Page</label>
-            <input name="page" defaultValue={String(page)} className="w-14 h-8 border rounded text-center text-xs sm:text-sm" />
-            <span className="text-xs sm:text-sm">/ {totalPages}</span>
-          </form>
-          <Link href={`/dashboard/seller/products${mkQS({ page: Math.min(totalPages, page + 1) })}`} className={`px-2 py-1 rounded border text-xs sm:text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Next</Link>
-          <Link href={`/dashboard/seller/products${mkQS({ page: totalPages })}`} className={`px-2 py-1 rounded border text-xs sm:text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-zinc-50'}`}>Last</Link>
+          {/* Pager */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Link href={`/dashboard/seller/products${mkQS({ page: Math.max(1, page - 1) })}`} className={`h-8 px-2 rounded border text-xs sm:text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : 'bg-white hover:bg-zinc-50'}`}>Prev</Link>
+            <div className="flex items-center gap-1">
+              {pageItems.map((it, idx) => it.type === 'ellipsis' ? (
+                <span key={`e-${idx}`} className="px-2 text-xs sm:text-sm text-muted-foreground">…</span>
+              ) : (
+                <Link
+                  key={`p-${it.value}`}
+                  href={`/dashboard/seller/products${mkQS({ page: it.value })}`}
+                  aria-current={it.value === page ? 'page' : undefined}
+                  className={`h-8 min-w-8 px-2 rounded border text-center text-xs sm:text-sm inline-flex items-center justify-center ${it.value === page ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`}
+                >
+                  {it.value}
+                </Link>
+              ))}
+            </div>
+            <Link href={`/dashboard/seller/products${mkQS({ page: Math.min(totalPages, page + 1) })}`} className={`h-8 px-2 rounded border text-xs sm:text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : 'bg-white hover:bg-zinc-50'}`}>Next</Link>
+          </div>
         </div>
+      </div>
+      <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-4">
+        <span>Total stock (filtered): {totals.stockSum}</span>
+        <span>Inventory value (filtered): {currencyFmt.format(Number(totals.inventoryValue || 0))}</span>
       </div>
     </div>
   );
