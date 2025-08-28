@@ -28,7 +28,7 @@ export default async function ProductsTable(props) {
   const sortKey = (sp?.sort || 'newest').toString();
   // const skip = (page - 1) * pageSize; // no longer needed; PaginationServer computes range
   const colsParam = (sp?.cols || '').toString();
-  const allColsDefault = ['image','info','added','price','stock','rating','actions'];
+  const allColsDefault = ['image','info','category','added','price','stock','rating','actions'];
   const scopeParam = (sp?.scope || '').toString();
   const visibleCols = new Set(
     colsParam
@@ -101,7 +101,7 @@ export default async function ProductsTable(props) {
     // Build targeting
     let filter = null;
     let ids = formData.getAll('ids');
-    if (scope === 'page') {
+  if (scope === 'page') {
       const s = {
         search: formData.get('search')?.toString() || '',
         from: formData.get('from')?.toString() || undefined,
@@ -113,6 +113,7 @@ export default async function ProductsTable(props) {
         hasDiscount: formData.get('hasDiscount')?.toString() || undefined,
         minPrice: formData.get('minPrice')?.toString() || undefined,
         maxPrice: formData.get('maxPrice')?.toString() || undefined,
+    lowStock: formData.get('lowStock')?.toString() || undefined,
       };
       const { products: pageProducts } = await getProductsAndTotal(s);
       ids = pageProducts.map(p => p._id.toString());
@@ -125,6 +126,7 @@ export default async function ProductsTable(props) {
         hasDiscount: formData.get('hasDiscount')?.toString() || undefined,
         minPrice: formData.get('minPrice')?.toString() || undefined,
         maxPrice: formData.get('maxPrice')?.toString() || undefined,
+    lowStock: formData.get('lowStock')?.toString() || undefined,
       };
       filter = buildProductsWhere(s);
     }
@@ -236,6 +238,7 @@ export default async function ProductsTable(props) {
     if (sp?.hasDiscount) usp.set('hasDiscount', String(sp.hasDiscount));
     if (sp?.minPrice) usp.set('minPrice', String(sp.minPrice));
     if (sp?.maxPrice) usp.set('maxPrice', String(sp.maxPrice));
+  if (sp?.lowStock) usp.set('lowStock', String(sp.lowStock));
     if (colsParam && colsParam !== allColsDefault.join(',')) usp.set('cols', colsParam);
     Object.entries(overrides).forEach(([k, v]) => {
       if (v === undefined || v === null || v === '') usp.delete(k);
@@ -250,12 +253,14 @@ export default async function ProductsTable(props) {
   // page items now rendered by PaginationServer
 
   return (
-    <div className="space-y-3">
-      <div>
-        <TableFilters
+  <div className="flex flex-col min-h-0 gap-2">
+      {/* Filters/header (auto height) */}
+      <div className="shrink-0">
+  <TableFilters
+        compact
         title="Products"
         subtitle="Filter, sort, and bulk manage in one place"
-        config={{ showStatusBar: false, showInStock: true, showHasDiscount: true, showPriceRange: true }}
+  config={{ showStatusBar: false, showInStock: true, showHasDiscount: true, showPriceRange: true, showLowStock: true }}
         sortOptions={[
           { value: 'newest', label: 'Newest first' },
           { value: 'oldest', label: 'Oldest first' },
@@ -332,8 +337,8 @@ export default async function ProductsTable(props) {
         />
       </div>
 
-      {/* Bulk form wraps the table so selection works */}
-      <form id="bulkProductsForm" action={bulkProducts} className="space-y-2">
+  {/* Scrollable content: bulk form + table */}
+  <form id="bulkProductsForm" action={bulkProducts} className="min-h-0 flex-1 flex flex-col gap-2">
         {/* carry current filters for scope targeting and dry run */}
         <input type="hidden" name="search" value={q} />
         {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
@@ -342,17 +347,20 @@ export default async function ProductsTable(props) {
         {/* carry product filter extras for filtered-scope */}
         {sp?.inStock ? <input type="hidden" name="inStock" value={sp.inStock} /> : null}
         {sp?.hasDiscount ? <input type="hidden" name="hasDiscount" value={sp.hasDiscount} /> : null}
-        {sp?.minPrice ? <input type="hidden" name="minPrice" value={sp.minPrice} /> : null}
+  {sp?.minPrice ? <input type="hidden" name="minPrice" value={sp.minPrice} /> : null}
         {sp?.maxPrice ? <input type="hidden" name="maxPrice" value={sp.maxPrice} /> : null}
+  {sp?.lowStock ? <input type="hidden" name="lowStock" value={sp.lowStock} /> : null}
         {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
         <input type="hidden" name="page" value={String(page)} />
         <input type="hidden" name="pageSize" value={String(pageSize)} />
 
-        {/* Mobile cards */}
-        <div className="sm:hidden space-y-2">
+  {/* Mobile cards (scrolls within the content area) */}
+  <div className="sm:hidden space-y-2 overflow-auto">
           {/* Removed select-all checkbox in favor of bulk scope controls above */}
           {products.map((p) => {
             const id = p._id?.toString?.() || p._id;
+            const categoryVal = p.category ?? p.categoryName ?? p.category_name ?? p.category_title ?? p.categoryLabel;
+            const subcategoryVal = p.subcategory ?? p.subCategory ?? p.sub_category ?? p.subcategoryName ?? p.subcategory_name ?? p.subCategoryName ?? p.subcategoryLabel;
             return (
               <div key={id} className="rounded-md border bg-white p-3 shadow-sm">
                 <div className="flex items-start gap-3">
@@ -365,6 +373,13 @@ export default async function ProductsTable(props) {
                   <div className="min-w-0 flex-1">
                     <div className="font-medium truncate"><Link href={`/dashboard/seller/products/${id}`} className="hover:underline">{p.name}</Link></div>
                     <div className="text-[11px] text-muted-foreground truncate">{p.slug || p.sku || '—'}</div>
+                    {(categoryVal || subcategoryVal) ? (
+                      <div className="mt-1 text-[11px] text-muted-foreground truncate">
+                        <span>{categoryVal || '—'}</span>
+                        {subcategoryVal ? <span className="mx-1">/</span> : null}
+                        {subcategoryVal ? <span>{subcategoryVal}</span> : null}
+                      </div>
+                    ) : null}
                     <div className="mt-1 text-xs text-muted-foreground">{p.createdAt ? new Date(p.createdAt).toLocaleString() : ''}</div>
                   </div>
                   <label className="text-xs inline-flex items-center gap-1"><input form="bulkProductsForm" type="checkbox" name="ids" value={id} aria-label={`Select ${p.name}`} /> Select</label>
@@ -377,14 +392,14 @@ export default async function ProductsTable(props) {
                       <span>{currencyFmt.format(Number(p.price || 0))}</span>
                     )}
                   </div>
-                  <div className="text-xs flex items-center gap-2">
-                    <span>Stock: {typeof p.current_stock !== 'undefined' ? p.current_stock : '—'}</span>
-                    {typeof p.current_stock !== 'undefined' && Number(p.current_stock) === 0 ? (
-                      <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] text-rose-700">Out of stock</span>
-                    ) : Number(p.current_stock) <= 5 ? (
-                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700">Low</span>
+                  <div className="text-xs flex items-center gap-1">
+                    <span>Stock:</span>
+                    {typeof p.current_stock !== 'undefined' ? (
+                      <span className={`${Number(p.current_stock) === 0 ? 'text-rose-700' : Number(p.current_stock) <= 5 ? 'text-amber-700' : 'text-emerald-700'} font-semibold`}>
+                        {p.current_stock}
+                      </span>
                     ) : (
-                      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-700">In stock</span>
+                      <span>—</span>
                     )}
                   </div>
                 </div>
@@ -468,16 +483,19 @@ export default async function ProductsTable(props) {
             </div>
           </div>
         ) : (
-  <div className="hidden sm:block overflow-x-auto rounded border bg-white">
+  <div className="hidden sm:block min-h-0 flex-1 overflow-auto rounded border bg-white">
   <table className="min-w-full table-auto text-xs sm:text-sm">
           <thead className="sticky top-0 z-[1] bg-white shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.06)]">
             <tr className="text-left">
-              <th scope="col" className="px-2 py-2 text-[11px] text-muted-foreground"><SelectAllOnPage /></th>
-              {visibleCols.has('image') && <th scope="col" className="px-2 sm:px-3 py-2 font-medium">Product</th>}
+              <th scope="col" className="px-1 py-2 text-[11px] text-muted-foreground"><SelectAllOnPage /></th>
+              {visibleCols.has('image') && <th scope="col" className="pl-1 sm:pl-2 pr-2 sm:pr-3 py-2 font-medium">Product</th>}
               {visibleCols.has('info') && (
                 <th scope="col" aria-sort={(sortKey?.startsWith('name-') ? (sortKey === 'name-asc' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium">
                   <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'name-asc' ? 'name-desc' : 'name-asc', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Info <span className="text-xs text-muted-foreground">{sortKey?.startsWith('name-') ? (sortKey === 'name-asc' ? '▲' : '▼') : ''}</span></Link>
                 </th>
+              )}
+              {visibleCols.has('category') && (
+                <th scope="col" className="px-3 py-2 font-medium">Category</th>
               )}
               {visibleCols.has('added') && (
                 <th scope="col" aria-sort={(sortKey === 'oldest' ? 'ascending' : sortKey === 'newest' ? 'descending' : 'none')} className="px-3 py-2 font-medium">
@@ -501,11 +519,13 @@ export default async function ProductsTable(props) {
               const id = p._id?.toString?.() || p._id;
               const ratingVal = typeof p.product_rating !== 'undefined' ? Number(p.product_rating) : null;
               const ratingMax = Number(p.product_max_rating || 5);
+              const categoryVal = p.category ?? p.categoryName ?? p.category_name ?? p.category_title ?? p.categoryLabel;
+              const subcategoryVal = p.subcategory ?? p.subCategory ?? p.sub_category ?? p.subcategoryName ?? p.subcategory_name ?? p.subCategoryName ?? p.subcategoryLabel;
               return (
                 <tr key={id} className="border-t odd:bg-zinc-50/40 hover:bg-zinc-50">
-                  <td className="px-2 py-2"><input form="bulkProductsForm" type="checkbox" name="ids" value={id} aria-label={`Select ${p.name}`} /></td>
+                  <td className="px-1 py-2"><input form="bulkProductsForm" type="checkbox" name="ids" value={id} aria-label={`Select ${p.name}`} /></td>
                   {visibleCols.has('image') && (
-                    <td className="px-2 sm:px-3 py-2 w-[64px]">
+                    <td className="pl-1 sm:pl-2 pr-2 sm:pr-3 py-2 w-[64px]">
                       {p.image ? (
                         <div className="relative h-10 w-10 overflow-hidden rounded bg-zinc-100">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -519,10 +539,20 @@ export default async function ProductsTable(props) {
                     </td>
                   )}
                   {visibleCols.has('info') && (
-                    <td className="px-2 sm:px-3 py-2">
+                    <td className="pl-1 sm:pl-2 pr-2 sm:pr-3 py-2">
                       <div className="flex flex-col min-w-0">
                         <div className="font-medium line-clamp-1"><Link prefetch={false} href={`/dashboard/seller/products/${id}`} className="hover:underline">{p.name}</Link></div>
                         <div className="text-[11px] text-muted-foreground line-clamp-1"><code className="font-mono text-[10px] bg-zinc-50 rounded px-1 py-0.5">{p.slug || p.sku || '—'}</code></div>
+                      </div>
+                    </td>
+                  )}
+                  {visibleCols.has('category') && (
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm leading-tight truncate">{categoryVal ? String(categoryVal) : '—'}</span>
+                        {subcategoryVal ? (
+                          <span className="text-[11px] text-muted-foreground truncate">{String(subcategoryVal)}</span>
+                        ) : null}
                       </div>
                     </td>
                   )}
@@ -544,16 +574,9 @@ export default async function ProductsTable(props) {
                   {visibleCols.has('stock') && (
                     <td className="px-3 py-2 text-center">
                       {typeof p.current_stock !== 'undefined' ? (
-                        <div className="flex items-center gap-2">
-                          <span className={`${Number(p.current_stock) <= 5 ? 'text-amber-700' : ''}`}>{p.current_stock}</span>
-                          {Number(p.current_stock) === 0 ? (
-                            <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] text-rose-700">Out of stock</span>
-                          ) : Number(p.current_stock) <= 5 ? (
-                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700">Low</span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-700">In stock</span>
-                          )}
-                        </div>
+                        <span className={`${Number(p.current_stock) === 0 ? 'text-rose-700' : Number(p.current_stock) <= 5 ? 'text-amber-700' : 'text-emerald-700'} font-semibold`}>
+                          {p.current_stock}
+                        </span>
                       ) : '—'}
                     </td>
                   )}
@@ -638,8 +661,8 @@ export default async function ProductsTable(props) {
         )}
       </form>
 
-      {/* Pagination (server component) */}
-    <PaginationServer
+      {/* Pagination (server component) remains visible below the scroll area */}
+  <PaginationServer
         basePath="/dashboard/seller/products"
         total={total}
         page={page}
@@ -654,10 +677,11 @@ export default async function ProductsTable(props) {
           hasDiscount: sp?.hasDiscount || undefined,
           minPrice: sp?.minPrice || undefined,
           maxPrice: sp?.maxPrice || undefined,
+          lowStock: sp?.lowStock || undefined,
       pageSize: (pageSize && Number(pageSize) !== 10) ? pageSize : undefined,
         }}
       />
-      <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+  <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 flex-wrap pb-1">
         <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">Total stock: <b className="ml-1 text-emerald-900">{totals.stockSum}</b></span>
         <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-700">Inventory value: <b className="ml-1 text-sky-900">{currencyFmt.format(Number(totals.inventoryValue || 0))}</b></span>
       </div>

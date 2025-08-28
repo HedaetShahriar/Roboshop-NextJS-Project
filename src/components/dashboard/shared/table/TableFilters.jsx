@@ -23,6 +23,7 @@ function TableFilters({
     counts, // optional: status counts { all, processing, packed, ... }
     title,
     subtitle,
+    compact = false,
 }) {
     // Backwards-compat: fall back to local URL-based hook if no controlled props
     const fallback = useSearchFilters();
@@ -30,7 +31,7 @@ function TableFilters({
     const setFilters = onChange ?? fallback.setFilters;
     const resetFilters = onClear ?? fallback.resetFilters;
 
-    const { search, status, from, to, sort, inStock, hasDiscount, minPrice, maxPrice } = filters;
+    const { search, status, from, to, sort, inStock, hasDiscount, minPrice, maxPrice, lowStock } = filters;
 
     const [localSearch, setLocalSearch] = useState(search || '');
     // Local advanced filter state (apply on click)
@@ -40,6 +41,7 @@ function TableFilters({
     // Optional product extras
     const [localInStock, setLocalInStock] = useState(Boolean(inStock) || false);
     const [localHasDiscount, setLocalHasDiscount] = useState(Boolean(hasDiscount) || false);
+    const [localLowStock, setLocalLowStock] = useState(Boolean(lowStock) || false);
     const [localMinPrice, setLocalMinPrice] = useState(minPrice || '');
     const [localMaxPrice, setLocalMaxPrice] = useState(maxPrice || '');
 
@@ -51,9 +53,10 @@ function TableFilters({
     useEffect(() => {
         setLocalInStock(Boolean(inStock) || false);
         setLocalHasDiscount(Boolean(hasDiscount) || false);
+        setLocalLowStock(Boolean(lowStock) || false);
         setLocalMinPrice(minPrice || '');
         setLocalMaxPrice(maxPrice || '');
-    }, [inStock, hasDiscount, minPrice, maxPrice]);
+    }, [inStock, hasDiscount, lowStock, minPrice, maxPrice]);
 
     // Keep localSearch in sync if URL search changes (e.g., Clear All)
     useEffect(() => {
@@ -86,6 +89,7 @@ function TableFilters({
     showHasDiscount: false,
     showInStock: false,
     showStatusBar: true,
+    showLowStock: false,
         advancedButtonLabel: 'Advanced',
         ...(config || {}),
     };
@@ -109,9 +113,9 @@ function TableFilters({
     ), [sortOptions]);
 
     return (
-        <div className="space-y-3">
+        <div className={compact ? "space-y-2" : "space-y-3"}>
             {/* Title + Advanced toggle */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className={"flex flex-col md:flex-row md:items-center md:justify-between " + (compact ? "gap-2" : "gap-3") }>
                 <div>
                     <h2 className="text-lg font-bold tracking-tight">{title || 'Search & Filter'}</h2>
                     <p className="text-xs text-muted-foreground">
@@ -136,13 +140,16 @@ function TableFilters({
                                 Date: {from || '…'} → {to || '…'}
                             </span>
                         )}
+                        {cfg.showLowStock && localLowStock && (
+                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">Low stock</span>
+                        )}
                         {cfg.showPriceRange && (minPrice || maxPrice) && (
                             <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">
                                 Price: {minPrice || '…'} → {maxPrice || '…'}
                             </span>
                         )}
                     </div>
-                    {(cfg.showInStock || cfg.showHasDiscount) && (
+                    {(cfg.showInStock || cfg.showHasDiscount || cfg.showLowStock) && (
                         <div className="flex items-center gap-2">
                             {cfg.showInStock && (
                                 <button type="button" className={`h-8 px-3 rounded border text-xs ${localInStock ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`} onClick={() => setFilters({ inStock: !localInStock ? 1 : '' })}>
@@ -152,6 +159,11 @@ function TableFilters({
                             {cfg.showHasDiscount && (
                                 <button type="button" className={`h-8 px-3 rounded border text-xs ${localHasDiscount ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`} onClick={() => setFilters({ hasDiscount: !localHasDiscount ? 1 : '' })}>
                                     Has discount
+                                </button>
+                            )}
+                            {cfg.showLowStock && (
+                                <button type="button" className={`h-8 px-3 rounded border text-xs ${localLowStock ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`} onClick={() => setFilters({ lowStock: !localLowStock ? 1 : '' })}>
+                                    Low stock
                                 </button>
                             )}
                         </div>
@@ -168,7 +180,7 @@ function TableFilters({
                                 className="w-[min(90vw,420px)] p-4 rounded-xl shadow-lg border bg-white"
                             >
                                 <div className="grid grid-cols-1 gap-4">
-                                    {(cfg.showInStock || cfg.showHasDiscount) && (
+                                    {(cfg.showInStock || cfg.showHasDiscount || cfg.showLowStock) && (
                                         <div className="flex flex-wrap items-center gap-3">
                                             {cfg.showInStock && (
                                                 <label className="inline-flex items-center gap-2 text-xs">
@@ -178,6 +190,11 @@ function TableFilters({
                                             {cfg.showHasDiscount && (
                                                 <label className="inline-flex items-center gap-2 text-xs">
                                                     <input type="checkbox" checked={!!localHasDiscount} onChange={(e)=>setLocalHasDiscount(e.target.checked)} /> Has discount
+                                                </label>
+                                            )}
+                                            {cfg.showLowStock && (
+                                                <label className="inline-flex items-center gap-2 text-xs">
+                                                    <input type="checkbox" checked={!!localLowStock} onChange={(e)=>setLocalLowStock(e.target.checked)} /> Low stock
                                                 </label>
                                             )}
                                         </div>
@@ -256,7 +273,7 @@ function TableFilters({
                                     {advancedExtra}
 
                                     <div className="flex items-center justify-end gap-2 mt-2">
-                                        <Button onClick={() => { setLocalFrom(''); setLocalTo(''); setLocalSort('newest'); setLocalInStock(false); setLocalHasDiscount(false); setLocalMinPrice(''); setLocalMaxPrice(''); }} size="sm" variant="outline" className="font-medium">Reset</Button>
+                                        <Button onClick={() => { setLocalFrom(''); setLocalTo(''); setLocalSort('newest'); setLocalInStock(false); setLocalHasDiscount(false); setLocalLowStock(false); setLocalMinPrice(''); setLocalMaxPrice(''); }} size="sm" variant="outline" className="font-medium">Reset</Button>
                                         <Button onClick={() => {
                                             const updates = {};
                                             let changed = false;
@@ -272,6 +289,9 @@ function TableFilters({
                                             }
                                             if (cfg.showHasDiscount) {
                                                 if (Boolean(hasDiscount) !== Boolean(localHasDiscount)) { updates.hasDiscount = localHasDiscount ? 1 : ''; changed = true; }
+                                            }
+                                            if (cfg.showLowStock) {
+                                                if (Boolean(lowStock) !== Boolean(localLowStock)) { updates.lowStock = localLowStock ? 1 : ''; changed = true; }
                                             }
                                             if (cfg.showPriceRange) {
                                                 if ((minPrice || '') !== (localMinPrice || '')) { updates.minPrice = localMinPrice; changed = true; }
@@ -289,7 +309,7 @@ function TableFilters({
 
 
             {/* Primary row: Search */}
-            <div className="grid grid-cols-1 gap-3">
+            <div className={"grid grid-cols-1 " + (compact ? "gap-2" : "gap-3")}>
                 {cfg.search && (
                     <form className="flex items-center gap-3 w-full" onSubmit={(e) => { 
                         e.preventDefault(); 
@@ -357,7 +377,7 @@ function TableFilters({
             </div>
 
             {/* Action row */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div className={"flex flex-col md:flex-row md:items-center md:justify-between " + (compact ? "gap-1" : "gap-2")}>
                 <div className="flex items-center gap-2">
                     {persistentExtra ?? null}
                 </div>

@@ -47,10 +47,10 @@ This repo is a Next.js 15 (App Router) app with MongoDB, NextAuth, Tailwind (v4)
 - When sorting by numeric strings (amount/price), use aggregation `$addFields` with `$toDouble`.
 - For status sorting, use `collation({ locale:'en', strength:2 })` to sort case-insensitively.
 
-## Dev workflow
+<!-- ## Dev workflow
 - Run dev: `npm run dev` (Turbopack). Build: `npm run build`. Start: `npm start`.
 - ESLint: `npm run lint` (flat config using `next/core-web-vitals`). The config ignores `.next`, `out`, `build`.
-- Env: define `MONGODB_URI` in `.env.local` or process env; `mongodb` v6 client is used.
+- Env: define `MONGODB_URI` in `.env.local` or process env; `mongodb` v6 client is used. -->
 
 ## Examples
 - Orders export endpoint: `src/app/api/seller/orders/export/route.js` uses the same query logic as the table to build CSV.

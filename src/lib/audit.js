@@ -1,4 +1,4 @@
-import getDb from '@/lib/mongodb';
+import getDb from "./mongodb";
 
 export async function addProductAudit({ userEmail, action, scope = 'single', ids = [], filters = {}, params = {} }) {
   try {
@@ -8,7 +8,7 @@ export async function addProductAudit({ userEmail, action, scope = 'single', ids
       userEmail,
       action,
       scope,
-      ids: ids.slice(0, 50), // cap to avoid huge docs
+      ids: Array.isArray(ids) ? ids.slice(0, 50) : [], // cap to avoid huge docs
       idsCount: Array.isArray(ids) ? ids.length : 0,
       filters,
       params,
