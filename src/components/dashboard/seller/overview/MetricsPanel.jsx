@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import BarChart from "@/components/charts/BarChart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { formatBDT } from "@/lib/currency";
 
 const ranges = [
   { label: '7d', days: 7 },
@@ -35,7 +36,6 @@ export default function MetricsPanel() {
 
   useEffect(() => { load(days); }, [days, load]);
 
-  const fmtCurrency = useMemo(() => (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n), []);
   const fmtInteger = useMemo(() => (n) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n), []);
 
   return (
@@ -58,11 +58,11 @@ export default function MetricsPanel() {
         <Card>
           <CardHeader>
             <CardTitle>Revenue</CardTitle>
-            <CardDescription>Total: {fmtCurrency(data.totals?.revenue || 0)}</CardDescription>
+            <CardDescription>Total: {formatBDT(data.totals?.revenue || 0)}</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? <div className="text-sm text-muted-foreground">Loading…</div> : (
-              <BarChart data={(data.series?.revenue || [])} color="#10b981" showLine showArea valueFormatter={fmtCurrency} />
+              <BarChart data={(data.series?.revenue || [])} color="#10b981" showLine showArea valueFormatter={formatBDT} />
             )}
           </CardContent>
         </Card>

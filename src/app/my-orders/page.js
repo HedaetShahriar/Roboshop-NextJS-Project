@@ -5,6 +5,7 @@ import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { revalidatePath } from "next/cache";
 import { ObjectId } from "mongodb";
 import getDb from "@/lib/mongodb";
+import { formatBDT } from "@/lib/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export default async function MyOrdersPage() {
                     </div>
                     <div className="mt-3 text-sm flex flex-wrap items-center gap-4">
                       <div>Items: {o.items?.reduce((n, it) => n + (it.qty || 0), 0)}</div>
-                      <div>Total: <span className="font-semibold">${Number(o.amounts?.total || 0).toFixed(2)}</span></div>
+                      <div>Total: <span className="font-semibold">{formatBDT(Number(o.amounts?.total || 0))}</span></div>
                       {o.promoCode && <div>Promo: {o.promoCode}</div>}
                     </div>
                     <div className="mt-3 flex items-center gap-3">
@@ -115,7 +116,7 @@ export default async function MyOrdersPage() {
                     </div>
                     <div className="mt-3 text-sm flex flex-wrap items-center gap-4">
                       <div>Items: {o.items?.reduce((n, it) => n + (it.qty || 0), 0)}</div>
-                      <div>Total: <span className="font-semibold">${Number(o.amounts?.total || 0).toFixed(2)}</span></div>
+                      <div>Total: <span className="font-semibold">{formatBDT(Number(o.amounts?.total || 0))}</span></div>
                       {o.promoCode && <div>Promo: {o.promoCode}</div>}
                     </div>
                     <div className="mt-3 flex items-center gap-3">
@@ -145,7 +146,7 @@ export default async function MyOrdersPage() {
                     </div>
                     <div className="mt-3 text-sm flex flex-wrap items-center gap-4">
                       <div>Items: {o.items?.reduce((n, it) => n + (it.qty || 0), 0)}</div>
-                      <div>Total: <span className="font-semibold">${Number(o.amounts?.total || 0).toFixed(2)}</span></div>
+                      <div>Total: <span className="font-semibold">{formatBDT(Number(o.amounts?.total || 0))}</span></div>
                       {o.promoCode && <div>Promo: {o.promoCode}</div>}
                     </div>
                     <div className="mt-3 flex items-center gap-3">

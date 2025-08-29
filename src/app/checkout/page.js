@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSession } from "next-auth/react";
+import { formatBDT } from "@/lib/currency";
 
 const KNOWN_PROMOS = {
   ROBO10: { type: "percent", value: 10, label: "10% OFF" },
   ROBO20: { type: "percent", value: 20, label: "20% OFF" },
-  SAVE50: { type: "flat", value: 50, label: "$50 OFF" },
+  SAVE50: { type: "flat", value: 50, label: "৳50 OFF" },
 };
 
 export default function CheckoutPage() {
@@ -464,7 +465,7 @@ export default function CheckoutPage() {
                       {it.image && <img src={it.image} alt="" className="h-12 w-12 rounded object-cover" />}
                       <div className="flex-1">
                         <div className="text-sm font-medium line-clamp-1">{it.name}</div>
-                        <div className="text-xs text-gray-500">${it.price.toFixed(2)}</div>
+                        <div className="text-xs text-gray-500">{formatBDT(it.price)}</div>
                       </div>
                       <input
                         type="number"
@@ -495,10 +496,10 @@ export default function CheckoutPage() {
               )}
 
               <div className="space-y-1 text-sm">
-                <div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span>Discount</span><span className="text-red-600">- ${discount.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span>Shipping</span><span>${shipping.toFixed(2)}</span></div>
-                <div className="flex justify-between font-semibold pt-2 border-t"><span>Total</span><span>${total.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Subtotal</span><span>{formatBDT(subtotal)}</span></div>
+                <div className="flex justify-between"><span>Discount</span><span className="text-red-600">- {formatBDT(discount)}</span></div>
+                <div className="flex justify-between"><span>Shipping</span><span>{formatBDT(shipping)}</span></div>
+                <div className="flex justify-between font-semibold pt-2 border-t"><span>Total</span><span>{formatBDT(total)}</span></div>
               </div>
 
               {/* Payment options inside summary */}
@@ -555,7 +556,7 @@ export default function CheckoutPage() {
                 )}
 
                 <Button className="w-full" onClick={placeOrder} disabled={placing || items.length === 0}>
-                  {placing ? "Placing Order..." : `Place Order (${total.toFixed(2)})`}
+                  {placing ? "Placing Order..." : `Place Order (${formatBDT(total)})`}
                 </Button>
               </div>
             </CardContent>

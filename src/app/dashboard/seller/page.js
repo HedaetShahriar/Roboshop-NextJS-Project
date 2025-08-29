@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, Truck, CheckCircle2, XCircle, TriangleAlert, DollarSign, TrendingUp, Receipt } from "lucide-react";
 import getDb from "@/lib/mongodb";
 import MetricsPanel from "@/components/dashboard/seller/overview/MetricsPanel";
+import { formatBDT } from "@/lib/currency";
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +47,7 @@ export default async function SellerDashboardHome() {
     { label: 'Open issues', value: openIssues, icon: TriangleAlert, color: 'text-yellow-600' },
   ];
 
-  const fmtCurrency = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n);
+  const fmtCurrency = (n) => formatBDT(n);
 
   return (
     <div className="py-4 md:py-6 space-y-6">

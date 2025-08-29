@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import AddToCartButton from "@/components/AddToCartButton";
 import { getProductById } from "@/data/user/products";
+import { formatBDT } from "@/lib/currency";
 
 export default async function ProductDetailPage({ params }) {
   const { id } = await params;
@@ -31,11 +32,11 @@ export default async function ProductDetailPage({ params }) {
             <div className="text-2xl font-semibold mb-6">
               {hasDiscount ? (
                 <span className="flex items-center gap-3">
-                  <span className="text-red-600">${discountPrice.toFixed(2)}</span>
-                  <span className="line-through text-gray-400">${price.toFixed(2)}</span>
+                  <span className="text-red-600">{formatBDT(discountPrice)}</span>
+                  <span className="line-through text-gray-400">{formatBDT(price)}</span>
                 </span>
               ) : (
-                <>${price.toFixed(2)}</>
+                <>{formatBDT(price)}</>
               )}
             </div>
             <ul className="space-y-2 text-gray-700">

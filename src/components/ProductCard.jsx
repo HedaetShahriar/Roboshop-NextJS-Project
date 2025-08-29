@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import AddToCartButton from "@/components/AddToCartButton";
+import { formatBDT } from "@/lib/currency";
 const ProductCard = ({ product }) => {
   const hasDiscount = product.has_discount_price && Number(product.discount_price) > 0;
   const price = Number(product.price || 0);
@@ -36,11 +37,11 @@ const ProductCard = ({ product }) => {
         <CardDescription>
           {hasDiscount ? (
             <span className="flex items-center gap-2">
-              <span className="text-red-600 font-semibold">${discountPrice.toFixed(2)}</span>
-              <span className="line-through text-gray-400">${price.toFixed(2)}</span>
+              <span className="text-red-600 font-semibold">{formatBDT(discountPrice)}</span>
+              <span className="line-through text-gray-400">{formatBDT(price)}</span>
             </span>
           ) : (
-            <>${price.toFixed(2)}</>
+            <>{formatBDT(price)}</>
           )}
         </CardDescription>
       </CardHeader>

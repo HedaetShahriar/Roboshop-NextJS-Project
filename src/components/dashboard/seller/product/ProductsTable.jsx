@@ -5,6 +5,7 @@ import { ObjectId } from "mongodb";
 import getDb from "@/lib/mongodb";
 import { revalidatePath } from "next/cache";
 import { getProductsAndTotalCached as getProductsAndTotal, getProductsQuickStats, getProductsFilteredTotals } from "@/lib/productsService";
+import { formatBDT } from "@/lib/currency";
 import { buildProductsWhere } from "@/lib/productsQuery";
 import RowActionsMenu from "./client/RowActionsMenu";
 import SavedViews from "./client/SavedViews";
@@ -15,7 +16,7 @@ import TableFilters from "@/components/dashboard/shared/table/TableFilters";
 import BulkModalTrigger from "./client/BulkModalTrigger";
 import PaginationServer from "@/components/dashboard/shared/table/PaginationServer";
 
-const currencyFmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+const currencyFmt = { format: (n) => formatBDT(n) };
 
 export default async function ProductsTable(props) {
   const sp = props?.sp ?? props?.params ?? {};
@@ -206,6 +207,39 @@ export default async function ProductsTable(props) {
           updatedAt: now
         }}
       ]);
+    } else if (action === 'priceRoundWhole') {
+      if (dryRun) return;
+      // Round price to nearest whole (0 decimals). Adjust discount_price similarly and ensure it's < price
+      await db.collection('products').updateMany(tf, [
+        {
+          $set: {
+            price: { $round: [{ $toDouble: { $ifNull: ['$price', 0] } }, 0] },
+            // Propose rounded discount
+            _roundedDiscount: { $round: [{ $toDouble: { $ifNull: ['$discount_price', 0] } }, 0] },
+            updatedAt: now,
+          }
+        },
+        {
+          $set: {
+            // If roundedDiscount >= price then clear discount, else keep roundedDiscount
+            has_discount_price: {
+              $cond: [
+                { $and: [ { $gt: ['$_roundedDiscount', 0] }, { $lt: ['$_roundedDiscount', '$price'] } ] },
+                true,
+                false
+              ]
+            },
+            discount_price: {
+              $cond: [
+                { $and: [ { $gt: ['$_roundedDiscount', 0] }, { $lt: ['$_roundedDiscount', '$price'] } ] },
+                '$_roundedDiscount',
+                0
+              ]
+            }
+          }
+        },
+        { $unset: ['_roundedDiscount'] }
+      ]);
     } else if (action === 'deleteProducts') {
       if (confirmDelete !== 'DELETE') return;
       if (dryRun) return;
@@ -260,12 +294,16 @@ export default async function ProductsTable(props) {
         compact
         title="Products"
         subtitle="Filter, sort, and bulk manage in one place"
-  config={{ showStatusBar: false, showInStock: true, showHasDiscount: true, showPriceRange: true, showLowStock: true }}
+  config={{ showStatusBar: false, showInStock: true, showHasDiscount: true, showPriceRange: true, showLowStock: true, showCategory: true, showSubcategory: true }}
         sortOptions={[
           { value: 'newest', label: 'Newest first' },
           { value: 'oldest', label: 'Oldest first' },
           { value: 'name-asc', label: 'Name A→Z' },
           { value: 'name-desc', label: 'Name Z→A' },
+          { value: 'category-asc', label: 'Category A→Z' },
+          { value: 'category-desc', label: 'Category Z→A' },
+          { value: 'subcategory-asc', label: 'Subcategory A→Z' },
+          { value: 'subcategory-desc', label: 'Subcategory Z→A' },
           { value: 'price-high', label: 'Price: high → low' },
           { value: 'price-low', label: 'Price: low → high' },
           { value: 'stock-high', label: 'Stock: high → low' },
@@ -345,10 +383,12 @@ export default async function ProductsTable(props) {
         {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
         {sortKey ? <input type="hidden" name="sort" value={sortKey} /> : null}
         {/* carry product filter extras for filtered-scope */}
-        {sp?.inStock ? <input type="hidden" name="inStock" value={sp.inStock} /> : null}
+  {sp?.inStock ? <input type="hidden" name="inStock" value={sp.inStock} /> : null}
         {sp?.hasDiscount ? <input type="hidden" name="hasDiscount" value={sp.hasDiscount} /> : null}
   {sp?.minPrice ? <input type="hidden" name="minPrice" value={sp.minPrice} /> : null}
         {sp?.maxPrice ? <input type="hidden" name="maxPrice" value={sp.maxPrice} /> : null}
+  {sp?.category ? <input type="hidden" name="category" value={sp.category} /> : null}
+  {sp?.subcategory ? <input type="hidden" name="subcategory" value={sp.subcategory} /> : null}
   {sp?.lowStock ? <input type="hidden" name="lowStock" value={sp.lowStock} /> : null}
         {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
         <input type="hidden" name="page" value={String(page)} />
@@ -495,8 +535,11 @@ export default async function ProductsTable(props) {
                 </th>
               )}
               {visibleCols.has('category') && (
-                <th scope="col" className="px-3 py-2 font-medium">Category</th>
+                <th scope="col" aria-sort={(sortKey?.startsWith('category-') ? (sortKey === 'category-asc' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium">
+                  <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'category-asc' ? 'category-desc' : 'category-asc', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Category <span className="text-xs text-muted-foreground">{sortKey?.startsWith('category-') ? (sortKey === 'category-asc' ? '▲' : '▼') : ''}</span></Link>
+                </th>
               )}
+              
               {visibleCols.has('added') && (
                 <th scope="col" aria-sort={(sortKey === 'oldest' ? 'ascending' : sortKey === 'newest' ? 'descending' : 'none')} className="px-3 py-2 font-medium">
                   <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'oldest' ? 'newest' : 'oldest', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Added <span className="text-xs text-muted-foreground">{sortKey === 'oldest' ? '▲' : sortKey === 'newest' ? '▼' : ''}</span></Link>
@@ -562,7 +605,7 @@ export default async function ProductsTable(props) {
                   {visibleCols.has('price') && (
                     <td className="px-3 py-2 text-right">
                       {p.has_discount_price && Number(p.discount_price) > 0 ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                           <span className="text-rose-600 font-semibold">{currencyFmt.format(Number(p.discount_price || 0))}</span>
                           <span className="text-xs text-muted-foreground line-through">{currencyFmt.format(Number(p.price || 0))}</span>
                         </div>
@@ -677,13 +720,15 @@ export default async function ProductsTable(props) {
           hasDiscount: sp?.hasDiscount || undefined,
           minPrice: sp?.minPrice || undefined,
           maxPrice: sp?.maxPrice || undefined,
+          category: sp?.category || undefined,
+          subcategory: sp?.subcategory || undefined,
           lowStock: sp?.lowStock || undefined,
       pageSize: (pageSize && Number(pageSize) !== 10) ? pageSize : undefined,
         }}
       />
   <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 flex-wrap pb-1">
         <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">Total stock: <b className="ml-1 text-emerald-900">{totals.stockSum}</b></span>
-        <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-700">Inventory value: <b className="ml-1 text-sky-900">{currencyFmt.format(Number(totals.inventoryValue || 0))}</b></span>
+  <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-700">Inventory value: <b className="ml-1 text-sky-900">{currencyFmt.format(Number(totals.inventoryValue || 0))}</b></span>
       </div>
     </div>
   );

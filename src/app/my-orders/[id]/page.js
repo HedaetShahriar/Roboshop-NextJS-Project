@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { revalidatePath } from "next/cache";
 import getDb from "@/lib/mongodb";
+import { formatBDT } from "@/lib/currency";
 
 export default async function OrderDetailPage({ params }) {
   const { id } = await params;
@@ -145,9 +146,9 @@ export default async function OrderDetailPage({ params }) {
                   {it.image && <img src={it.image} alt="" className="h-12 w-12 rounded object-cover" />}
                   <div className="flex-1">
                     <div className="text-sm font-medium line-clamp-1">{it.name}</div>
-                    <div className="text-xs text-gray-500">Qty: {it.qty} · ${Number(it.price).toFixed(2)}</div>
+                    <div className="text-xs text-gray-500">Qty: {it.qty} · {formatBDT(Number(it.price))}</div>
                   </div>
-                  <div className="text-sm font-semibold">${(Number(it.price) * Number(it.qty)).toFixed(2)}</div>
+                  <div className="text-sm font-semibold">{formatBDT(Number(it.price) * Number(it.qty))}</div>
                 </li>
               ))}
             </ul>
@@ -172,10 +173,10 @@ export default async function OrderDetailPage({ params }) {
           <div className="bg-white border rounded p-4">
             <div className="font-semibold mb-3">Summary</div>
             <div className="text-sm space-y-1">
-              <div className="flex justify-between"><span>Subtotal</span><span>${Number(order.amounts?.subtotal || 0).toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>Discount</span><span className="text-red-600">- ${Number(order.amounts?.discount || 0).toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>Shipping</span><span>${Number(order.amounts?.shipping || 0).toFixed(2)}</span></div>
-              <div className="flex justify-between font-semibold pt-2 border-t"><span>Total</span><span>${Number(order.amounts?.total || 0).toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Subtotal</span><span>{formatBDT(Number(order.amounts?.subtotal || 0))}</span></div>
+              <div className="flex justify-between"><span>Discount</span><span className="text-red-600">- {formatBDT(Number(order.amounts?.discount || 0))}</span></div>
+              <div className="flex justify-between"><span>Shipping</span><span>{formatBDT(Number(order.amounts?.shipping || 0))}</span></div>
+              <div className="flex justify-between font-semibold pt-2 border-t"><span>Total</span><span>{formatBDT(Number(order.amounts?.total || 0))}</span></div>
             </div>
             <div className="mt-3 text-xs text-gray-600">Paid via {order.payment?.method?.toUpperCase() || "N/A"}</div>
             {order.payment?.bkashNumber && (

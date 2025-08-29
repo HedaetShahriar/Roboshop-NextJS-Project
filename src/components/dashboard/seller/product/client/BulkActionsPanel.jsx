@@ -23,6 +23,7 @@ export default function BulkActionsPanel({ defaultScope = 'selected', pageCount 
             <optgroup label="Pricing">
               <option value="priceSet">Set price…</option>
               <option value="priceRound99">Round to .99</option>
+              <option value="priceRoundWhole">Round to whole</option>
             </optgroup>
             <optgroup label="Danger">
               <option value="deleteProducts">Delete</option>
@@ -51,13 +52,15 @@ export default function BulkActionsPanel({ defaultScope = 'selected', pageCount 
           {action === 'priceRound99' && (
             <span className="text-[10px] text-muted-foreground">e.g., 12 → 11.99</span>
           )}
+          {action === 'priceRoundWhole' && (
+            <span className="text-[10px] text-muted-foreground">e.g., 12.30 → 12</span>
+          )}
           {action === 'deleteProducts' && (
             <input name="confirmDelete" placeholder="Type DELETE" className="h-8 px-2 rounded border text-[12px] w-36" form={formId} />
           )}
           <label className="inline-flex items-center gap-1 text-[11px] ml-auto">
             <input type="checkbox" name="dryRun" value="1" form={formId} /> Dry run
           </label>
-          <button type="submit" className="h-8 px-3 rounded border text-[12px] bg-white hover:bg-zinc-50" form={formId}>Apply</button>
         </div>
       </div>
     );
@@ -82,6 +85,7 @@ export default function BulkActionsPanel({ defaultScope = 'selected', pageCount 
           <optgroup label="Pricing">
             <option value="priceSet">Set price to…</option>
             <option value="priceRound99">Round price to .99</option>
+            <option value="priceRoundWhole">Round price to whole</option>
           </optgroup>
           <optgroup label="Danger">
             <option value="deleteProducts">Delete products</option>
@@ -111,13 +115,15 @@ export default function BulkActionsPanel({ defaultScope = 'selected', pageCount 
         {action === 'priceRound99' && (
           <span className="text-[11px] text-muted-foreground">Will set prices like 10 → 9.99, 12.30 → 11.99</span>
         )}
+        {action === 'priceRoundWhole' && (
+          <span className="text-[11px] text-muted-foreground">Will round prices and discounts to nearest whole; clears discount if not less than price</span>
+        )}
         {action === 'deleteProducts' && (
           <input name="confirmDelete" placeholder="Type DELETE to confirm" className="h-9 px-3 rounded border text-xs w-44" form={formId} />
         )}
         <label className="inline-flex items-center gap-2 text-xs ml-auto">
           <input type="checkbox" name="dryRun" value="1" form={formId} /> Dry run
         </label>
-        <button type="submit" className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50" form={formId}>Apply</button>
       </div>
       <div className="text-[11px] text-muted-foreground" role="note">
         Hints: use Qty delta for increase/decrease; Discount % applies across items; Set price will clear discount if ≥ current discount.

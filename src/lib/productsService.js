@@ -11,6 +11,8 @@ function buildProjection(sp = {}) {
     slug: 1,
     sku: 1,
     image: 1,
+  category: 1,
+  subcategory: 1,
     price: 1,
     has_discount_price: 1,
     discount_price: 1,
@@ -44,13 +46,13 @@ async function getProductsAndTotalCore(sp = {}) {
       { $project: projection },
     ]).toArray();
   } else {
-    const sort = getProductsSort(sortKey);
+  const sort = getProductsSort(sortKey);
     let cursor = db.collection('products')
       .find(where, { projection })
       .sort(sort)
       .skip(skip)
       .limit(pageSize);
-    if (sortKey === 'name-asc' || sortKey === 'name-desc') {
+  if (sortKey === 'name-asc' || sortKey === 'name-desc' || sortKey === 'category-asc' || sortKey === 'category-desc' || sortKey === 'subcategory-asc' || sortKey === 'subcategory-desc') {
       cursor = cursor.collation({ locale: 'en', strength: 2 });
     }
     listPromise = cursor.toArray();
@@ -78,6 +80,8 @@ export async function getProductsAndTotalCached(sp = {}) {
       hasDiscount: !!sp?.hasDiscount,
       minPrice: sp?.minPrice ?? '',
       maxPrice: sp?.maxPrice ?? '',
+  category: sp?.category || '',
+  subcategory: sp?.subcategory || '',
       cols: sp?.cols || '',
     })
   ];

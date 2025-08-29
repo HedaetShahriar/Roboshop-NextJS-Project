@@ -16,7 +16,7 @@ export default function BulkModalTrigger({ formId, scope, pageCount, total }) {
           <BulkActionsPanel compact formId={formId} defaultScope={scope} pageCount={pageCount} total={total} />
           <div className="flex items-center justify-end gap-2 pt-2">
             <button type="button" className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50" onClick={() => setOpen(false)}>Close</button>
-            <button type="submit" form={formId} className="h-8 px-3 rounded border text-xs bg-zinc-900 text-white hover:bg-zinc-800" onClick={() => setOpen(false)}>Apply</button>
+            <button type="submit" form={formId} formMethod="post" className="h-8 px-3 rounded border text-xs bg-zinc-900 text-white hover:bg-zinc-800">Apply</button>
           </div>
         </div>
       </Modal>

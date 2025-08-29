@@ -13,12 +13,26 @@ export function buildProductsWhere(sp = {}) {
   const lowStock = sp?.lowStock ? true : false;
   const minPrice = sp?.minPrice !== undefined && sp?.minPrice !== '' ? Number(sp.minPrice) : undefined;
   const maxPrice = sp?.maxPrice !== undefined && sp?.maxPrice !== '' ? Number(sp.maxPrice) : undefined;
+  const category = (sp?.category || '').toString().trim();
+  const subcategory = (sp?.subcategory || '').toString().trim();
   if (q) {
     where.$or = [
       { name: { $regex: escapeRegex(q), $options: 'i' } },
       { slug: { $regex: escapeRegex(q), $options: 'i' } },
       { sku: { $regex: escapeRegex(q), $options: 'i' } },
       { category: { $regex: escapeRegex(q), $options: 'i' } },
+    ];
+  }
+  if (category) {
+    where.category = { $regex: escapeRegex(category), $options: 'i' };
+  }
+  if (subcategory) {
+    // Support multiple common field names for subcategory
+    where.$or = [
+      ...(where.$or || []),
+      { subcategory: { $regex: escapeRegex(subcategory), $options: 'i' } },
+      { subCategory: { $regex: escapeRegex(subcategory), $options: 'i' } },
+      { sub_category: { $regex: escapeRegex(subcategory), $options: 'i' } },
     ];
   }
   if (inStock) where.current_stock = { $gt: 0 };
@@ -40,6 +54,10 @@ export function buildProductsWhere(sp = {}) {
 }
 
 export function getProductsSort(sortKey = 'newest') {
+  if (sortKey === 'category-asc') return { category: 1, name: 1, createdAt: -1 };
+  if (sortKey === 'category-desc') return { category: -1, name: 1, createdAt: -1 };
+  if (sortKey === 'subcategory-asc') return { subcategory: 1, name: 1, createdAt: -1 };
+  if (sortKey === 'subcategory-desc') return { subcategory: -1, name: 1, createdAt: -1 };
   if (sortKey === 'oldest') return { createdAt: 1 };
   if (sortKey === 'name-asc') return { name: 1, createdAt: -1 };
   if (sortKey === 'name-desc') return { name: -1, createdAt: -1 };

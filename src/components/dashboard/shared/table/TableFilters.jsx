@@ -31,7 +31,7 @@ function TableFilters({
     const setFilters = onChange ?? fallback.setFilters;
     const resetFilters = onClear ?? fallback.resetFilters;
 
-    const { search, status, from, to, sort, inStock, hasDiscount, minPrice, maxPrice, lowStock } = filters;
+    const { search, status, from, to, sort, inStock, hasDiscount, minPrice, maxPrice, lowStock, category, subcategory } = filters;
 
     const [localSearch, setLocalSearch] = useState(search || '');
     // Local advanced filter state (apply on click)
@@ -44,6 +44,8 @@ function TableFilters({
     const [localLowStock, setLocalLowStock] = useState(Boolean(lowStock) || false);
     const [localMinPrice, setLocalMinPrice] = useState(minPrice || '');
     const [localMaxPrice, setLocalMaxPrice] = useState(maxPrice || '');
+    const [localCategory, setLocalCategory] = useState(category || '');
+    const [localSubcategory, setLocalSubcategory] = useState(subcategory || '');
 
     useEffect(() => {
         setLocalFrom(from || '');
@@ -56,7 +58,9 @@ function TableFilters({
         setLocalLowStock(Boolean(lowStock) || false);
         setLocalMinPrice(minPrice || '');
         setLocalMaxPrice(maxPrice || '');
-    }, [inStock, hasDiscount, lowStock, minPrice, maxPrice]);
+        setLocalCategory(category || '');
+        setLocalSubcategory(subcategory || '');
+    }, [inStock, hasDiscount, lowStock, minPrice, maxPrice, category, subcategory]);
 
     // Keep localSearch in sync if URL search changes (e.g., Clear All)
     useEffect(() => {
@@ -90,6 +94,8 @@ function TableFilters({
     showInStock: false,
     showStatusBar: true,
     showLowStock: false,
+    showCategory: false,
+    showSubcategory: false,
         advancedButtonLabel: 'Advanced',
         ...(config || {}),
     };
@@ -128,6 +134,12 @@ function TableFilters({
                             <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">
                                 Sort: {sortLabelMap[sort] ?? sort}
                             </span>
+                        )}
+                        {cfg.showCategory && category && (
+                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">Category: {category}</span>
+                        )}
+                        {cfg.showSubcategory && subcategory && (
+                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">Subcategory: {subcategory}</span>
                         )}
                         {cfg.showInStock && localInStock && (
                             <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">In stock</span>
@@ -196,6 +208,22 @@ function TableFilters({
                                                 <label className="inline-flex items-center gap-2 text-xs">
                                                     <input type="checkbox" checked={!!localLowStock} onChange={(e)=>setLocalLowStock(e.target.checked)} /> Low stock
                                                 </label>
+                                            )}
+                                        </div>
+                                    )}
+                                    {(cfg.showCategory || cfg.showSubcategory) && (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {cfg.showCategory && (
+                                                <div className="flex flex-col gap-1">
+                                                    <label htmlFor="category" className="text-xs text-muted-foreground font-medium">Category</label>
+                                                    <Input id="category" type="text" value={localCategory} onChange={(e)=>setLocalCategory(e.target.value)} className="h-9 w-full" />
+                                                </div>
+                                            )}
+                                            {cfg.showSubcategory && (
+                                                <div className="flex flex-col gap-1">
+                                                    <label htmlFor="subcategory" className="text-xs text-muted-foreground font-medium">Subcategory</label>
+                                                    <Input id="subcategory" type="text" value={localSubcategory} onChange={(e)=>setLocalSubcategory(e.target.value)} className="h-9 w-full" />
+                                                </div>
                                             )}
                                         </div>
                                     )}
@@ -273,7 +301,7 @@ function TableFilters({
                                     {advancedExtra}
 
                                     <div className="flex items-center justify-end gap-2 mt-2">
-                                        <Button onClick={() => { setLocalFrom(''); setLocalTo(''); setLocalSort('newest'); setLocalInStock(false); setLocalHasDiscount(false); setLocalLowStock(false); setLocalMinPrice(''); setLocalMaxPrice(''); }} size="sm" variant="outline" className="font-medium">Reset</Button>
+                                        <Button onClick={() => { setLocalFrom(''); setLocalTo(''); setLocalSort('newest'); setLocalInStock(false); setLocalHasDiscount(false); setLocalLowStock(false); setLocalMinPrice(''); setLocalMaxPrice(''); setLocalCategory(''); setLocalSubcategory(''); }} size="sm" variant="outline" className="font-medium">Reset</Button>
                                         <Button onClick={() => {
                                             const updates = {};
                                             let changed = false;
@@ -283,6 +311,12 @@ function TableFilters({
                                             }
                                             if (cfg.sort) {
                                                 if ((sort || '') !== (localSort || '')) { updates.sort = localSort; changed = true; }
+                                            }
+                                            if (cfg.showCategory) {
+                                                if ((category || '') !== (localCategory || '')) { updates.category = localCategory; changed = true; }
+                                            }
+                                            if (cfg.showSubcategory) {
+                                                if ((subcategory || '') !== (localSubcategory || '')) { updates.subcategory = localSubcategory; changed = true; }
                                             }
                                             if (cfg.showInStock) {
                                                 if (Boolean(inStock) !== Boolean(localInStock)) { updates.inStock = localInStock ? 1 : ''; changed = true; }
