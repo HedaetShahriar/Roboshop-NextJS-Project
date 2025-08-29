@@ -427,9 +427,9 @@ export default async function ProductsTable(props) {
                 <div className="mt-2 flex items-center justify-between">
                   <div className="text-sm font-semibold">
                     {p.has_discount_price && Number(p.discount_price) > 0 ? (
-                      <span className="text-rose-600">{currencyFmt.format(Number(p.discount_price || 0))}</span>
+                      <span className="text-rose-600 tabular-nums">{currencyFmt.format(Number(p.discount_price || 0))}</span>
                     ) : (
-                      <span>{currencyFmt.format(Number(p.price || 0))}</span>
+                      <span className="tabular-nums">{currencyFmt.format(Number(p.price || 0))}</span>
                     )}
                   </div>
                   <div className="text-xs flex items-center gap-1">
@@ -606,11 +606,11 @@ export default async function ProductsTable(props) {
                     <td className="px-3 py-2 text-right">
                       {p.has_discount_price && Number(p.discount_price) > 0 ? (
                         <div className="flex items-center justify-end gap-2 whitespace-nowrap">
-                          <span className="text-rose-600 font-semibold">{currencyFmt.format(Number(p.discount_price || 0))}</span>
-                          <span className="text-xs text-muted-foreground line-through">{currencyFmt.format(Number(p.price || 0))}</span>
+                          <span className="text-rose-600 font-semibold tabular-nums">{currencyFmt.format(Number(p.discount_price || 0))}</span>
+                          <span className="text-xs text-muted-foreground line-through tabular-nums">{currencyFmt.format(Number(p.price || 0))}</span>
                         </div>
                       ) : (
-                        <span>{currencyFmt.format(Number(p.price || 0))}</span>
+                        <span className="tabular-nums">{currencyFmt.format(Number(p.price || 0))}</span>
                       )}
                     </td>
                   )}
