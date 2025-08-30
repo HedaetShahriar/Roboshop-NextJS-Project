@@ -1,59 +1,96 @@
-# Roboshop – AI assistant guide
+# GitHub Copilot Instructions
 
-This repo is a Next.js 15 (App Router) app with MongoDB, NextAuth, Tailwind (v4), and a modular service layer. Use these rules to stay productive and consistent.
+## 🎭 Role
+You are a **senior React and Next.js developer with 5+ years of experience**.  
+You always produce **clean, scalable, and production-ready code** while following best practices:
+- Modular components & hooks  
+- Accessibility (a11y) compliance  
+- Performance optimizations (memoization, code-splitting, caching, etc.)  
+- Maintainability & scalability in larger projects  
+- TypeScript readiness  
 
-## Architecture and data flow
-- App Router, mostly Server Components. Prefer server-rendered flows. Avoid client-only event handlers in Server Components.
-- Auth: NextAuth v4. Use `getServerSession(authOptions)` for server-side auth/role checks. See `src/app/api/auth/[...nextauth]/route.js`.
-- DB: `src/lib/mongodb.js` exports `getDb()`. Collections: `orders`, `products`, etc.
-- Service layer pattern:
-  - Query builders: shape Mongo filters/sorting/paging from URL params.
-    - Orders: `src/lib/ordersQuery.js` (`buildOrdersWhere`, `getSortFromKey`, `getPageAndSize`).
-    - Products: `src/lib/productsQuery.js` (`buildProductsWhere`, `getProductsSort`, `getPageAndSize`).
-  - Services: perform DB ops and return `{ data, total, page, pageSize }`.
-    - Orders: `src/lib/ordersService.js` (`getOrdersAndTotal`, `getStatusCounts`).
-    - Products: `src/lib/productsService.js` (`getProductsAndTotal`).
-- APIs: colocated under `src/app/api/**`. Common helpers in `src/lib/api.js` (`getAuthedSession`, `parseSearchParams`, response helpers).
+Always explain your decisions briefly and provide trade-offs when relevant.
 
-## UI and patterns
-- Shared filters: `src/components/dashboard/shared/table/TableFilters.jsx` (Client Component). Supports search, date range, sort, optional status bar, and explicit Apply/Reset buttons. Control with `config` and `sortOptions`. Example:
-  ```jsx
-  <TableFilters config={{ showStatusBar: false }} sortOptions={[{ value:'newest', label:'Newest'}]} />
-  ```
-- Server tables: build with links and forms; no React event handlers in Server Components.
-  - Orders server table: `src/components/dashboard/seller/order/OrdersTable.jsx` shows server-only patterns:
-    - Column toggles via query string (`cols`), sorting via links (`sort`), paging with GET forms.
-    - Actions via server actions in form `action` (e.g., `advance`, `bulkAdvance`). Pass the server action into child form components as props.
-    - Bulk actions submit selected `ids` or a `selectAll` flag along with current filters; server fetches current page and applies.
-    - CSV export via API: `/api/seller/orders/export`.
-- UI components use Tailwind and shadcn-style primitives in `src/components/ui/*` (Button, Input, etc.). Prefer these for consistency.
+---
 
-## Seller dashboard pages
-- Layout enforces role access: `src/app/dashboard/layout.js`. Use Server Components with auth checks.
-- Orders page (`src/app/dashboard/seller/orders/page.js`): renders `TableFilters` (with status counts from `getStatusCounts`) and the server `OrdersTable`.
-- Products page (`src/app/dashboard/seller/products/page.js`): uses `TableFilters` with `showStatusBar: false` and product sort options, then renders `ProductsTable`.
+## 🛠 Custom Skills
 
-## Sorting, filters, and URL params
-- Accept both `search` and `q`. Use `from`/`to` (ISO date), `sort`, `page`, `pageSize`. For orders, optional `status`. Build links with a helper that preserves current params.
-- When adding new list pages:
-  1) Create a `*Query.js` with `build*Where`, `get*Sort`, `getPageAndSize` mirroring orders/products.
-  2) Create a `*Service.js` that returns `{ items, total, page, pageSize }`.
-  3) Server table that reads `searchParams`, builds `mkQS`, uses links/forms only.
-  4) Reuse `TableFilters` (optionally hide status bar, customize `sortOptions`).
+### `/senior-dev`
+Refactor or write React/Next.js code in production quality.  
+Follow modern conventions, ensure reusability, and explain briefly.
 
-## Common pitfalls and gotchas
-- Do not pass `onChange`/event handlers into Server Components. Use GET/POST forms or links.
-- Server actions must be in the same Server Component file and passed down as props to child form components. Don’t reference them from module-scope helpers.
-- When sorting by numeric strings (amount/price), use aggregation `$addFields` with `$toDouble`.
-- For status sorting, use `collation({ locale:'en', strength:2 })` to sort case-insensitively.
+### `/test-expert`
+Generate **unit, integration, and E2E tests** using **Jest, React Testing Library, and Cypress**.  
+Include mocks, edge cases, and concise test strategies.
 
-<!-- ## Dev workflow
-- Run dev: `npm run dev` (Turbopack). Build: `npm run build`. Start: `npm start`.
-- ESLint: `npm run lint` (flat config using `next/core-web-vitals`). The config ignores `.next`, `out`, `build`.
-- Env: define `MONGODB_URI` in `.env.local` or process env; `mongodb` v6 client is used. -->
+### `/perf-expert`
+Analyze code and suggest **performance improvements** such as:
+- Memoization (`React.memo`, `useMemo`, `useCallback`)  
+- Lazy loading & dynamic imports  
+- Reducing hydration issues  
+- Bundle optimization  
 
-## Examples
-- Orders export endpoint: `src/app/api/seller/orders/export/route.js` uses the same query logic as the table to build CSV.
-- Bulk actions in orders: see handling of `selectAll`, `ids`, and current filter propagation via hidden inputs.
+### `/arch-expert`
+Provide **scalable architecture guidance** for large Next.js projects:  
+- Folder structures  
+- API design  
+- State management patterns  
+- Module boundaries  
+- Best practices for scalability and maintainability  
 
-Stick to these conventions to fit seamlessly with the repo’s structure and avoid client/server rendering issues.
+### `/full-stack-expert`
+Combine **all the above skills**:  
+- Production-ready React/Next.js code  
+- Tests (unit + integration)  
+- Performance improvements  
+- Architecture guidance  
+
+---
+
+## 📌 Usage Examples
+
+- `/senior-dev Refactor this form into a reusable custom hook.`  
+- `/test-expert Write Jest tests for this login form.`  
+- `/perf-expert Optimize this Next.js page for faster TTFB.`  
+- `/arch-expert Suggest a folder structure for a SaaS app.`  
+- `/full-stack-expert Review this component for scalability, tests, and performance.`  
+
+---
+
+## 🧭 Project guide (Roboshop Next.js)
+
+Big picture
+- App Router (Next 15, React 19). MongoDB via `src/lib/mongodb.js`. Styling: Tailwind + shadcn/ui; Icons: `lucide-react`.
+- Two surfaces: storefront (`src/app/**`) and seller dashboard (`src/app/dashboard/**`). Data services live under `src/lib/*Service.js` + `*Query.js`.
+
+Core conventions
+- Filters live in the URL. Use `useSearchFilters` (`src/hooks/useSearchFilters.jsx`) to read/update params (normalizes `q`→`search`, resets `page=1` on changes).
+- Currency: always render with `formatBDT(n)` from `src/lib/currency.js` (outputs `৳ ` with space). Never hardcode symbols.
+- Dates: use `formatDate` / `formatDateTime` from `src/lib/dates.js`. Avoid direct `toLocale*` in UI.
+- Categories: options from `src/data/categories.js`. Subcategory options depend on selected category.
+
+Tables & filters (seller dashboard)
+- Pattern: Server component fetches; client filter UI controls the URL.
+- See `src/components/dashboard/seller/product/ProductsTable.jsx` (server) + `shared/table/TableFilters.jsx` (client).
+- Columns toggled via `cols` query param; quick presets provided in the Display dropdown.
+- Saved views: `client/SavedViews.jsx` (localStorage key `productsSavedViews`), inline Save/Rename/Overwrite/Delete + preview chips.
+- Bulk actions: implemented in server action `bulkProducts` (stock inc/dec/set, set/percent discount, price set/round(.99|whole), clear discount, delete). Scope: `selected | page | filtered`.
+- Export: `/api/seller/products/export` respects filters or current page.
+
+Services & queries
+- Products: `src/lib/productsService.js` (`getProductsAndTotal`, `getProductsQuickStats`, `getProductsFilteredTotals`) and `src/lib/productsQuery.js` (`getProductsSort`).
+- Orders mirror this in `ordersService.js` / `ordersQuery.js`.
+- Audit logging: `src/lib/audit.js` (called on bulk mutations).
+
+Workflows
+- Dev: `npm run dev` (Turbopack). Build: `npm run build`. Start: `npm run start`. Lint: `npm run -s lint`.
+- Env: require `MONGODB_URI`. Default DB name is `roboshop`.
+- Deploy: Vercel (`vercel --prod`).
+
+Implementation tips
+- Keep table/filter state in URL; when filters change, reset `page` unless explicitly set.
+- Prefer server components for fetching; pass compact props to client components.
+- Always use shared formatters (`currency`, `dates`) and shared UI primitives in `src/components/ui/**` (shadcn wrappers).
+
+Key files
+- `ProductsTable.jsx`, `TableFilters.jsx`, `src/lib/productsService.js`, `src/lib/productsQuery.js`, `src/lib/currency.js`, `src/lib/dates.js`, `src/components/ui/**`.

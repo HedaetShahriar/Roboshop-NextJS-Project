@@ -1,6 +1,3 @@
-import { notFound, redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,10 +9,6 @@ import { formatBDT } from "@/lib/currency";
 export const dynamic = 'force-dynamic';
 
 export default async function SellerDashboardHome() {
-  const session = await getServerSession(authOptions);
-  const role = session?.user?.role || 'seller';
-  if (!session?.user?.email || role !== 'seller') return notFound();
-
   const db = await getDb();
   const now = new Date();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);

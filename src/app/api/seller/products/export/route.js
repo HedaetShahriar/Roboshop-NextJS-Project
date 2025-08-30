@@ -1,20 +1,27 @@
 import getDb from "@/lib/mongodb";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { buildProductsWhere, getProductsSort } from "@/lib/productsQuery";
 
 export async function GET(req) {
   try {
+    const session = await getServerSession(authOptions);
+    const role = session?.user?.role || 'customer';
+    if (!session?.user?.email || (role !== 'seller' && role !== 'admin')) {
+      return new Response('Unauthorized', { status: 401 });
+    }
     const { searchParams } = new URL(req.url);
     const sp = Object.fromEntries(searchParams.entries());
     if (sp.search && !sp.q) sp.q = sp.search;
     const where = buildProductsWhere(sp);
     const sortKey = (sp?.sort || 'newest').toString();
-  const limitParam = Number(sp?.limit || 5000);
-  const limit = Math.min(20000, Math.max(100, isNaN(limitParam) ? 5000 : limitParam));
-  const page = Number(sp?.page);
-  const pageSizeParam = Number(sp?.pageSize);
-  const hasPage = !isNaN(page) && page > 0;
-  const pageSize = hasPage ? (isNaN(pageSizeParam) ? 20 : Math.min(100, Math.max(10, pageSizeParam))) : undefined;
-  const skip = hasPage ? (page - 1) * pageSize : 0;
+    const limitParam = Number(sp?.limit || 5000);
+    const limit = Math.min(20000, Math.max(100, isNaN(limitParam) ? 5000 : limitParam));
+    const page = Number(sp?.page);
+    const pageSizeParam = Number(sp?.pageSize);
+    const hasPage = !isNaN(page) && page > 0;
+    const pageSize = hasPage ? (isNaN(pageSizeParam) ? 10 : Math.min(100, Math.max(10, pageSizeParam))) : undefined;
+    const skip = hasPage ? (page - 1) * pageSize : 0;
 
     const db = await getDb();
     let products;
@@ -44,14 +51,14 @@ export async function GET(req) {
       products = await cursor.toArray();
     }
 
-    const headers = ['Name','Slug','SKU','Price','HasDiscount','DiscountPrice','Stock','Rating','RatingCount','CreatedAt'];
+    const headers = ['Name', 'Slug', 'SKU', 'Price', 'HasDiscount', 'DiscountPrice', 'Stock', 'Rating', 'RatingCount', 'CreatedAt'];
     const rows = products.map(p => [
       p.name || '', p.slug || '', p.sku || '', p.price ?? '',
       p.has_discount_price ? 'true' : 'false', p.discount_price ?? '',
       p.current_stock ?? '', p.product_rating ?? '', p.product_rating_count ?? '',
       p.createdAt ? new Date(p.createdAt).toISOString() : ''
     ]);
-    const esc = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
+    const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const csv = [headers, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
 
     return new Response(csv, {

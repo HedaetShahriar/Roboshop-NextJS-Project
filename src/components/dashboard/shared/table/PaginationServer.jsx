@@ -1,5 +1,5 @@
 import Link from "next/link";
-import PageSizeSelect from "./PageSizeSelect";
+import PageSizeSelect from "../PageSizeSelect";
 
 // Server component: compact, numbered pager + page-size selector
 // Props:
@@ -55,10 +55,7 @@ export default function PaginationServer({ basePath, total, page, pageSize, quer
         {/* Page size (dropdown, auto-navigate) */}
         <div className="flex items-center gap-2">
           <span className="text-xs sm:text-sm">Rows:</span>
-          <PageSizeSelect
-            current={currentPageSize}
-            options={pageSizes.map((s) => ({ value: s, label: s, href: `${basePath}${toQS({ ...query, pageSize: s, page: 1 })}` }))}
-          />
+          <PageSizeSelect value={currentPageSize} />
         </div>
         {/* Pager */}
         <div className="flex items-center gap-1 sm:gap-2">

@@ -14,7 +14,8 @@ import { formatBDT } from "@/lib/currency";
 const KNOWN_PROMOS = {
   ROBO10: { type: "percent", value: 10, label: "10% OFF" },
   ROBO20: { type: "percent", value: 20, label: "20% OFF" },
-  SAVE50: { type: "flat", value: 50, label: "৳50 OFF" },
+  // Use shared formatter so the symbol and spacing are always consistent
+  SAVE50: { type: "flat", value: 50, label: `${formatBDT(50)} OFF` },
 };
 
 export default function CheckoutPage() {

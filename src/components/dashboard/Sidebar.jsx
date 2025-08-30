@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LayoutDashboard, Package, MessageSquare, PlusSquare, Bike, Shield, PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import { usePathname } from "next/navigation";
 import DashboardNavbar from "./DashboardNavbar";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 const iconFor = (label) => {
   const key = (label || '').toLowerCase();
@@ -22,6 +24,20 @@ export default function DashboardShell({ role, nav, children }) {
   // Sidebar expanded state for md and above (desktop collapsible too)
   const [expanded, setExpanded] = useState(true);
   const pathname = usePathname();
+  const router = useRouter();
+  const { status } = useSession();
+
+  // Client-side guard: if unauthenticated after hydration, redirect to login
+  useEffect(() => {
+    if (status !== 'unauthenticated') return;
+    // Check presence of NextAuth session cookie to distinguish real logout vs hydration lag
+    const hasSessionCookie = typeof document !== 'undefined'
+      && /(?:^|; )(__Secure-next-auth\.session-token|next-auth\.session-token)=/.test(document.cookie);
+    if (!hasSessionCookie) {
+      const callback = encodeURIComponent(pathname || '/dashboard');
+      router.replace(`/login?callbackUrl=${callback}`);
+    }
+  }, [status, pathname, router]);
 
   const pretty = (seg) => (seg || 'dashboard')
     .replace(/-/g, ' ')
@@ -48,23 +64,23 @@ export default function DashboardShell({ role, nav, children }) {
 
   return (
     <div className="min-h-dvh bg-zinc-50">
-  <DashboardNavbar role={role} label={derivedLabel} onMenuClick={() => setOpen(true)} />
+      <DashboardNavbar role={role} label={derivedLabel} onMenuClick={() => setOpen(true)} />
 
-  {/* Layout area below sticky header (h-14). Fix height to viewport under header. */}
-  <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] h-[calc(100dvh-3.5rem-1px)]">
+      {/* Layout area below sticky header (h-14). Fix height to viewport under header. */}
+      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] h-[calc(100dvh-3.5rem-1px)]">
         {/* Mobile overlay */}
         {open && (
           <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setOpen(false)} />
         )}
 
-    {/* Sidebar: mobile drawer, md+ collapsible/expandable */}
-    <aside
+        {/* Sidebar: mobile drawer, md+ collapsible/expandable */}
+        <aside
           className={
             [
               // Base positioning
-      "z-50 md:z-auto",
+              "z-50 md:z-auto",
               // Mobile: off-canvas
-      "fixed md:sticky top-14 left-0 md:top-14 h-[calc(100vh-3.5rem)] md:h-[calc(100vh-3.5rem)] md:self-start w-60",
+              "fixed md:sticky top-14 left-0 md:top-14 h-[calc(100vh-3.5rem)] md:h-[calc(100vh-3.5rem)] md:self-start w-60",
               "bg-white border-r",
               // Transition for mobile
               open ? "translate-x-0" : "-translate-x-full md:translate-x-0",
@@ -124,8 +140,8 @@ export default function DashboardShell({ role, nav, children }) {
           </nav>
         </aside>
 
-  {/* Main content fills height; children control their own scroll. */}
-  <main className="h-full p-4 overflow-hidden flex flex-col min-h-0">
+        {/* Main content fills height; children control their own scroll. */}
+        <main className="h-full p-4 overflow-hidden flex flex-col min-h-0">
           {children}
         </main>
       </div>

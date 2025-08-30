@@ -8,7 +8,7 @@ import { Menu, Home, User, LogOut } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 export default function DashboardNavbar({ role, onMenuClick, label }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -71,7 +71,9 @@ export default function DashboardNavbar({ role, onMenuClick, label }) {
         </div>
         <div className="relative" ref={ref}>
           <button className="inline-flex items-center gap-2 rounded-full hover:bg-zinc-100 p-1 ring-1 ring-zinc-200" onClick={() => setOpen(v => !v)} aria-haspopup="menu" aria-expanded={open}>
-            {session?.user?.image ? (
+            {status === 'loading' ? (
+              <span className="inline-flex h-9 w-9 animate-pulse items-center justify-center rounded-full bg-zinc-100" />
+            ) : session?.user?.image ? (
               <Image src={session.user.image} alt="" width={28} height={28} className="rounded-full" />
             ) : (
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-700">👤</span>

@@ -3,6 +3,7 @@ import Image from "next/image";
 import AddToCartButton from "@/components/AddToCartButton";
 import { getProductById } from "@/data/user/products";
 import { formatBDT } from "@/lib/currency";
+import { formatDate } from "@/lib/dates";
 
 export default async function ProductDetailPage({ params }) {
   const { id } = await params;
@@ -59,7 +60,7 @@ export default async function ProductDetailPage({ params }) {
             </div>
             <div className="text-md text-gray-500 mt-6 border-t pt-4">
               <p><strong>Product ID:</strong> {product._id}</p>
-              {product.createdAt && <p><strong>Added On:</strong> {new Date(product.createdAt).toLocaleDateString()}</p>}
+              {product.createdAt && <p><strong>Added On:</strong> {formatDate(product.createdAt)}</p>}
             </div>
           </div>
         </div>

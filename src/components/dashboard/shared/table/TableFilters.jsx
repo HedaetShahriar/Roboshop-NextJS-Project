@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, memo } from 'react';
-import { Search, X, SlidersHorizontal } from 'lucide-react';
+import { Search, X, Calendar, Tag, Tags, SlidersHorizontal, ArrowUpDown, Percent, AlertTriangle, CircleDollarSign, RotateCcw, Check, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,6 +12,7 @@ import {
 import { CATEGORY_MAP } from '@/data/categories';
 import DateRangePicker from '@/components/ui/date-range-picker';
 import useSearchFilters from '@/hooks/useSearchFilters';
+import { formatDate } from '@/lib/dates';
 function TableFilters({
     value,
     onChange,
@@ -164,6 +165,21 @@ function TableFilters({
         return n;
     }, [cfg, from, to, sort, category, subcategory, inStock, hasDiscount, lowStock, minPrice, maxPrice, status]);
 
+    // Whether any chip would render (includes search unlike activeCount)
+    const hasChips = useMemo(() => {
+        if (Boolean(search)) return true;
+        if (cfg.dateRange && (from || to)) return true;
+        if (cfg.sort && sort) return true;
+        if (cfg.showCategory && category) return true;
+        if (cfg.showSubcategory && subcategory) return true;
+        if (cfg.showInStock && Boolean(inStock)) return true;
+        if (cfg.showHasDiscount && Boolean(hasDiscount)) return true;
+        if (cfg.showLowStock && Boolean(lowStock)) return true;
+        if (cfg.showPriceRange && (minPrice || maxPrice)) return true;
+        if (status) return true;
+        return false;
+    }, [search, cfg, from, to, sort, category, subcategory, inStock, hasDiscount, lowStock, minPrice, maxPrice, status]);
+
     // Date preset helpers
     const applyDatePreset = (key) => {
         const today = new Date();
@@ -251,11 +267,91 @@ function TableFilters({
                             )}
                         </div>
                     )}
+                    {(cfg.showCategory || cfg.showSubcategory) && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button type="button" size="sm" variant="outline" className="font-medium relative inline-flex items-center gap-1">
+                                    <Tag size={14} />
+                                    Category
+                                    {((cfg.showCategory && category) || (cfg.showSubcategory && subcategory)) && (
+                                        <span className="ml-1 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-zinc-900 text-white text-[10px]">
+                                            {(category ? 1 : 0) + (subcategory ? 1 : 0)}
+                                        </span>
+                                    )}
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[min(90vw,380px)] p-3 rounded-xl shadow-lg border bg-white">
+                                <div className="grid grid-cols-1 gap-3">
+                                    {cfg.showCategory && (
+                                        <div className="flex flex-col gap-1">
+                                            <label htmlFor="category-dd" className="text-xs text-muted-foreground font-medium inline-flex items-center gap-1"><Tag size={12} /> Category</label>
+                                            {Array.isArray(categoryOptions) && categoryOptions.length ? (
+                                                <select
+                                                    id="category-dd"
+                                                    value={localCategory}
+                                                    onChange={(e) => setLocalCategory(e.target.value)}
+                                                    className="h-9 w-full rounded-md border px-2 bg-white"
+                                                >
+                                                    <option value="">Any</option>
+                                                    {categoryOptions.map((c) => (
+                                                        <option key={c} value={c}>{c}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <Input id="category-dd" type="text" value={localCategory} onChange={(e)=>setLocalCategory(e.target.value)} className="h-9 w-full" />
+                                            )}
+                                        </div>
+                                    )}
+                                    {cfg.showSubcategory && (
+                                        <div className="flex flex-col gap-1">
+                                            <label htmlFor="subcategory-dd" className="text-xs text-muted-foreground font-medium inline-flex items-center gap-1"><Tags size={12} /> Subcategory</label>
+                                            {Array.isArray(filteredSubcategoryOptions) && filteredSubcategoryOptions.length ? (
+                                                <select
+                                                    id="subcategory-dd"
+                                                    value={localSubcategory}
+                                                    onChange={(e) => setLocalSubcategory(e.target.value)}
+                                                    disabled={disableSubcategory}
+                                                    aria-disabled={disableSubcategory}
+                                                    className="h-9 w-full rounded-md border px-2 bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                                >
+                                                    <option value="">Any</option>
+                                                    {filteredSubcategoryOptions.map((s) => (
+                                                        <option key={s} value={s}>{s}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <Input id="subcategory-dd" type="text" value={localSubcategory} onChange={(e)=>setLocalSubcategory(e.target.value)} disabled={disableSubcategory} aria-disabled={disableSubcategory} placeholder={disableSubcategory ? 'Select category first' : undefined} className="h-9 w-full disabled:opacity-60 disabled:cursor-not-allowed" />
+                                            )}
+                                            {disableSubcategory && (
+                                                <p className="text-[11px] text-muted-foreground mt-1">Select category first</p>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="flex items-center justify-end gap-2 mt-1">
+                                        <Button onClick={() => { setLocalCategory(''); setLocalSubcategory(''); }} size="sm" variant="outline" className="font-medium inline-flex items-center gap-1"><RotateCcw size={14} /> Reset</Button>
+                                        <Button onClick={() => {
+                                            const updates = {};
+                                            let changed = false;
+                                            if (cfg.showCategory) { if ((category || '') !== (localCategory || '')) { updates.category = localCategory; changed = true; } }
+                                            if (cfg.showSubcategory) { if ((subcategory || '') !== (localSubcategory || '')) { updates.subcategory = localSubcategory; changed = true; } }
+                                            // If selected subcategory no longer valid for chosen category, clear it
+                                            if (cfg.showCategory && cfg.showSubcategory) {
+                                                const validSubs = (localCategory && CATEGORY_MAP && CATEGORY_MAP[localCategory]) ? CATEGORY_MAP[localCategory] : [];
+                                                if (localSubcategory && !validSubs.includes(localSubcategory)) { updates.subcategory = ''; changed = true; }
+                                            }
+                                            if (changed) setFilters(updates);
+                                        }} size="sm" className="font-medium inline-flex items-center gap-1"><Check size={14} /> Apply</Button>
+                                    </div>
+                                </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                     {(cfg.dateRange || cfg.sort || advancedExtra) && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button type="button" size="sm" variant="outline" className="font-medium relative">
-                                    <SlidersHorizontal className="mr-1 h-4 w-4" /> {cfg.advancedButtonLabel}
+                                <Button type="button" size="sm" variant="outline" className="font-medium relative inline-flex items-center gap-1">
+                                    <SlidersHorizontal size={14} />
+                                    {cfg.advancedButtonLabel}
                                     {activeCount > 0 && (
                                         <span className="ml-1 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-zinc-900 text-white text-[10px]">
                                             {activeCount}
@@ -265,76 +361,40 @@ function TableFilters({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                                 align="end"
-                                className="w-[min(90vw,420px)] p-2.5 rounded-xl shadow-lg border bg-white"
+                                className="w-[min(90vw,420px)] p-3 rounded-xl shadow-lg border bg-white"
                             >
                                 <div className="grid grid-cols-1 gap-4">
                                     {cfg.dateRange && (
                                         <div className="flex items-center gap-1">
-                                            <span className="text-[10px] text-muted-foreground">Presets:</span>
-                                            <button type="button" className="h-5 px-2 rounded border text-[10px] bg-white hover:bg-zinc-50" onClick={()=>applyDatePreset('today')}>Today</button>
-                                            <button type="button" className="h-5 px-2 rounded border text-[10px] bg-white hover:bg-zinc-50" onClick={()=>applyDatePreset('last7')}>Last 7 days</button>
-                                            <button type="button" className="h-5 px-2 rounded border text-[10px] bg-white hover:bg-zinc-50" onClick={()=>applyDatePreset('last30')}>Last 30 days</button>
+                                            <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1"><Calendar size={12} /> Presets:</span>
+                                            <button type="button" className="h-6 px-2 rounded border text-[11px] bg-white hover:bg-zinc-50" onClick={()=>applyDatePreset('today')}>Today</button>
+                                            <button type="button" className="h-6 px-2 rounded border text-[11px] bg-white hover:bg-zinc-50" onClick={()=>applyDatePreset('last7')}>Last 7 days</button>
+                                            <button type="button" className="h-6 px-2 rounded border text-[11px] bg-white hover:bg-zinc-50" onClick={()=>applyDatePreset('last30')}>Last 30 days</button>
                                         </div>
                                     )}
                                     {(cfg.showInStock || cfg.showHasDiscount || cfg.showLowStock) && (
                                         <div className="flex flex-wrap items-center gap-3">
                                             {cfg.showInStock && (
                                                 <label className="inline-flex items-center gap-2 text-xs">
-                                                    <input type="checkbox" checked={!!localInStock} onChange={(e)=>setLocalInStock(e.target.checked)} /> In stock only
+                                                    <input type="checkbox" checked={!!localInStock} onChange={(e)=>setLocalInStock(e.target.checked)} /> <span className="inline-flex items-center gap-1"><Package size={12} /> In stock only</span>
                                                 </label>
                                             )}
                                             {cfg.showHasDiscount && (
                                                 <label className="inline-flex items-center gap-2 text-xs">
-                                                    <input type="checkbox" checked={!!localHasDiscount} onChange={(e)=>setLocalHasDiscount(e.target.checked)} /> Has discount
+                                                    <input type="checkbox" checked={!!localHasDiscount} onChange={(e)=>setLocalHasDiscount(e.target.checked)} /> <span className="inline-flex items-center gap-1"><Percent size={12} /> Has discount</span>
                                                 </label>
                                             )}
                                             {cfg.showLowStock && (
                                                 <label className="inline-flex items-center gap-2 text-xs">
-                                                    <input type="checkbox" checked={!!localLowStock} onChange={(e)=>setLocalLowStock(e.target.checked)} /> Low stock
+                                                    <input type="checkbox" checked={!!localLowStock} onChange={(e)=>setLocalLowStock(e.target.checked)} /> <span className="inline-flex items-center gap-1"><AlertTriangle size={12} /> Low stock</span>
                                                 </label>
                                             )}
                                         </div>
                                     )}
-                                    {(cfg.showCategory || cfg.showSubcategory) && (
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {cfg.showCategory && (
-                                                <div className="flex flex-col gap-1">
-                                                    <label htmlFor="category" className="text-xs text-muted-foreground font-medium">Category</label>
-                                                    {Array.isArray(categoryOptions) && categoryOptions.length ? (
-                                                        <select id="category" value={localCategory} onChange={(e)=>setLocalCategory(e.target.value)} className="h-9 w-full rounded-md border px-2 bg-white">
-                                                            <option value="">Any</option>
-                                                            {categoryOptions.map((c) => (
-                                                                <option key={c} value={c}>{c}</option>
-                                                            ))}
-                                                        </select>
-                                                    ) : (
-                                                        <Input id="category" type="text" value={localCategory} onChange={(e)=>setLocalCategory(e.target.value)} className="h-9 w-full" />
-                                                    )}
-                                                </div>
-                                            )}
-                                            {cfg.showSubcategory && (
-                                                <div className="flex flex-col gap-1">
-                                                    <label htmlFor="subcategory" className="text-xs text-muted-foreground font-medium">Subcategory</label>
-                                                    {Array.isArray(filteredSubcategoryOptions) && filteredSubcategoryOptions.length ? (
-                                                        <select id="subcategory" value={localSubcategory} onChange={(e)=>setLocalSubcategory(e.target.value)} disabled={disableSubcategory} aria-disabled={disableSubcategory} className="h-9 w-full rounded-md border px-2 bg-white disabled:opacity-60 disabled:cursor-not-allowed">
-                                                            <option value="">Any</option>
-                                                            {filteredSubcategoryOptions.map((s) => (
-                                                                <option key={s} value={s}>{s}</option>
-                                                            ))}
-                                                        </select>
-                                                    ) : (
-                                                        <Input id="subcategory" type="text" value={localSubcategory} onChange={(e)=>setLocalSubcategory(e.target.value)} disabled={disableSubcategory} aria-disabled={disableSubcategory} placeholder={disableSubcategory ? 'Select category first' : undefined} className="h-9 w-full disabled:opacity-60 disabled:cursor-not-allowed" />
-                                                    )}
-                                                    {disableSubcategory && (
-                                                        <p className="text-[11px] text-muted-foreground mt-1">Select category first</p>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
+                                    {/* Category/Subcategory moved out of Advanced */}
                                     {cfg.dateRange && (
-                                        <div className="flex flex-col gap-0.5">
-                                            <label className="text-xs text-muted-foreground font-medium">Date range</label>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-xs text-muted-foreground font-medium inline-flex items-center gap-1"><Calendar size={12} /> Date range</label>
                                             <DateRangePicker
                                                 from={localFrom}
                                                 to={localTo}
@@ -345,18 +405,18 @@ function TableFilters({
                                     {cfg.showPriceRange && (
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="flex flex-col gap-1">
-                                                <label htmlFor="minPrice" className="text-xs text-muted-foreground font-medium">Min price</label>
+                                                <label htmlFor="minPrice" className="text-xs text-muted-foreground font-medium inline-flex items-center gap-1"><CircleDollarSign size={12} /> Min price</label>
                                                 <Input id="minPrice" type="number" value={localMinPrice} onChange={(e)=>setLocalMinPrice(e.target.value)} className="h-9 w-full" />
                                             </div>
                                             <div className="flex flex-col gap-1">
-                                                <label htmlFor="maxPrice" className="text-xs text-muted-foreground font-medium">Max price</label>
+                                                <label htmlFor="maxPrice" className="text-xs text-muted-foreground font-medium inline-flex items-center gap-1"><CircleDollarSign size={12} /> Max price</label>
                                                 <Input id="maxPrice" type="number" value={localMaxPrice} onChange={(e)=>setLocalMaxPrice(e.target.value)} className="h-9 w-full" />
                                             </div>
                                         </div>
                                     )}
                                     {cfg.sort && (
                                         <div className="flex flex-col gap-1">
-                                            <label htmlFor="sort" className="text-xs text-muted-foreground font-medium">Sort</label>
+                                            <label htmlFor="sort" className="text-xs text-muted-foreground font-medium inline-flex items-center gap-1"><ArrowUpDown size={12} /> Sort</label>
                                             <div className="relative">
                                                 <select id="sort" value={localSort || (sortOpts[0]?.value || 'newest')} onChange={(e) => setLocalSort(e.target.value)} className="block w-full h-9 rounded-md border pr-8 px-3 text-sm bg-white">
                                                     {sortOpts.map((o) => (
@@ -380,7 +440,7 @@ function TableFilters({
                                     {advancedExtra}
 
                                     <div className="flex items-center justify-end gap-2 mt-2">
-                                        <Button onClick={() => { setLocalFrom(''); setLocalTo(''); setLocalSort('newest'); setLocalInStock(false); setLocalHasDiscount(false); setLocalLowStock(false); setLocalMinPrice(''); setLocalMaxPrice(''); setLocalCategory(''); setLocalSubcategory(''); }} size="sm" variant="outline" className="font-medium">Reset</Button>
+                                        <Button onClick={() => { setLocalFrom(''); setLocalTo(''); setLocalSort('newest'); setLocalInStock(false); setLocalHasDiscount(false); setLocalLowStock(false); setLocalMinPrice(''); setLocalMaxPrice(''); setLocalCategory(''); setLocalSubcategory(''); }} size="sm" variant="outline" className="font-medium inline-flex items-center gap-1"><RotateCcw size={14} /> Reset</Button>
                                         <Button onClick={() => {
                                             const updates = {};
                                             let changed = false;
@@ -411,7 +471,7 @@ function TableFilters({
                                                 if ((maxPrice || '') !== (localMaxPrice || '')) { updates.maxPrice = localMaxPrice; changed = true; }
                                             }
                                             if (changed) setFilters(updates);
-                                        }} size="sm" className="font-medium">Apply</Button>
+                                        }} size="sm" className="font-medium inline-flex items-center gap-1"><Check size={14} /> Apply</Button>
                                     </div>
                                 </div>
                             </DropdownMenuContent>
@@ -420,8 +480,7 @@ function TableFilters({
                 </div>
             </div>
 
-            {/* Divider */}
-            <div className="h-px bg-zinc-200" />
+            
 
 
             {/* Primary row: Search */}
@@ -433,14 +492,14 @@ function TableFilters({
                             setFilters({ search: localSearch });
                         }
                     }}>
-                        <div className="relative w-full">
+            <div className="relative w-full">
                             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                                 <Search size={18} />
                             </span>
                             <Input
                                 value={localSearch}
                                 placeholder={searchPlaceholder || 'Search'}
-                                className="h-10 pl-9 pr-9 w-full bg-white"
+                className={(compact ? 'h-9' : 'h-10') + " pl-9 pr-9 w-full bg-white"}
                                 onChange={(e) => setLocalSearch(e.target.value)}
                             />
                             {localSearch?.length > 0 && (
@@ -459,12 +518,15 @@ function TableFilters({
                                 </button>
                             )}
                         </div>
-                        <Button type="submit" size="sm" className="h-10">Search</Button>
+                        <Button type="submit" size="sm" className={compact ? 'h-9' : 'h-10'}>Search</Button>
                     </form>
                 )}
 
+                {/* Category/Subcategory moved to dedicated dropdown */}
+
                 {/* Applied filter chips */}
-                <div className="flex items-center gap-2 overflow-x-auto flex-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden bg-zinc-50 border rounded px-2 py-1">
+                {hasChips && (
+                <div className="flex items-center gap-2 overflow-x-auto flex-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                     {Boolean(search) && (
                         <button type="button" className="h-7 px-2 rounded-full border text-xs bg-white hover:bg-zinc-50 flex items-center gap-1" onClick={()=>setFilters({ search: '' })}>
                             Search: “{search}” <X size={12} />
@@ -472,7 +534,7 @@ function TableFilters({
                     )}
                     {cfg.dateRange && (from || to) && (
                         <button type="button" className="h-7 px-2 rounded-full border text-xs bg-white hover:bg-zinc-50 flex items-center gap-1" onClick={()=>setFilters({ from: '', to: '' })}>
-                            Date: {from || '…'} → {to || '…'} <X size={12} />
+                            Date: {formatDate(from) || '…'} → {formatDate(to) || '…'} <X size={12} />
                         </button>
                     )}
                     {cfg.sort && sort && (
@@ -516,6 +578,7 @@ function TableFilters({
                         </button>
                     )}
                 </div>
+                )}
 
 
                 {/* Status quick filters bar */}
@@ -546,8 +609,7 @@ function TableFilters({
                 )}
             </div>
 
-        {/* Divider */}
-        <div className="h-px bg-zinc-200" />
+            
 
             {/* Action row */}
             <div className={"flex flex-col md:flex-row md:items-center md:justify-between " + (compact ? "gap-1" : "gap-2")}>
@@ -555,7 +617,7 @@ function TableFilters({
                     {persistentExtra ?? null}
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button onClick={() => (resetFilters ? resetFilters() : setFilters({ search: '', from: '', to: '', sort: '' }))} size="sm" variant="outline" className="font-medium">
+                    <Button onClick={() => (resetFilters ? resetFilters() : setFilters({ search: '', from: '', to: '', sort: '', category: '', subcategory: '', inStock: '', hasDiscount: '', lowStock: '', minPrice: '', maxPrice: '' }))} size="sm" variant="outline" className="font-medium">
                         Clear All Filters
                     </Button>
                     {rightActions}

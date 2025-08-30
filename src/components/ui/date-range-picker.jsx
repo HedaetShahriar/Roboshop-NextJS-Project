@@ -28,7 +28,7 @@ export default function DateRangePicker({ from, to, onChange }) {
   }, [from]);
 
   const monthLabel = useMemo(() => {
-    return new Date(viewYear, viewMonth, 1).toLocaleString('en-US', { month: 'short', year: '2-digit' });
+    return new Date(viewYear, viewMonth, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
   }, [viewYear, viewMonth]);
 
   const weeks = useMemo(() => {
@@ -101,26 +101,26 @@ export default function DateRangePicker({ from, to, onChange }) {
   };
 
   return (
-    <div className="flex flex-col gap-0">
+    <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <button type="button" onClick={handlePrev} className="h-4 w-4 text-[8px] inline-flex items-center justify-center rounded border hover:bg-zinc-50">‹</button>
-        <div className="text-[9px] font-medium leading-none">{monthLabel}</div>
-        <button type="button" onClick={handleNext} className="h-4 w-4 text-[8px] inline-flex items-center justify-center rounded border hover:bg-zinc-50">›</button>
+        <button type="button" onClick={handlePrev} className="h-6 w-6 text-[10px] inline-flex items-center justify-center rounded border hover:bg-zinc-50">‹</button>
+        <div className="text-[11px] font-medium">{monthLabel}</div>
+        <button type="button" onClick={handleNext} className="h-6 w-6 text-[10px] inline-flex items-center justify-center rounded border hover:bg-zinc-50">›</button>
       </div>
-      <div className="grid grid-cols-7 text-[7px] text-muted-foreground">
-        {['M','T','W','T','F','S','S'].map((d) => (
-          <div key={d} className="h-3 flex items-center justify-center">{d}</div>
+      <div className="grid grid-cols-7 text-[9px] text-muted-foreground">
+        {['M','T','W','T','F','S','S'].map((d, i) => (
+          <div key={`${d}-${i}`} className="h-4 flex items-center justify-center">{d}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-0.5">
+      <div className="grid grid-cols-7 gap-1">
         {weeks.flat().map((cell, idx) => {
-          if (!cell) return <div key={idx} className="h-4" />;
+          if (!cell) return <div key={idx} className="h-6" />;
           const selectedStart = fromDate && isSameDay(cell, fromDate);
           const selectedEnd = toDate && isSameDay(cell, toDate);
           const isSelected = selectedStart || selectedEnd;
           const within = inRange(cell);
           const cls = [
-            "h-4 rounded text-[9px] flex items-center justify-center border",
+            "h-6 rounded text-[11px] flex items-center justify-center border",
             isSelected ? "bg-zinc-900 text-white border-zinc-900" : within ? "bg-zinc-100" : "bg-white hover:bg-zinc-50",
           ].join(' ');
           return (
@@ -130,11 +130,13 @@ export default function DateRangePicker({ from, to, onChange }) {
           );
         })}
       </div>
-      <div className="flex items-center justify-between text-[8px] mt-0.5">
-        <div className="text-muted-foreground truncate leading-none">
-          {from || '—'}<span className="mx-0.5">→</span>{to || '—'}
+      <div className="flex items-center justify-between text-[10px]">
+        <div className="text-muted-foreground truncate">
+          {from ? `From: ${from}` : 'From: —'}
+          <span className="mx-1">→</span>
+          {to ? `To: ${to}` : 'To: —'}
         </div>
-        <button type="button" onClick={clear} className="h-4 px-1 rounded border text-[8px] bg-white hover:bg-zinc-50 leading-none">Clear</button>
+        <button type="button" onClick={clear} className="h-6 px-2 rounded border text-[11px] bg-white hover:bg-zinc-50">Clear</button>
       </div>
     </div>
   );

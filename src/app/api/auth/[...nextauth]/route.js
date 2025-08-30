@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs";
 import getDb from "@/lib/mongodb";
 
 export const authOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -49,6 +51,18 @@ export const authOptions = {
   session: {
     strategy: "jwt",
   },
+  cookies: {
+    // Ensure correct cookie in dev (non-secure) vs prod (secure)
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+  },
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       // Ensure token.sub is the MongoDB user id when possible
@@ -63,10 +77,10 @@ export const authOptions = {
         if (existing?._id) token.sub = existing._id.toString();
         if (existing?.role) token.role = existing.role;
         else token.role = token.role || 'customer';
-        if (existing?.image && !session) {
-          // keep token.picture in sync with DB when reloading
-          token.picture = existing.image;
-        }
+        // Always keep token.picture in sync with DB (so SSR/CSR both see the avatar)
+        if (existing?.image) token.picture = existing.image;
+        // Back-compat: some providers may set token.image instead of token.picture
+        if (!token?.picture && token?.image) token.picture = token.image;
       } catch { }
       // If a client calls session.update, propagate fields to token
       if (trigger === 'update' && session?.user) {
@@ -78,7 +92,9 @@ export const authOptions = {
     async session({ session, token }) {
       session.user.id = token.sub;
       session.user.role = token.role || 'customer';
-      if (token.picture) session.user.image = token.picture;
+      // Normalize image field consistently
+      const image = token.picture || token.image || session.user.image;
+      if (image) session.user.image = image;
       return session;
     },
   },
