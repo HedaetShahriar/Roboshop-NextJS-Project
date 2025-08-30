@@ -109,10 +109,10 @@ export default function ProductsTableRow({
                         <ul className="space-y-2">
                             {/* Quick links */}
                             <li className="grid grid-cols-3 gap-2 px-2">
-                                <Link href={`/dashboard/seller/products/${id}`} className="inline-flex items-center justify-center gap-1 h-8 rounded border text-xs bg-white hover:bg-zinc-50" title="View">
+                                <Link href={`/dashboard/seller/products/${id}`} className="inline-flex items-center justify-center gap-1 h-8 rounded border text-xs bg-white hover:bg-zinc-50" title="View" aria-label={`View ${p.name}`}>
                                     <Eye className="size-3.5" /> View
                                 </Link>
-                                <Link href={`/dashboard/seller/products/${id}/edit`} className="inline-flex items-center justify-center gap-1 h-8 rounded border text-xs bg-white hover:bg-zinc-50" title="Edit">
+                                <Link href={`/dashboard/seller/products/${id}/edit`} className="inline-flex items-center justify-center gap-1 h-8 rounded border text-xs bg-white hover:bg-zinc-50" title="Edit" aria-label={`Edit ${p.name}`}>
                                     <Pencil className="size-3.5" /> Edit
                                 </Link>
                                 <CopyLinkButton

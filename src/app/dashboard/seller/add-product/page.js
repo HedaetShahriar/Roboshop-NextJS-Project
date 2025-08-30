@@ -4,6 +4,7 @@ import { useState, useTransition, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import DashboardPage from "@/components/dashboard/DashboardPage";
 import { addProduct } from "@/data/seller/addproduct";
 
 export default function AddProductPage() {
@@ -22,7 +23,7 @@ export default function AddProductPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <DashboardPage container>
       <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
         <h1 className="text-3xl font-bold mb-6">Add a New Product</h1>
         <form ref={formRef} action={handleSubmit}>
@@ -60,6 +61,6 @@ export default function AddProductPage() {
         {message?.error && <p className="mt-4 text-red-500">{message.error}</p>}
         {message?.success && <p className="mt-4 text-green-500">{message.success}</p>}
       </div>
-    </div>
+    </DashboardPage>
   );
 }

@@ -5,6 +5,7 @@ import { Clock, Truck, CheckCircle2, XCircle, TriangleAlert, DollarSign, Trendin
 import getDb from "@/lib/mongodb";
 import MetricsPanel from "@/components/dashboard/seller/overview/MetricsPanel";
 import { formatBDT } from "@/lib/currency";
+import DashboardPage from "@/components/dashboard/DashboardPage";
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +44,7 @@ export default async function SellerDashboardHome() {
   const fmtCurrency = (n) => formatBDT(n);
 
   return (
-    <div className="py-4 md:py-6 space-y-6">
+    <DashboardPage>
       <div>
         <h1 className="text-xl font-semibold">Overview</h1>
         <p className="text-sm text-muted-foreground">Key stats for your store</p>
@@ -127,6 +128,6 @@ export default async function SellerDashboardHome() {
 
   {/* Metrics with filters and charts */}
   <MetricsPanel />
-    </div>
+    </DashboardPage>
   );
 }

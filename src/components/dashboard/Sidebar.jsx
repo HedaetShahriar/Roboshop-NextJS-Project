@@ -63,24 +63,24 @@ export default function DashboardShell({ role, nav, children }) {
   })();
 
   return (
-    <div className="min-h-dvh bg-zinc-50">
+    <div className="h-dvh overflow-hidden bg-zinc-50">
       <DashboardNavbar role={role} label={derivedLabel} onMenuClick={() => setOpen(true)} />
 
       {/* Layout area below sticky header (h-14). Fix height to viewport under header. */}
-      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] h-[calc(100dvh-3.5rem-1px)]">
+      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] h-[calc(100dvh-3.5rem)]">
         {/* Mobile overlay */}
         {open && (
           <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setOpen(false)} />
         )}
 
         {/* Sidebar: mobile drawer, md+ collapsible/expandable */}
-        <aside
+    <aside
           className={
             [
               // Base positioning
               "z-50 md:z-auto",
               // Mobile: off-canvas
-              "fixed md:sticky top-14 left-0 md:top-14 h-[calc(100vh-3.5rem)] md:h-[calc(100vh-3.5rem)] md:self-start w-60",
+      "fixed md:sticky top-14 left-0 md:top-14 h-[calc(100dvh-3.5rem)] md:h-[calc(100dvh-3.5rem)] md:self-start w-60",
               "bg-white border-r",
               // Transition for mobile
               open ? "translate-x-0" : "-translate-x-full md:translate-x-0",
@@ -140,8 +140,8 @@ export default function DashboardShell({ role, nav, children }) {
           </nav>
         </aside>
 
-        {/* Main content fills height; children control their own scroll. */}
-        <main className="h-full p-4 overflow-hidden flex flex-col min-h-0">
+  {/* Main content fills height and scrolls within the viewport area. */}
+  <main className="h-full p-4 overflow-y-auto flex flex-col min-h-0">
           {children}
         </main>
       </div>

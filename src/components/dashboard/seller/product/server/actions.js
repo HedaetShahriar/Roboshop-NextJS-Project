@@ -95,6 +95,126 @@ export async function setVisibility(prevState, formData) {
     return { ok: true };
 }
 
+// Update product details (name, image, sku/slug, category, subcategory, price/discount, stock, visibility)
+export async function updateProductDetails(prevState, formData) {
+    'use server';
+    if (!(formData instanceof FormData)) formData = /** @type {FormData} */ (prevState);
+    const session = await getServerSession(authOptions);
+    const role = session?.user?.role || 'customer';
+    if (role === 'customer') return { ok: false };
+    const id = formData.get('id');
+    if (!id) return { ok: false, message: 'Missing id' };
+
+    // Basic fields
+    const name = formData.get('name')?.toString().trim();
+    const image = formData.get('image')?.toString().trim();
+    const sku = formData.get('sku')?.toString().trim();
+    const slug = formData.get('slug')?.toString().trim();
+    const category = formData.get('category')?.toString().trim();
+    const subcategory = formData.get('subcategory')?.toString().trim();
+    const description = formData.get('description')?.toString() || '';
+    const hasDiscountRaw = formData.get('hasDiscount');
+    const hasDiscount = hasDiscountRaw ? ['1','true','on','yes'].includes(String(hasDiscountRaw).toLowerCase()) : false;
+    let price = formData.get('price');
+    let discountPrice = formData.get('discountPrice');
+    let currentStock = formData.get('current_stock');
+    const hiddenRaw = formData.get('is_hidden');
+
+    const update = { updatedAt: new Date() };
+    if (name !== undefined) update.name = name;
+    if (image !== undefined) update.image = image;
+    if (sku !== undefined) update.sku = sku;
+    if (slug !== undefined) update.slug = slug;
+    if (category !== undefined) update.category = category || null;
+    if (subcategory !== undefined) update.subcategory = subcategory || null;
+    update.description = description;
+
+    // Numbers and booleans
+    if (price !== undefined) {
+        const p = Number(price);
+        if (isNaN(p) || p <= 0) return { ok: false, message: 'Invalid price' };
+        update.price = p;
+    }
+    if (discountPrice !== undefined) {
+        const d = Number(discountPrice);
+        if (hasDiscount) {
+            if (isNaN(d) || d <= 0) return { ok: false, message: 'Invalid discount' };
+            // If price provided in same request, ensure discount < price. Else, will check against existing later ideally.
+            if (update.price && d >= update.price) return { ok: false, message: 'Discount must be less than price' };
+            update.has_discount_price = true;
+            update.discount_price = d;
+        } else {
+            update.has_discount_price = false;
+            update.discount_price = 0;
+        }
+    } else if (formData.has('hasDiscount')) {
+        // Toggle hasDiscount even if discountPrice absent
+        if (!hasDiscount) {
+            update.has_discount_price = false;
+            update.discount_price = 0;
+        }
+    }
+
+    if (currentStock !== undefined) {
+        const s = Number(currentStock);
+        if (isNaN(s) || s < 0) return { ok: false, message: 'Invalid stock' };
+        update.current_stock = Math.floor(s);
+    }
+
+    if (hiddenRaw !== undefined && hiddenRaw !== null) {
+        update.is_hidden = String(hiddenRaw) === '1' || String(hiddenRaw) === 'true' ? true : false;
+    }
+
+    // Complex arrays: specs, gallery, variants, markets
+    const parseArrayOfObjects = (prefix, keys) => {
+        // Collect entries like prefix[0][key]
+        const map = new Map();
+        for (const [k, v] of formData.entries()) {
+            if (typeof k !== 'string') continue;
+            const m = k.match(new RegExp(`^${prefix}\\[(\\d+)\\]\\[(.+)\\]$`));
+            if (!m) continue;
+            const idx = Number(m[1]);
+            const field = m[2];
+            if (!keys.includes(field)) continue;
+            if (!map.has(idx)) map.set(idx, {});
+            map.get(idx)[field] = typeof v === 'string' ? v : String(v);
+        }
+        // Sort by idx and coerce types where needed
+        const arr = Array.from(map.entries()).sort((a,b)=>a[0]-b[0]).map(([,obj])=>obj);
+        return arr;
+    };
+
+    const specs = parseArrayOfObjects('specs', ['key','value']).filter(x=> (x.key?.trim()||'') !== '' && (x.value?.trim()||'') !== '');
+    const gallery = parseArrayOfObjects('gallery', ['url','alt']).filter(x=> (x.url?.trim()||'') !== '');
+    const variants = parseArrayOfObjects('variants', ['size','color','sku','priceDelta','stock']).map(v=> ({
+        size: v.size || '',
+        color: v.color || '',
+        sku: v.sku || '',
+        priceDelta: isNaN(Number(v.priceDelta)) ? 0 : Number(v.priceDelta),
+        stock: isNaN(Number(v.stock)) ? 0 : Math.max(0, Math.floor(Number(v.stock)))
+    })).filter(v=> v.size || v.color || v.sku);
+    const markets = parseArrayOfObjects('markets', ['market','price','taxIncluded']).map(m=> ({
+        market: m.market || '',
+        price: isNaN(Number(m.price)) ? 0 : Number(m.price),
+        taxIncluded: String(m.taxIncluded) === '1' || String(m.taxIncluded).toLowerCase() === 'true'
+    })).filter(m=> m.market);
+
+    if (specs.length) update.specs = specs; else update.specs = [];
+    if (gallery.length) update.gallery = gallery; else update.gallery = [];
+    if (variants.length) update.variants = variants; else update.variants = [];
+    if (markets.length) update.markets = markets; else update.markets = [];
+
+    const db = await getDb();
+    let _id; try { _id = new ObjectId(String(id)); } catch { return { ok: false } }
+    await db.collection('products').updateOne({ _id }, { $set: update });
+    try {
+        await addProductAudit({ userEmail: session?.user?.email, action: 'update', ids: [String(id)], scope: 'single', params: update });
+    } catch {}
+    revalidateTag('products:list');
+    revalidatePath('/dashboard/seller/products');
+    return { ok: true };
+}
+
 // Bulk operations for products, with support for selected/page/filtered scopes
 export async function bulkProducts(formData) {
     'use server';

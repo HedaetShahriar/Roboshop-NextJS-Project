@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { ObjectId } from "mongodb";
 import getDb from "@/lib/mongodb";
 import { formatDateTime } from "@/lib/dates";
+import DashboardPage from "@/components/dashboard/DashboardPage";
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +48,7 @@ export default async function IssuesDashboardPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-10">
+    <DashboardPage container>
       <h1 className="text-2xl font-bold mb-6">Order Issues</h1>
       {issues.length === 0 ? (
         <div className="text-gray-600">No issues reported.</div>
@@ -91,6 +92,6 @@ export default async function IssuesDashboardPage() {
           ))}
         </div>
       )}
-    </div>
+    </DashboardPage>
   );
 }
