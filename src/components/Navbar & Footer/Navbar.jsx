@@ -12,7 +12,7 @@ import { formatBDT } from "@/lib/currency";
 
 export default function Navbar() {
   const pathname = usePathname();
-  if (pathname?.startsWith('/dashboard')) return null;
+  const isDashboard = pathname?.startsWith('/dashboard');
   const { data: session, status } = useSession();
   const { items, count, subtotal, removeItem, updateQty } = useCart();
 
@@ -25,6 +25,7 @@ export default function Navbar() {
   const profileRef = useRef(null);
 
   useEffect(() => {
+    if (isDashboard) return; // skip listeners when hidden
     function onDocClick(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
       if (cartRef.current && !cartRef.current.contains(e.target)) setCartOpen(false);
@@ -32,7 +33,7 @@ export default function Navbar() {
     }
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
+  }, [isDashboard]);
 
   const NavLinks = () => (
     <>
@@ -42,6 +43,8 @@ export default function Navbar() {
       )} */}
     </>
   );
+
+  if (isDashboard) return null;
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white">

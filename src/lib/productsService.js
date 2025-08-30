@@ -11,6 +11,7 @@ function buildProjection(sp = {}) {
         slug: 1,
         sku: 1,
         image: 1,
+    is_hidden: 1,
         category: 1,
         subcategory: 1,
         price: 1,

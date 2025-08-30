@@ -4,7 +4,7 @@ import { ObjectId } from "mongodb";
 
 export async function getAllProducts() {
   const db = await getDb();
-  const productsData = await db.collection("products").find({}).toArray();
+  const productsData = await db.collection("products").find({ $or: [ { is_hidden: { $exists: false } }, { is_hidden: false } ] }).toArray();
   let products = productsData.map((p) => ({ ...p, _id: p._id.toString() }));
   // if (!products || products.length === 0) {
   //   products = productsStatic;
@@ -21,5 +21,6 @@ export async function getProductById(id) {
     return null;
   }
   if (!doc) return null;
+  if (doc.is_hidden === true) return null;
   return { ...doc, _id: doc._id.toString() };
 }

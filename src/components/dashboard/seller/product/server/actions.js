@@ -9,38 +9,42 @@ import { buildProductsWhere } from "@/lib/productsQuery";
 import { addProductAudit } from "@/lib/audit";
 
 // Adjust single product stock by delta
-export async function adjustStock(formData) {
+export async function adjustStock(prevState, formData) {
     'use server';
+    // Support both direct form action (formData only) and useActionState(prev, formData)
+    if (!(formData instanceof FormData)) formData = /** @type {FormData} */ (prevState);
     const session = await getServerSession(authOptions);
     const role = session?.user?.role || 'customer';
-    if (role === 'customer') return;
+    if (role === 'customer') return { ok: false };
     const id = formData.get('id');
     const delta = Number(formData.get('delta'));
-    if (!id || isNaN(delta)) return;
+    if (!id || isNaN(delta)) return { ok: false };
     const db = await getDb();
     let _id; try { _id = new ObjectId(String(id)); } catch { return; }
     const doc = await db.collection('products').findOne({ _id });
-    if (!doc) return;
+    if (!doc) return { ok: false };
     const current = Number(doc.current_stock || 0);
     const next = Math.max(0, current + delta);
     await db.collection('products').updateOne({ _id }, { $set: { current_stock: next, updatedAt: new Date() } });
     revalidateTag('products:list');
     revalidatePath('/dashboard/seller/products');
+    return { ok: true };
 }
 
 // Update pricing for a single product (price + optional discount)
-export async function updatePricing(formData) {
+export async function updatePricing(prevState, formData) {
     'use server';
+    if (!(formData instanceof FormData)) formData = /** @type {FormData} */ (prevState);
     const session = await getServerSession(authOptions);
     const role = session?.user?.role || 'customer';
-    if (role === 'customer') return;
+    if (role === 'customer') return { ok: false };
     const id = formData.get('id');
     let price = Number(formData.get('price'));
     const hasDiscount = formData.get('hasDiscount') ? true : false;
     let discount = Number(formData.get('discountPrice'));
-    if (!id || isNaN(price) || price <= 0) return;
+    if (!id || isNaN(price) || price <= 0) return { ok: false };
     if (hasDiscount) {
-        if (isNaN(discount) || discount <= 0 || discount >= price) return;
+        if (isNaN(discount) || discount <= 0 || discount >= price) return { ok: false };
     } else {
         discount = 0;
     }
@@ -49,21 +53,46 @@ export async function updatePricing(formData) {
     await db.collection('products').updateOne({ _id }, { $set: { price, has_discount_price: !!hasDiscount, discount_price: discount, updatedAt: new Date() } });
     revalidateTag('products:list');
     revalidatePath('/dashboard/seller/products');
+    return { ok: true };
 }
 
 // Clear discount on a single product
-export async function clearDiscountSingle(formData) {
+export async function clearDiscountSingle(prevState, formData) {
     'use server';
+    if (!(formData instanceof FormData)) formData = /** @type {FormData} */ (prevState);
     const session = await getServerSession(authOptions);
     const role = session?.user?.role || 'customer';
-    if (role === 'customer') return;
+    if (role === 'customer') return { ok: false };
     const id = formData.get('id');
-    if (!id) return;
+    if (!id) return { ok: false };
     const db = await getDb();
     let _id; try { _id = new ObjectId(String(id)); } catch { return; }
     await db.collection('products').updateOne({ _id }, { $set: { has_discount_price: false, discount_price: 0, updatedAt: new Date() } });
     revalidateTag('products:list');
     revalidatePath('/dashboard/seller/products');
+    return { ok: true };
+}
+
+// Toggle visibility for a single product (hide/show to customers)
+export async function setVisibility(prevState, formData) {
+    'use server';
+    if (!(formData instanceof FormData)) formData = /** @type {FormData} */ (prevState);
+    const session = await getServerSession(authOptions);
+    const role = session?.user?.role || 'customer';
+    if (role === 'customer') return { ok: false };
+    const id = formData.get('id');
+    const hiddenRaw = formData.get('hidden');
+    if (!id || (hiddenRaw === null || hiddenRaw === undefined)) return { ok: false };
+    const nextHidden = String(hiddenRaw) === '1' || String(hiddenRaw) === 'true' ? true : false;
+    const db = await getDb();
+    let _id; try { _id = new ObjectId(String(id)); } catch { return { ok: false }; }
+    await db.collection('products').updateOne({ _id }, { $set: { is_hidden: nextHidden, updatedAt: new Date() } });
+    try {
+        await addProductAudit({ userEmail: session?.user?.email, action: nextHidden ? 'hide' : 'show', ids: [String(id)], scope: 'single' });
+    } catch {}
+    revalidateTag('products:list');
+    revalidatePath('/dashboard/seller/products');
+    return { ok: true };
 }
 
 // Bulk operations for products, with support for selected/page/filtered scopes
@@ -222,6 +251,12 @@ export async function bulkProducts(formData) {
             },
             { $unset: ['_roundedDiscount'] }
         ]);
+    } else if (action === 'hide') {
+        if (dryRun) return;
+        await db.collection('products').updateMany(tf, { $set: { is_hidden: true, updatedAt: now } });
+    } else if (action === 'show') {
+        if (dryRun) return;
+        await db.collection('products').updateMany(tf, { $set: { is_hidden: false, updatedAt: now } });
     } else if (action === 'deleteProducts') {
         const confirmDelete = (formData.get('confirmDelete') || '').toString();
         if (confirmDelete !== 'DELETE') return;
