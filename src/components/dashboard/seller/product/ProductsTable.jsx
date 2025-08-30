@@ -15,6 +15,8 @@ import { addProductAudit } from "@/lib/audit";
 import TableFilters from "@/components/dashboard/shared/table/TableFilters";
 import BulkModalTrigger from "./client/BulkModalTrigger";
 import PaginationServer from "@/components/dashboard/shared/table/PaginationServer";
+import { CATEGORY_MAP, CATEGORY_LIST } from "@/data/categories";
+import { formatDateTime } from "@/lib/dates";
 
 const currencyFmt = { format: (n) => formatBDT(n) };
 
@@ -29,7 +31,7 @@ export default async function ProductsTable(props) {
   const sortKey = (sp?.sort || 'newest').toString();
   // const skip = (page - 1) * pageSize; // no longer needed; PaginationServer computes range
   const colsParam = (sp?.cols || '').toString();
-  const allColsDefault = ['image','info','category','added','price','stock','rating','actions'];
+  const allColsDefault = ['no', 'image', 'info', 'category', 'added', 'price', 'stock', 'rating', 'actions'];
   const scopeParam = (sp?.scope || '').toString();
   const visibleCols = new Set(
     colsParam
@@ -94,7 +96,7 @@ export default async function ProductsTable(props) {
     const session = await getServerSession(authOptions);
     const role = session?.user?.role || 'customer';
     if (role === 'customer') return;
-  const action = formData.get('bulkAction');
+    const action = formData.get('bulkAction');
     const scope = (formData.get('scope') || 'selected').toString(); // selected | page | filtered
     const db = await getDb();
     const now = new Date();
@@ -102,7 +104,7 @@ export default async function ProductsTable(props) {
     // Build targeting
     let filter = null;
     let ids = formData.getAll('ids');
-  if (scope === 'page') {
+    if (scope === 'page') {
       const s = {
         search: formData.get('search')?.toString() || '',
         from: formData.get('from')?.toString() || undefined,
@@ -114,7 +116,7 @@ export default async function ProductsTable(props) {
         hasDiscount: formData.get('hasDiscount')?.toString() || undefined,
         minPrice: formData.get('minPrice')?.toString() || undefined,
         maxPrice: formData.get('maxPrice')?.toString() || undefined,
-    lowStock: formData.get('lowStock')?.toString() || undefined,
+        lowStock: formData.get('lowStock')?.toString() || undefined,
       };
       const { products: pageProducts } = await getProductsAndTotal(s);
       ids = pageProducts.map(p => p._id.toString());
@@ -127,7 +129,7 @@ export default async function ProductsTable(props) {
         hasDiscount: formData.get('hasDiscount')?.toString() || undefined,
         minPrice: formData.get('minPrice')?.toString() || undefined,
         maxPrice: formData.get('maxPrice')?.toString() || undefined,
-    lowStock: formData.get('lowStock')?.toString() || undefined,
+        lowStock: formData.get('lowStock')?.toString() || undefined,
       };
       filter = buildProductsWhere(s);
     }
@@ -140,9 +142,9 @@ export default async function ProductsTable(props) {
       return list.length ? { _id: { $in: list } } : null;
     };
 
-  if (!action) return;
+    if (!action) return;
 
-  // Helpers for choosing the final filter (selected/page vs filtered)
+    // Helpers for choosing the final filter (selected/page vs filtered)
     const targetFilter = () => (filter ? filter : idsFilter());
     const tf = targetFilter();
     if (!tf) return;
@@ -156,13 +158,13 @@ export default async function ProductsTable(props) {
     const confirmDelete = (formData.get('confirmDelete') || '').toString();
 
     const dryRun = (formData.get('dryRun') || '').toString() === '1';
-  // Execute
+    // Execute
     if (action === 'stockInc' || action === 'stockDec') {
       const delta = isNaN(stockDeltaRaw) ? 0 : (action === 'stockDec' ? -Math.abs(stockDeltaRaw) : Math.abs(stockDeltaRaw));
       if (delta === 0) return;
       if (dryRun) return;
       await db.collection('products').updateMany(tf, [
-        { $set: { current_stock: { $max: [0, { $add: [ { $ifNull: ['$current_stock', 0] }, delta ] }] }, updatedAt: now } }
+        { $set: { current_stock: { $max: [0, { $add: [{ $ifNull: ['$current_stock', 0] }, delta] }] }, updatedAt: now } }
       ]);
     } else if (action === 'stockSet') {
       const next = Math.max(0, isNaN(stockSetRaw) ? 0 : stockSetRaw);
@@ -181,7 +183,7 @@ export default async function ProductsTable(props) {
       const factor = (100 - pct) / 100;
       if (dryRun) return;
       await db.collection('products').updateMany(tf, [
-        { $set: { discount_price: { $round: [ { $multiply: [ { $toDouble: { $ifNull: ['$price', 0] } }, factor ] }, 2 ] }, has_discount_price: true, updatedAt: now } }
+        { $set: { discount_price: { $round: [{ $multiply: [{ $toDouble: { $ifNull: ['$price', 0] } }, factor] }, 2] }, has_discount_price: true, updatedAt: now } }
       ]);
     } else if (action === 'clearDiscount') {
       if (dryRun) return;
@@ -191,21 +193,25 @@ export default async function ProductsTable(props) {
       if (isNaN(p) || p <= 0) return;
       if (dryRun) return;
       await db.collection('products').updateMany(tf, [
-        { $set: {
-          price: p,
-          has_discount_price: { $cond: [{ $gte: [ { $ifNull: ['$discount_price', 0] }, p ] }, false, { $ifNull: ['$has_discount_price', false] }] },
-          discount_price: { $cond: [{ $gte: [ { $ifNull: ['$discount_price', 0] }, p ] }, 0, { $ifNull: ['$discount_price', 0] }] },
-          updatedAt: now
-        }}
+        {
+          $set: {
+            price: p,
+            has_discount_price: { $cond: [{ $gte: [{ $ifNull: ['$discount_price', 0] }, p] }, false, { $ifNull: ['$has_discount_price', false] }] },
+            discount_price: { $cond: [{ $gte: [{ $ifNull: ['$discount_price', 0] }, p] }, 0, { $ifNull: ['$discount_price', 0] }] },
+            updatedAt: now
+          }
+        }
       ]);
     } else if (action === 'priceRound99') {
       if (dryRun) return;
       // Compute floor to integer - 0.01 => xx.99
       await db.collection('products').updateMany(tf, [
-        { $set: {
-          price: { $subtract: [ { $toInt: { $ifNull: ['$price', 0] } }, 0.01 ] },
-          updatedAt: now
-        }}
+        {
+          $set: {
+            price: { $subtract: [{ $toInt: { $ifNull: ['$price', 0] } }, 0.01] },
+            updatedAt: now
+          }
+        }
       ]);
     } else if (action === 'priceRoundWhole') {
       if (dryRun) return;
@@ -224,14 +230,14 @@ export default async function ProductsTable(props) {
             // If roundedDiscount >= price then clear discount, else keep roundedDiscount
             has_discount_price: {
               $cond: [
-                { $and: [ { $gt: ['$_roundedDiscount', 0] }, { $lt: ['$_roundedDiscount', '$price'] } ] },
+                { $and: [{ $gt: ['$_roundedDiscount', 0] }, { $lt: ['$_roundedDiscount', '$price'] }] },
                 true,
                 false
               ]
             },
             discount_price: {
               $cond: [
-                { $and: [ { $gt: ['$_roundedDiscount', 0] }, { $lt: ['$_roundedDiscount', '$price'] } ] },
+                { $and: [{ $gt: ['$_roundedDiscount', 0] }, { $lt: ['$_roundedDiscount', '$price'] }] },
                 '$_roundedDiscount',
                 0
               ]
@@ -257,7 +263,7 @@ export default async function ProductsTable(props) {
           stockDeltaRaw, stockSetRaw, discountPriceRaw, discountPercentRaw, priceSetRaw,
         }
       });
-    } catch {}
+    } catch { }
     revalidatePath('/dashboard/seller/products');
   }
 
@@ -272,7 +278,7 @@ export default async function ProductsTable(props) {
     if (sp?.hasDiscount) usp.set('hasDiscount', String(sp.hasDiscount));
     if (sp?.minPrice) usp.set('minPrice', String(sp.minPrice));
     if (sp?.maxPrice) usp.set('maxPrice', String(sp.maxPrice));
-  if (sp?.lowStock) usp.set('lowStock', String(sp.lowStock));
+    if (sp?.lowStock) usp.set('lowStock', String(sp.lowStock));
     if (colsParam && colsParam !== allColsDefault.join(',')) usp.set('cols', colsParam);
     Object.entries(overrides).forEach(([k, v]) => {
       if (v === undefined || v === null || v === '') usp.delete(k);
@@ -287,115 +293,117 @@ export default async function ProductsTable(props) {
   // page items now rendered by PaginationServer
 
   return (
-  <div className="flex flex-col min-h-0 gap-2">
+    <div className="flex flex-col min-h-0 gap-2">
       {/* Filters/header (auto height) */}
       <div className="shrink-0">
-  <TableFilters
-        compact
-        title="Products"
-        subtitle="Filter, sort, and bulk manage in one place"
-  config={{ showStatusBar: false, showInStock: true, showHasDiscount: true, showPriceRange: true, showLowStock: true, showCategory: true, showSubcategory: true }}
-        sortOptions={[
-          { value: 'newest', label: 'Newest first' },
-          { value: 'oldest', label: 'Oldest first' },
-          { value: 'name-asc', label: 'Name A→Z' },
-          { value: 'name-desc', label: 'Name Z→A' },
-          { value: 'category-asc', label: 'Category A→Z' },
-          { value: 'category-desc', label: 'Category Z→A' },
-          { value: 'subcategory-asc', label: 'Subcategory A→Z' },
-          { value: 'subcategory-desc', label: 'Subcategory Z→A' },
-          { value: 'price-high', label: 'Price: high → low' },
-          { value: 'price-low', label: 'Price: low → high' },
-          { value: 'stock-high', label: 'Stock: high → low' },
-          { value: 'stock-low', label: 'Stock: low → high' },
-          { value: 'rating-high', label: 'Rating: high → low' },
-          { value: 'rating-low', label: 'Rating: low → high' },
-        ]}
-        searchPlaceholder="Search products by name, SKU, category"
-        rightActions={(
-          <div className="flex items-center gap-2">
-            <BulkModalTrigger formId="bulkProductsForm" scope={(!scopeParam || scopeParam === 'selected') ? 'selected' : scopeParam} pageCount={products.length} total={total} />
-            <details className="relative">
-              <summary className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50 cursor-pointer select-none inline-flex items-center gap-1">Display <span className="text-[10px]">▾</span></summary>
-              <div className="absolute right-0 mt-2 w-[min(92vw,420px)] rounded-md border bg-white shadow-md p-3 z-10">
-                <div>
-                  <div className="text-[11px] font-medium text-muted-foreground px-1 mb-1">Columns</div>
-                  <ul className="max-h-56 overflow-auto">
-                    {allColsDefault.map((c) => {
-                      const nextCols = (() => { const set = new Set(visibleCols); if (set.has(c)) set.delete(c); else set.add(c); return Array.from(set).join(','); })();
-                      return (
-                        <li key={c}>
-                          <Link href={`/dashboard/seller/products${mkQS({ cols: nextCols, page: 1 })}`} replace scroll={false} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-zinc-50">
-                            <input type="checkbox" readOnly checked={visibleCols.has(c)} className="h-4 w-4" />
-                            <span className="capitalize text-sm">{c}</span>
-                          </Link>
-                        </li>
-                      );
-                    })}
+        <TableFilters
+          compact
+          title="Products"
+          subtitle="Filter, sort, and bulk manage in one place"
+          config={{ showStatusBar: false, showInStock: true, showHasDiscount: true, showPriceRange: true, showLowStock: true, showCategory: true, showSubcategory: true }}
+          categoryOptions={CATEGORY_LIST}
+          subcategoryOptions={(sp?.category && CATEGORY_MAP[sp.category]) ? CATEGORY_MAP[sp.category] : Array.from(new Set(Object.values(CATEGORY_MAP).flat()))}
+          sortOptions={[
+            { value: 'newest', label: 'Newest first' },
+            { value: 'oldest', label: 'Oldest first' },
+            { value: 'name-asc', label: 'Name A→Z' },
+            { value: 'name-desc', label: 'Name Z→A' },
+            { value: 'category-asc', label: 'Category A→Z' },
+            { value: 'category-desc', label: 'Category Z→A' },
+            { value: 'subcategory-asc', label: 'Subcategory A→Z' },
+            { value: 'subcategory-desc', label: 'Subcategory Z→A' },
+            { value: 'price-high', label: 'Price: high → low' },
+            { value: 'price-low', label: 'Price: low → high' },
+            { value: 'stock-high', label: 'Stock: high → low' },
+            { value: 'stock-low', label: 'Stock: low → high' },
+            { value: 'rating-high', label: 'Rating: high → low' },
+            { value: 'rating-low', label: 'Rating: low → high' },
+          ]}
+          searchPlaceholder="Search products by name, SKU, category"
+          rightActions={(
+            <div className="flex items-center gap-2">
+              <BulkModalTrigger formId="bulkProductsForm" scope={(!scopeParam || scopeParam === 'selected') ? 'selected' : scopeParam} pageCount={products.length} total={total} />
+              <details className="relative">
+                <summary className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50 cursor-pointer select-none inline-flex items-center gap-1">Display <span className="text-[10px]">▾</span></summary>
+                <div className="absolute right-0 mt-2 w-[min(92vw,420px)] rounded-md border bg-white shadow-md p-3 z-10">
+                  <div>
+                    <div className="text-[11px] font-medium text-muted-foreground px-1 mb-1">Columns</div>
+                    <ul className="max-h-56 overflow-auto">
+                      {allColsDefault.map((c) => {
+                        const nextCols = (() => { const set = new Set(visibleCols); if (set.has(c)) set.delete(c); else set.add(c); return Array.from(set).join(','); })();
+                        return (
+                          <li key={c}>
+                            <Link href={`/dashboard/seller/products${mkQS({ cols: nextCols, page: 1 })}`} replace scroll={false} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-zinc-50">
+                              <input type="checkbox" readOnly checked={visibleCols.has(c)} className="h-4 w-4" />
+                              <span className="capitalize text-sm">{c}</span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <div className="mt-2 flex items-center justify-between gap-2 px-1">
+                      <Link href={`/dashboard/seller/products${mkQS({ cols: allColsDefault.join(','), page: 1 })}`} replace scroll={false} className="text-xs text-zinc-600 hover:underline">Show all</Link>
+                      <Link href={`/dashboard/seller/products${mkQS({ cols: '', page: 1 })}`} replace scroll={false} className="text-xs text-zinc-600 hover:underline">Hide all</Link>
+                    </div>
+                  </div>
+                  <div className="my-2 h-px bg-zinc-100" />
+                  <div className="space-y-2">
+                    <div className="text-[11px] font-medium text-muted-foreground px-1">Saved views</div>
+                    <div className="flex flex-col gap-2">
+                      <SavedViews />
+                      <SavedViewsServer />
+                    </div>
+                  </div>
+                </div>
+              </details>
+              <details className="relative">
+                <summary className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50 cursor-pointer select-none inline-flex items-center gap-1">Export <span className="text-[10px]">▾</span></summary>
+                <div className="absolute right-0 mt-2 w-44 rounded-md border bg-white shadow-md p-2 z-10">
+                  <ul>
+                    <li>
+                      <Link href={`/api/seller/products/export${mkQS({})}`} className="block rounded px-2 py-1 hover:bg-zinc-50 text-xs">All (filtered)</Link>
+                    </li>
+                    <li>
+                      <Link href={`/api/seller/products/export${mkQS({ page, pageSize })}`} className="block rounded px-2 py-1 hover:bg-zinc-50 text-xs">Current page</Link>
+                    </li>
                   </ul>
-                  <div className="mt-2 flex items-center justify-between gap-2 px-1">
-                    <Link href={`/dashboard/seller/products${mkQS({ cols: allColsDefault.join(','), page: 1 })}`} replace scroll={false} className="text-xs text-zinc-600 hover:underline">Show all</Link>
-                    <Link href={`/dashboard/seller/products${mkQS({ cols: '', page: 1 })}`} replace scroll={false} className="text-xs text-zinc-600 hover:underline">Hide all</Link>
-                  </div>
                 </div>
-                <div className="my-2 h-px bg-zinc-100" />
-                <div className="space-y-2">
-                  <div className="text-[11px] font-medium text-muted-foreground px-1">Saved views</div>
-                  <div className="flex flex-col gap-2">
-                    <SavedViews />
-                    <SavedViewsServer />
-                  </div>
-                </div>
-              </div>
-            </details>
-            <details className="relative">
-              <summary className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50 cursor-pointer select-none inline-flex items-center gap-1">Export <span className="text-[10px]">▾</span></summary>
-              <div className="absolute right-0 mt-2 w-44 rounded-md border bg-white shadow-md p-2 z-10">
-                <ul>
-                  <li>
-                    <Link href={`/api/seller/products/export${mkQS({})}`} className="block rounded px-2 py-1 hover:bg-zinc-50 text-xs">All (filtered)</Link>
-                  </li>
-                  <li>
-                    <Link href={`/api/seller/products/export${mkQS({ page, pageSize })}`} className="block rounded px-2 py-1 hover:bg-zinc-50 text-xs">Current page</Link>
-                  </li>
-                </ul>
-              </div>
-            </details>
-          </div>
-        )}
-        advancedExtra={null}
-        persistentExtra={(
-          <div className="flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">In <b className="ml-1 text-emerald-900">{stats.inStock}</b></span>
-            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-700">Low <b className="ml-1 text-amber-900">{stats.lowStock}</b></span>
-            <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-700">Out <b className="ml-1 text-rose-900">{stats.outOfStock}</b></span>
-            <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-violet-700">Sale <b className="ml-1 text-violet-900">{stats.discounted}</b></span>
-          </div>
-        )}
+              </details>
+            </div>
+          )}
+          advancedExtra={null}
+          persistentExtra={(
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">In <b className="ml-1 text-emerald-900">{stats.inStock}</b></span>
+              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-700">Low <b className="ml-1 text-amber-900">{stats.lowStock}</b></span>
+              <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-700">Out <b className="ml-1 text-rose-900">{stats.outOfStock}</b></span>
+              <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-violet-700">Sale <b className="ml-1 text-violet-900">{stats.discounted}</b></span>
+            </div>
+          )}
         />
       </div>
 
-  {/* Scrollable content: bulk form + table */}
-  <form id="bulkProductsForm" action={bulkProducts} className="min-h-0 flex-1 flex flex-col gap-2">
+      {/* Scrollable content: bulk form + table */}
+      <form id="bulkProductsForm" action={bulkProducts} className="min-h-0 flex-1 flex flex-col gap-2">
         {/* carry current filters for scope targeting and dry run */}
         <input type="hidden" name="search" value={q} />
         {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
         {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
         {sortKey ? <input type="hidden" name="sort" value={sortKey} /> : null}
         {/* carry product filter extras for filtered-scope */}
-  {sp?.inStock ? <input type="hidden" name="inStock" value={sp.inStock} /> : null}
+        {sp?.inStock ? <input type="hidden" name="inStock" value={sp.inStock} /> : null}
         {sp?.hasDiscount ? <input type="hidden" name="hasDiscount" value={sp.hasDiscount} /> : null}
-  {sp?.minPrice ? <input type="hidden" name="minPrice" value={sp.minPrice} /> : null}
+        {sp?.minPrice ? <input type="hidden" name="minPrice" value={sp.minPrice} /> : null}
         {sp?.maxPrice ? <input type="hidden" name="maxPrice" value={sp.maxPrice} /> : null}
-  {sp?.category ? <input type="hidden" name="category" value={sp.category} /> : null}
-  {sp?.subcategory ? <input type="hidden" name="subcategory" value={sp.subcategory} /> : null}
-  {sp?.lowStock ? <input type="hidden" name="lowStock" value={sp.lowStock} /> : null}
+        {sp?.category ? <input type="hidden" name="category" value={sp.category} /> : null}
+        {sp?.subcategory ? <input type="hidden" name="subcategory" value={sp.subcategory} /> : null}
+        {sp?.lowStock ? <input type="hidden" name="lowStock" value={sp.lowStock} /> : null}
         {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
         <input type="hidden" name="page" value={String(page)} />
         <input type="hidden" name="pageSize" value={String(pageSize)} />
 
-  {/* Mobile cards (scrolls within the content area) */}
-  <div className="sm:hidden space-y-2 overflow-auto">
+        {/* Mobile cards (scrolls within the content area) */}
+        <div className="sm:hidden space-y-2 overflow-auto">
           {/* Removed select-all checkbox in favor of bulk scope controls above */}
           {products.map((p) => {
             const id = p._id?.toString?.() || p._id;
@@ -420,14 +428,22 @@ export default async function ProductsTable(props) {
                         {subcategoryVal ? <span>{subcategoryVal}</span> : null}
                       </div>
                     ) : null}
-                    <div className="mt-1 text-xs text-muted-foreground">{p.createdAt ? new Date(p.createdAt).toLocaleString() : ''}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{formatDateTime(p.createdAt)}</div>
                   </div>
                   <label className="text-xs inline-flex items-center gap-1"><input form="bulkProductsForm" type="checkbox" name="ids" value={id} aria-label={`Select ${p.name}`} /> Select</label>
                 </div>
                 <div className="mt-2 flex items-center justify-between">
                   <div className="text-sm font-semibold">
                     {p.has_discount_price && Number(p.discount_price) > 0 ? (
-                      <span className="text-rose-600 tabular-nums">{currencyFmt.format(Number(p.discount_price || 0))}</span>
+                      <div className="flex items-center gap-1 whitespace-nowrap">
+                        <span className="text-rose-600 tabular-nums">{currencyFmt.format(Number(p.discount_price || 0))}</span>
+                        <span className="text-[11px] text-muted-foreground line-through tabular-nums">{currencyFmt.format(Number(p.price || 0))}</span>
+                        {Number(p.price) > 0 ? (
+                          <span className="ml-1 inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-700 tabular-nums">
+                            -{Math.max(1, Math.min(99, Math.round(100 - ((Number(p.discount_price || 0) * 100) / Number(p.price || 1)))))}%
+                          </span>
+                        ) : null}
+                      </div>
                     ) : (
                       <span className="tabular-nums">{currencyFmt.format(Number(p.price || 0))}</span>
                     )}
@@ -435,7 +451,7 @@ export default async function ProductsTable(props) {
                   <div className="text-xs flex items-center gap-1">
                     <span>Stock:</span>
                     {typeof p.current_stock !== 'undefined' ? (
-                      <span className={`${Number(p.current_stock) === 0 ? 'text-rose-700' : Number(p.current_stock) <= 5 ? 'text-amber-700' : 'text-emerald-700'} font-semibold`}>
+                      <span className={`${Number(p.current_stock) === 0 ? 'text-rose-700' : Number(p.current_stock) <= 5 ? 'text-amber-700' : 'text-emerald-700'} font-semibold tabular-nums`}>
                         {p.current_stock}
                       </span>
                     ) : (
@@ -514,198 +530,205 @@ export default async function ProductsTable(props) {
           })}
         </div>
 
-  {products.length === 0 ? (
-      <div className="rounded-md border bg-white p-6 text-center text-sm text-muted-foreground">
+        {products.length === 0 ? (
+          <div className="rounded-md border bg-white p-6 text-center text-sm text-muted-foreground">
             <div>No products match your filters.</div>
             <div className="mt-3 flex items-center justify-center gap-2">
-        <Link href="/dashboard/seller/products" replace className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Reset filters</Link>
+              <Link href="/dashboard/seller/products" replace className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Reset filters</Link>
               <Link href="/dashboard/add-product" className="h-9 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Add product</Link>
             </div>
           </div>
         ) : (
-  <div className="hidden sm:block min-h-0 flex-1 overflow-auto rounded border bg-white">
-  <table className="min-w-full table-auto text-xs sm:text-sm">
-          <thead className="sticky top-0 z-[1] bg-white shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.06)]">
-            <tr className="text-left">
-              <th scope="col" className="px-1 py-2 text-[11px] text-muted-foreground"><SelectAllOnPage /></th>
-              {visibleCols.has('image') && <th scope="col" className="pl-1 sm:pl-2 pr-2 sm:pr-3 py-2 font-medium">Product</th>}
-              {visibleCols.has('info') && (
-                <th scope="col" aria-sort={(sortKey?.startsWith('name-') ? (sortKey === 'name-asc' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium">
-                  <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'name-asc' ? 'name-desc' : 'name-asc', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Info <span className="text-xs text-muted-foreground">{sortKey?.startsWith('name-') ? (sortKey === 'name-asc' ? '▲' : '▼') : ''}</span></Link>
-                </th>
-              )}
-              {visibleCols.has('category') && (
-                <th scope="col" aria-sort={(sortKey?.startsWith('category-') ? (sortKey === 'category-asc' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium">
-                  <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'category-asc' ? 'category-desc' : 'category-asc', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Category <span className="text-xs text-muted-foreground">{sortKey?.startsWith('category-') ? (sortKey === 'category-asc' ? '▲' : '▼') : ''}</span></Link>
-                </th>
-              )}
-              
-              {visibleCols.has('added') && (
-                <th scope="col" aria-sort={(sortKey === 'oldest' ? 'ascending' : sortKey === 'newest' ? 'descending' : 'none')} className="px-3 py-2 font-medium">
-                  <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'oldest' ? 'newest' : 'oldest', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Added <span className="text-xs text-muted-foreground">{sortKey === 'oldest' ? '▲' : sortKey === 'newest' ? '▼' : ''}</span></Link>
-                </th>
-              )}
-              {visibleCols.has('price') && (<th scope="col" aria-sort={(sortKey?.startsWith('price-') ? (sortKey === 'price-low' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium text-right">
-                <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'price-high' ? 'price-low' : 'price-high', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Price <span className="text-xs text-muted-foreground">{sortKey?.startsWith('price-') ? (sortKey === 'price-high' ? '▼' : '▲') : ''}</span></Link>
-              </th>)}
-              {visibleCols.has('stock') && (<th scope="col" aria-sort={(sortKey?.startsWith('stock-') ? (sortKey === 'stock-low' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium text-center">
-                <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'stock-high' ? 'stock-low' : 'stock-high', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Stock <span className="text-xs text-muted-foreground">{sortKey?.startsWith('stock-') ? (sortKey === 'stock-high' ? '▼' : '▲') : ''}</span></Link>
-              </th>)}
-              {visibleCols.has('rating') && (<th scope="col" aria-sort={(sortKey?.startsWith('rating-') ? (sortKey === 'rating-low' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium text-center">
-                <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'rating-high' ? 'rating-low' : 'rating-high', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Rating <span className="text-xs text-muted-foreground">{sortKey?.startsWith('rating-') ? (sortKey === 'rating-high' ? '▼' : '▲') : ''}</span></Link>
-              </th>)}
-              {visibleCols.has('actions') && <th scope="col" className="px-2 sm:px-3 py-2 font-medium text-right">Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => {
-              const id = p._id?.toString?.() || p._id;
-              const ratingVal = typeof p.product_rating !== 'undefined' ? Number(p.product_rating) : null;
-              const ratingMax = Number(p.product_max_rating || 5);
-              const categoryVal = p.category ?? p.categoryName ?? p.category_name ?? p.category_title ?? p.categoryLabel;
-              const subcategoryVal = p.subcategory ?? p.subCategory ?? p.sub_category ?? p.subcategoryName ?? p.subcategory_name ?? p.subCategoryName ?? p.subcategoryLabel;
-              return (
-                <tr key={id} className="border-t odd:bg-zinc-50/40 hover:bg-zinc-50">
-                  <td className="px-1 py-2"><input form="bulkProductsForm" type="checkbox" name="ids" value={id} aria-label={`Select ${p.name}`} /></td>
-                  {visibleCols.has('image') && (
-                    <td className="pl-1 sm:pl-2 pr-2 sm:pr-3 py-2 w-[64px]">
-                      {p.image ? (
-                        <div className="relative h-10 w-10 overflow-hidden rounded bg-zinc-100">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={p.image} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
-                        </div>
-                      ) : (
-                        <div className="h-10 w-10 rounded bg-zinc-100 flex items-center justify-center text-[10px] font-medium text-zinc-500">
-                          {(p?.name || '?').slice(0,1).toUpperCase()}
-                        </div>
-                      )}
-                    </td>
-                  )}
+          <div className="hidden sm:block min-h-0 flex-1 overflow-auto rounded border bg-white">
+            <table className="min-w-full table-auto text-xs sm:text-sm">
+              <thead className="sticky top-0 z-[1] bg-white shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.06)]">
+                <tr className="text-left">
+                  <th scope="col" className="px-1 py-2 text-[11px] text-muted-foreground"><SelectAllOnPage /></th>
+                  <th scope="col" className="px-2 py-2 font-medium text-right w-[1%] whitespace-nowrap">#</th>
+                  {visibleCols.has('image') && <th scope="col" className="pl-1 sm:pl-2 pr-2 sm:pr-3 py-2 font-medium">Product</th>}
                   {visibleCols.has('info') && (
-                    <td className="pl-1 sm:pl-2 pr-2 sm:pr-3 py-2">
-                      <div className="flex flex-col min-w-0">
-                        <div className="font-medium line-clamp-1"><Link prefetch={false} href={`/dashboard/seller/products/${id}`} className="hover:underline">{p.name}</Link></div>
-                        <div className="text-[11px] text-muted-foreground line-clamp-1"><code className="font-mono text-[10px] bg-zinc-50 rounded px-1 py-0.5">{p.slug || p.sku || '—'}</code></div>
-                      </div>
-                    </td>
+                    <th scope="col" aria-sort={(sortKey?.startsWith('name-') ? (sortKey === 'name-asc' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium">
+                      <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'name-asc' ? 'name-desc' : 'name-asc', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Info <span className="text-xs text-muted-foreground">{sortKey?.startsWith('name-') ? (sortKey === 'name-asc' ? '▲' : '▼') : ''}</span></Link>
+                    </th>
                   )}
                   {visibleCols.has('category') && (
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm leading-tight truncate">{categoryVal ? String(categoryVal) : '—'}</span>
-                        {subcategoryVal ? (
-                          <span className="text-[11px] text-muted-foreground truncate">{String(subcategoryVal)}</span>
-                        ) : null}
-                      </div>
-                    </td>
+                    <th scope="col" aria-sort={(sortKey?.startsWith('category-') ? (sortKey === 'category-asc' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium">
+                      <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'category-asc' ? 'category-desc' : 'category-asc', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Category <span className="text-xs text-muted-foreground">{sortKey?.startsWith('category-') ? (sortKey === 'category-asc' ? '▲' : '▼') : ''}</span></Link>
+                    </th>
                   )}
+
                   {visibleCols.has('added') && (
-                    <td className="px-3 py-2 text-muted-foreground">{p.createdAt ? new Date(p.createdAt).toLocaleString() : ''}</td>
+                    <th scope="col" aria-sort={(sortKey === 'oldest' ? 'ascending' : sortKey === 'newest' ? 'descending' : 'none')} className="px-3 py-2 font-medium">
+                      <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'oldest' ? 'newest' : 'oldest', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Added <span className="text-xs text-muted-foreground">{sortKey === 'oldest' ? '▲' : sortKey === 'newest' ? '▼' : ''}</span></Link>
+                    </th>
                   )}
-                  {visibleCols.has('price') && (
-                    <td className="px-3 py-2 text-right">
-                      {p.has_discount_price && Number(p.discount_price) > 0 ? (
-                        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
-                          <span className="text-rose-600 font-semibold tabular-nums">{currencyFmt.format(Number(p.discount_price || 0))}</span>
-                          <span className="text-xs text-muted-foreground line-through tabular-nums">{currencyFmt.format(Number(p.price || 0))}</span>
-                        </div>
-                      ) : (
-                        <span className="tabular-nums">{currencyFmt.format(Number(p.price || 0))}</span>
+                  {visibleCols.has('price') && (<th scope="col" aria-sort={(sortKey?.startsWith('price-') ? (sortKey === 'price-low' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium text-right">
+                    <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'price-high' ? 'price-low' : 'price-high', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Price <span className="text-xs text-muted-foreground">{sortKey?.startsWith('price-') ? (sortKey === 'price-high' ? '▼' : '▲') : ''}</span></Link>
+                  </th>)}
+                  {visibleCols.has('stock') && (<th scope="col" aria-sort={(sortKey?.startsWith('stock-') ? (sortKey === 'stock-low' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium text-center">
+                    <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'stock-high' ? 'stock-low' : 'stock-high', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Stock <span className="text-xs text-muted-foreground">{sortKey?.startsWith('stock-') ? (sortKey === 'stock-high' ? '▼' : '▲') : ''}</span></Link>
+                  </th>)}
+                  {visibleCols.has('rating') && (<th scope="col" aria-sort={(sortKey?.startsWith('rating-') ? (sortKey === 'rating-low' ? 'ascending' : 'descending') : 'none')} className="px-3 py-2 font-medium text-center">
+                    <Link href={`/dashboard/seller/products${mkQS({ sort: sortKey === 'rating-high' ? 'rating-low' : 'rating-high', page: 1 })}`} replace scroll={false} className="inline-flex items-center gap-1">Rating <span className="text-xs text-muted-foreground">{sortKey?.startsWith('rating-') ? (sortKey === 'rating-high' ? '▼' : '▲') : ''}</span></Link>
+                  </th>)}
+                  {visibleCols.has('actions') && <th scope="col" className="px-2 sm:px-3 py-2 font-medium text-right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {products.map((p, i) => {
+                  const id = p._id?.toString?.() || p._id;
+                  const ratingVal = typeof p.product_rating !== 'undefined' ? Number(p.product_rating) : null;
+                  const ratingMax = Number(p.product_max_rating || 5);
+                  const categoryVal = p.category ?? p.categoryName ?? p.category_name ?? p.category_title ?? p.categoryLabel;
+                  const subcategoryVal = p.subcategory ?? p.subCategory ?? p.sub_category ?? p.subcategoryName ?? p.subcategory_name ?? p.subCategoryName ?? p.subcategoryLabel;
+                  return (
+                    <tr key={id} className="border-t odd:bg-zinc-50/40 hover:bg-zinc-50">
+                      <td className="px-1 py-2"><input form="bulkProductsForm" type="checkbox" name="ids" value={id} aria-label={`Select ${p.name}`} /></td>
+                      <td className="px-2 py-2 text-right w-[1%] whitespace-nowrap text-[11px] text-muted-foreground tabular-nums">{((page - 1) * pageSize) + i + 1}</td>
+                      {visibleCols.has('image') && (
+                        <td className="pl-1 sm:pl-2 pr-2 sm:pr-3 py-2 w-[64px]">
+                          {p.image ? (
+                            <div className="relative h-10 w-10 overflow-hidden rounded bg-zinc-100">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={p.image} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
+                            </div>
+                          ) : (
+                            <div className="h-10 w-10 rounded bg-zinc-100 flex items-center justify-center text-[10px] font-medium text-zinc-500">
+                              {(p?.name || '?').slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                        </td>
                       )}
-                    </td>
-                  )}
-                  {visibleCols.has('stock') && (
-                    <td className="px-3 py-2 text-center">
-                      {typeof p.current_stock !== 'undefined' ? (
-                        <span className={`${Number(p.current_stock) === 0 ? 'text-rose-700' : Number(p.current_stock) <= 5 ? 'text-amber-700' : 'text-emerald-700'} font-semibold`}>
-                          {p.current_stock}
-                        </span>
-                      ) : '—'}
-                    </td>
-                  )}
-                  {visibleCols.has('rating') && (
-                    <td className="px-3 py-2 text-center">
-                      {ratingVal !== null ? (
-                        <span className="text-[11px]" aria-label={`Rating ${ratingVal} out of ${ratingMax}`}>
-                          {ratingVal}/{ratingMax} <span className="text-muted-foreground">({p.product_rating_count || 0})</span>
-                        </span>
-                      ) : '—'}
-                    </td>
-                  )}
-                  {visibleCols.has('actions') && (
-                    <td className="px-3 py-2 text-right">
-                      <RowActionsMenu title={`Actions – ${p.name}`}> 
-                        <ul className="space-y-1">
-                            <li>
-                              <Link href={`/dashboard/seller/products/${id}`} className="block rounded px-2 py-1 hover:bg-zinc-50">View</Link>
-                            </li>
-                            <li>
-                              <Link href={`/dashboard/seller/products/${id}/edit`} className="block rounded px-2 py-1 hover:bg-zinc-50">Edit</Link>
-                            </li>
-                            <li className="my-1 h-px bg-zinc-100" />
-                            <li className="flex items-center gap-2 px-2">
-                              <form action={adjustStock} className="inline">
-                                <input type="hidden" name="id" value={id} />
-                                <input type="hidden" name="delta" value="1" />
-                                <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">+1</button>
-                              </form>
-                              <form action={adjustStock} className="inline">
-                                <input type="hidden" name="id" value={id} />
-                                <input type="hidden" name="delta" value="-1" />
-                                <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">-1</button>
-                              </form>
-                              <form action={adjustStock} className="ml-auto inline-flex items-center gap-1">
-                                <input type="hidden" name="id" value={id} />
-                                <input name="delta" type="number" step="1" className="h-7 w-16 rounded border px-2" placeholder="Δ" />
-                                <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">Apply</button>
-                              </form>
-                            </li>
-                            <li className="my-1 h-px bg-zinc-100" />
-                            <li>
-                              <details>
-                                <summary className="cursor-pointer select-none rounded px-2 py-1 hover:bg-zinc-50">Pricing editor</summary>
-                                <form action={updatePricing} className="mt-2 grid grid-cols-2 gap-2 p-2 border rounded bg-white">
-                                  <input type="hidden" name="id" value={id} />
-                                  <label className="flex flex-col gap-1">
-                                    <span className="text-[10px] text-muted-foreground">Price</span>
-                                    <input name="price" type="number" step="0.01" min="0.01" defaultValue={Number(p.price || 0)} className="h-8 px-2 rounded border text-xs" />
-                                  </label>
-                                  <label className="flex flex-col gap-1">
-                                    <span className="text-[10px] text-muted-foreground">Discount</span>
-                                    <input name="discountPrice" type="number" step="0.01" min="0" defaultValue={Number(p.discount_price || 0)} className="h-8 px-2 rounded border text-xs" />
-                                  </label>
-                                  <label className="col-span-2 inline-flex items-center gap-2 text-[12px]">
-                                    <input type="checkbox" name="hasDiscount" defaultChecked={!!p.has_discount_price} /> Has discount
-                                  </label>
-                                  <div className="col-span-2 flex items-center justify-end">
-                                    <button type="submit" className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Save</button>
-                                  </div>
-                                </form>
-                              </details>
-                            </li>
-                            {p.has_discount_price ? (
+                      {visibleCols.has('info') && (
+                        <td className="pl-1 sm:pl-2 pr-2 sm:pr-3 py-2">
+                          <div className="flex flex-col min-w-0">
+                            <div className="font-medium line-clamp-1"><Link prefetch={false} href={`/dashboard/seller/products/${id}`} className="hover:underline">{p.name}</Link></div>
+                            <div className="text-[11px] text-muted-foreground line-clamp-1"><code className="font-mono text-[10px] bg-zinc-50 rounded px-1 py-0.5">{p.slug || p.sku || '—'}</code></div>
+                          </div>
+                        </td>
+                      )}
+                      {visibleCols.has('category') && (
+                        <td className="px-3 py-2">
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm leading-tight truncate">{categoryVal ? String(categoryVal) : '—'}</span>
+                            {subcategoryVal ? (
+                              <span className="text-[11px] text-muted-foreground truncate">{String(subcategoryVal)}</span>
+                            ) : null}
+                          </div>
+                        </td>
+                      )}
+                      {visibleCols.has('added') && (
+                        <td className="px-3 py-2 text-muted-foreground">{formatDateTime(p.createdAt)}</td>
+                      )}
+                      {visibleCols.has('price') && (
+                        <td className="px-3 py-2 text-right">
+                          {p.has_discount_price && Number(p.discount_price) > 0 ? (
+                            <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                              <span className="text-rose-600 font-semibold tabular-nums">{currencyFmt.format(Number(p.discount_price || 0))}</span>
+                              <span className="text-xs text-muted-foreground line-through tabular-nums">{currencyFmt.format(Number(p.price || 0))}</span>
+                              {Number(p.price) > 0 ? (
+                                <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-700 tabular-nums">
+                                  -{Math.max(1, Math.min(99, Math.round(100 - ((Number(p.discount_price || 0) * 100) / Number(p.price || 1)))))}%
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <span className="tabular-nums">{currencyFmt.format(Number(p.price || 0))}</span>
+                          )}
+                        </td>
+                      )}
+                      {visibleCols.has('stock') && (
+                        <td className="px-3 py-2 text-center">
+                          {typeof p.current_stock !== 'undefined' ? (
+                            <span className={`${Number(p.current_stock) === 0 ? 'text-rose-700' : Number(p.current_stock) <= 5 ? 'text-amber-700' : 'text-emerald-700'} font-semibold tabular-nums`}>
+                              {p.current_stock}
+                            </span>
+                          ) : '—'}
+                        </td>
+                      )}
+                      {visibleCols.has('rating') && (
+                        <td className="px-3 py-2 text-center">
+                          {ratingVal !== null ? (
+                            <span className="text-[11px]" aria-label={`Rating ${ratingVal} out of ${ratingMax}`}>
+                              {ratingVal}/{ratingMax} <span className="text-muted-foreground">({p.product_rating_count || 0})</span>
+                            </span>
+                          ) : '—'}
+                        </td>
+                      )}
+                      {visibleCols.has('actions') && (
+                        <td className="px-3 py-2 text-right">
+                          <RowActionsMenu title={`Actions – ${p.name}`}>
+                            <ul className="space-y-1">
                               <li>
-                                <form action={clearDiscountSingle} className="px-2">
+                                <Link href={`/dashboard/seller/products/${id}`} className="block rounded px-2 py-1 hover:bg-zinc-50">View</Link>
+                              </li>
+                              <li>
+                                <Link href={`/dashboard/seller/products/${id}/edit`} className="block rounded px-2 py-1 hover:bg-zinc-50">Edit</Link>
+                              </li>
+                              <li className="my-1 h-px bg-zinc-100" />
+                              <li className="flex items-center gap-2 px-2">
+                                <form action={adjustStock} className="inline">
                                   <input type="hidden" name="id" value={id} />
-                                  <button type="submit" className="w-full text-left rounded px-2 py-1 hover:bg-zinc-50">Clear discount</button>
+                                  <input type="hidden" name="delta" value="1" />
+                                  <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">+1</button>
+                                </form>
+                                <form action={adjustStock} className="inline">
+                                  <input type="hidden" name="id" value={id} />
+                                  <input type="hidden" name="delta" value="-1" />
+                                  <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">-1</button>
+                                </form>
+                                <form action={adjustStock} className="ml-auto inline-flex items-center gap-1">
+                                  <input type="hidden" name="id" value={id} />
+                                  <input name="delta" type="number" step="1" className="h-7 w-16 rounded border px-2" placeholder="Δ" />
+                                  <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50">Apply</button>
                                 </form>
                               </li>
-                            ) : null}
-              </ul>
-            </RowActionsMenu>
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        </div>
+                              <li className="my-1 h-px bg-zinc-100" />
+                              <li>
+                                <details>
+                                  <summary className="cursor-pointer select-none rounded px-2 py-1 hover:bg-zinc-50">Pricing editor</summary>
+                                  <form action={updatePricing} className="mt-2 grid grid-cols-2 gap-2 p-2 border rounded bg-white">
+                                    <input type="hidden" name="id" value={id} />
+                                    <label className="flex flex-col gap-1">
+                                      <span className="text-[10px] text-muted-foreground">Price</span>
+                                      <input name="price" type="number" step="0.01" min="0.01" defaultValue={Number(p.price || 0)} className="h-8 px-2 rounded border text-xs" />
+                                    </label>
+                                    <label className="flex flex-col gap-1">
+                                      <span className="text-[10px] text-muted-foreground">Discount</span>
+                                      <input name="discountPrice" type="number" step="0.01" min="0" defaultValue={Number(p.discount_price || 0)} className="h-8 px-2 rounded border text-xs" />
+                                    </label>
+                                    <label className="col-span-2 inline-flex items-center gap-2 text-[12px]">
+                                      <input type="checkbox" name="hasDiscount" defaultChecked={!!p.has_discount_price} /> Has discount
+                                    </label>
+                                    <div className="col-span-2 flex items-center justify-end">
+                                      <button type="submit" className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Save</button>
+                                    </div>
+                                  </form>
+                                </details>
+                              </li>
+                              {p.has_discount_price ? (
+                                <li>
+                                  <form action={clearDiscountSingle} className="px-2">
+                                    <input type="hidden" name="id" value={id} />
+                                    <button type="submit" className="w-full text-left rounded px-2 py-1 hover:bg-zinc-50">Clear discount</button>
+                                  </form>
+                                </li>
+                              ) : null}
+                            </ul>
+                          </RowActionsMenu>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </form>
 
       {/* Pagination (server component) remains visible below the scroll area */}
-  <PaginationServer
+      <PaginationServer
         basePath="/dashboard/seller/products"
         total={total}
         page={page}
@@ -714,8 +737,8 @@ export default async function ProductsTable(props) {
           search: q || undefined,
           from: fromStr || undefined,
           to: toStr || undefined,
-      sort: (sortKey && sortKey !== 'newest') ? sortKey : undefined,
-      cols: colsParam || undefined,
+          sort: (sortKey && sortKey !== 'newest') ? sortKey : undefined,
+          cols: colsParam || undefined,
           inStock: sp?.inStock || undefined,
           hasDiscount: sp?.hasDiscount || undefined,
           minPrice: sp?.minPrice || undefined,
@@ -723,12 +746,12 @@ export default async function ProductsTable(props) {
           category: sp?.category || undefined,
           subcategory: sp?.subcategory || undefined,
           lowStock: sp?.lowStock || undefined,
-      pageSize: (pageSize && Number(pageSize) !== 10) ? pageSize : undefined,
+          pageSize: (pageSize && Number(pageSize) !== 10) ? pageSize : undefined,
         }}
       />
-  <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 flex-wrap pb-1">
-        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">Total stock: <b className="ml-1 text-emerald-900">{totals.stockSum}</b></span>
-  <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-700">Inventory value: <b className="ml-1 text-sky-900">{currencyFmt.format(Number(totals.inventoryValue || 0))}</b></span>
+      <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 flex-wrap pb-1">
+        <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">Total stock: <b className="ml-1 text-emerald-900 tabular-nums">{totals.stockSum}</b></span>
+        <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-700">Inventory value: <b className="ml-1 text-sky-900 tabular-nums">{currencyFmt.format(Number(totals.inventoryValue || 0))}</b></span>
       </div>
     </div>
   );

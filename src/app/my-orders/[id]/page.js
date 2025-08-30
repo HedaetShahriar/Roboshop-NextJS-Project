@@ -8,6 +8,7 @@ import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { revalidatePath } from "next/cache";
 import getDb from "@/lib/mongodb";
 import { formatBDT } from "@/lib/currency";
+import { formatDateTime } from "@/lib/dates";
 
 export default async function OrderDetailPage({ params }) {
   const { id } = await params;
@@ -66,10 +67,7 @@ export default async function OrderDetailPage({ params }) {
                 history.push({ code: 'cancelled', label: 'Order cancelled', at: order.updatedAt || order.createdAt });
               }
               history.sort((a, b) => new Date(a.at) - new Date(b.at));
-              const formatDate = (d) => new Intl.DateTimeFormat('en-US', {
-                weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
-                hour: 'numeric', minute: '2-digit'
-              }).format(new Date(d));
+              const formatDate = (d) => formatDateTime(d);
               return (
                 <div className="mt-4">
                   <ol className="relative border-s border-gray-200 ms-3">
@@ -200,12 +198,12 @@ export default async function OrderDetailPage({ params }) {
                       <div className="font-semibold">{iss.subject || 'Order issue'}</div>
                       <span className={`px-2 py-1 rounded text-xs capitalize ${iss.status === 'resolved' ? 'bg-green-100 text-green-800' : iss.status === 'in_progress' ? 'bg-amber-100 text-amber-800' : 'bg-zinc-100'}`}>{iss.status}</span>
                     </div>
-                    <div className="text-xs text-gray-500">Opened on {new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(iss.createdAt))}</div>
+                    <div className="text-xs text-gray-500">Opened on {formatDateTime(iss.createdAt)}</div>
                     <div className="mt-2 border rounded p-2 bg-zinc-50">
                       <div className="text-xs text-gray-500 mb-1">Conversation</div>
                       <ul className="space-y-1 max-h-40 overflow-auto pr-1">
                         {iss.messages?.map((m, idx) => (
-                          <li key={idx} className="text-sm"><span className="font-semibold capitalize">{m.by}</span>: {m.text} <span className="text-xs text-gray-500">• {new Date(m.at).toLocaleString()}</span></li>
+                          <li key={idx} className="text-sm"><span className="font-semibold capitalize">{m.by}</span>: {m.text} <span className="text-xs text-gray-500">• {formatDateTime(m.at)}</span></li>
                         ))}
                       </ul>
                     </div>
