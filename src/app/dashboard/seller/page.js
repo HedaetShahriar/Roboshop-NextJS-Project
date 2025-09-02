@@ -5,7 +5,6 @@ import { Clock, Truck, CheckCircle2, XCircle, TriangleAlert, DollarSign, Trendin
 import getDb from "@/lib/mongodb";
 import MetricsPanel from "@/components/dashboard/seller/overview/MetricsPanel";
 import { formatBDT } from "@/lib/currency";
-import DashboardPage from "@/components/dashboard/DashboardPage";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,10 +14,10 @@ export default async function SellerDashboardHome() {
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const [processing, inTransit, delivered, cancelled, openIssues, revenueAgg, revenueTodayAgg, ordersToday] = await Promise.all([
     db.collection('orders').countDocuments({ status: 'processing' }),
-    db.collection('orders').countDocuments({ status: { $in: ['packed','assigned','shipped'] } }),
+    db.collection('orders').countDocuments({ status: { $in: ['packed', 'assigned', 'shipped'] } }),
     db.collection('orders').countDocuments({ status: 'delivered' }),
     db.collection('orders').countDocuments({ status: 'cancelled' }),
-    db.collection('order_issues').countDocuments({ status: { $in: ['open','in_progress'] } }),
+    db.collection('order_issues').countDocuments({ status: { $in: ['open', 'in_progress'] } }),
     db.collection('orders').aggregate([
       { $match: { status: 'delivered' } },
       { $group: { _id: null, total: { $sum: { $toDouble: '$amounts.total' } } } },
@@ -44,7 +43,7 @@ export default async function SellerDashboardHome() {
   const fmtCurrency = (n) => formatBDT(n);
 
   return (
-    <DashboardPage>
+    <>
       <div>
         <h1 className="text-xl font-semibold">Overview</h1>
         <p className="text-sm text-muted-foreground">Key stats for your store</p>
@@ -126,8 +125,8 @@ export default async function SellerDashboardHome() {
         </div>
       </div>
 
-  {/* Metrics with filters and charts */}
-  <MetricsPanel />
-    </DashboardPage>
+      {/* Metrics with filters and charts */}
+      <MetricsPanel />
+    </>
   );
 }

@@ -4,6 +4,8 @@ import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GripVertical } from "lucide-react";
+import Image from "next/image";
+import Lightbox from "@/components/ui/Lightbox";
 
 export default function GalleryEditor({ name = "gallery", initial = [] }) {
   const [items, setItems] = useState(Array.isArray(initial) ? initial : []);
@@ -80,14 +82,25 @@ export default function GalleryEditor({ name = "gallery", initial = [] }) {
     setDragging(overIdx);
   };
   const onDragEndRow = () => setDragging(null);
+  const [lbOpen, setLbOpen] = useState(false);
+  const [lbIndex, setLbIndex] = useState(0);
 
+  const BLUR = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium">Images</div>
         <Button type="button" variant="outline" size="sm" onClick={add}>Add image</Button>
       </div>
-      <div className="space-y-3" onDrop={onDrop} onDragOver={(e)=>e.preventDefault()} onPaste={onPaste}>
+      <div
+        className="space-y-3"
+        role="region"
+        aria-label="Drop images here or paste from clipboard. Use Choose files to upload."
+        aria-busy={uploading}
+        onDrop={onDrop}
+        onDragOver={(e)=>e.preventDefault()}
+        onPaste={onPaste}
+      >
         {items.length === 0 && <div className="text-xs text-muted-foreground">No images.</div>}
         <div className="rounded-md border bg-zinc-50 p-3 flex items-center justify-between gap-2">
           <div className="text-xs text-muted-foreground">Drag & drop images here, paste, or</div>
@@ -96,6 +109,7 @@ export default function GalleryEditor({ name = "gallery", initial = [] }) {
             <Button type="button" variant="outline" size="sm" onClick={()=>fileRef.current?.click()} disabled={uploading}>{uploading ? 'Uploading…' : 'Choose files'}</Button>
           </div>
         </div>
+        <div className="sr-only" aria-live="polite">{uploading ? 'Uploading images…' : ''}</div>
         {items.map((it, idx) => (
           <div
             key={idx}
@@ -106,28 +120,43 @@ export default function GalleryEditor({ name = "gallery", initial = [] }) {
             onDragEnd={onDragEndRow}
           >
             <div className="h-full flex items-center justify-center md:justify-start pt-2 md:pt-0">
-              <button type="button" data-drag-handle className="cursor-grab active:cursor-grabbing rounded p-1 text-zinc-500 hover:text-zinc-700" aria-label="Drag to reorder">
+              <button
+                type="button"
+                data-drag-handle
+                className="cursor-grab active:cursor-grabbing rounded p-1 text-zinc-500 hover:text-zinc-700"
+                aria-label="Drag to reorder"
+                aria-grabbed={dragging===idx}
+                onKeyDown={(e)=>{
+                  if (e.key === 'ArrowUp') { e.preventDefault(); move(idx,-1); }
+                  if (e.key === 'ArrowDown') { e.preventDefault(); move(idx,1); }
+                }}
+              >
                 <GripVertical className="size-4" />
               </button>
             </div>
             <div className="space-y-1">
-              <Input placeholder="Image URL" value={it.url} onChange={(e)=>update(idx,'url',e.target.value)} />
+              <Input placeholder="Image URL" aria-label="Image URL" value={it.url} onChange={(e)=>update(idx,'url',e.target.value)} />
               {it.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={it.url} alt={it.alt||''} className="h-28 w-full object-cover rounded border" onError={(e)=> (e.currentTarget.style.opacity='0.3')} />
+                <button type="button" className="relative h-28 w-full group" onClick={()=>{ setLbIndex(idx); setLbOpen(true); }} aria-label="Open preview">
+                                        <Image src={it.url} alt={it.alt||''} fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover rounded border" placeholder="blur" blurDataURL={BLUR} />
+                  <span className="absolute inset-0 rounded border-2 border-transparent group-hover:border-white/70" aria-hidden="true" />
+                </button>
               ) : null}
             </div>
-            <Input placeholder="Alt text" value={it.alt} onChange={(e)=>update(idx,'alt',e.target.value)} />
+            <Input placeholder="Alt text" aria-label="Alt text" value={it.alt} onChange={(e)=>update(idx,'alt',e.target.value)} />
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={()=>move(idx,-1)} disabled={idx===0}>Up</Button>
-              <Button type="button" variant="outline" size="sm" onClick={()=>move(idx,1)} disabled={idx===items.length-1}>Down</Button>
-              <Button type="button" variant="outline" size="sm" onClick={()=>remove(idx)}>Remove</Button>
+              <Button type="button" variant="outline" size="sm" onClick={()=>move(idx,-1)} disabled={idx===0} aria-disabled={idx===0} title="Move up" aria-label="Move image up">Up</Button>
+              <Button type="button" variant="outline" size="sm" onClick={()=>move(idx,1)} disabled={idx===items.length-1} aria-disabled={idx===items.length-1} title="Move down" aria-label="Move image down">Down</Button>
+              <Button type="button" variant="outline" size="sm" onClick={()=>remove(idx)} title="Remove image" aria-label="Remove image">Remove</Button>
             </div>
             <input type="hidden" name={`${name}[${idx}][url]`} value={it.url} />
             <input type="hidden" name={`${name}[${idx}][alt]`} value={it.alt} />
           </div>
         ))}
       </div>
+      {lbOpen && (
+        <Lightbox images={items.map(x=>x.url).filter(Boolean)} startIndex={lbIndex} onClose={()=>setLbOpen(false)} />
+      )}
     </div>
   );
 }

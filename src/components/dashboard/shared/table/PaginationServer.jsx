@@ -48,6 +48,12 @@ export default function PaginationServer({ basePath, total, page, pageSize, quer
     return items;
   })();
 
+  const sizeOptions = (pageSizes || [10,20,50,100]).map((n) => ({
+    value: n,
+    label: String(n),
+    href: `${basePath}${toQS({ ...query, pageSize: n, page: 1 })}`,
+  }));
+
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <div className="text-xs sm:text-sm text-muted-foreground">Showing {showingFrom}–{showingTo} of {total}</div>
@@ -55,7 +61,7 @@ export default function PaginationServer({ basePath, total, page, pageSize, quer
         {/* Page size (dropdown, auto-navigate) */}
         <div className="flex items-center gap-2">
           <span className="text-xs sm:text-sm">Rows:</span>
-          <PageSizeSelect value={currentPageSize} />
+          <PageSizeSelect current={currentPageSize} options={sizeOptions} />
         </div>
         {/* Pager */}
         <div className="flex items-center gap-1 sm:gap-2">

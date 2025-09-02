@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { ObjectId } from "mongodb";
 import getDb from "@/lib/mongodb";
 import { formatDateTime } from "@/lib/dates";
-import DashboardPage from "@/components/dashboard/DashboardPage";
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +28,7 @@ export default async function IssuesDashboardPage() {
     const _id = new ObjectId(id);
     const now = new Date();
     const updateDoc = { $set: { updatedAt: now } };
-    if (status && ['open','in_progress','resolved'].includes(status)) {
+    if (status && ['open', 'in_progress', 'resolved'].includes(status)) {
       updateDoc.$set.status = status;
     }
     if (message) {
@@ -42,13 +41,13 @@ export default async function IssuesDashboardPage() {
           { _id: (await db.collection('order_issues').findOne({ _id })).orderId },
           { $push: { history: { code: 'issue-resolved', label: 'Issue resolved', at: now } }, $set: { updatedAt: now } }
         );
-      } catch {}
+      } catch { }
     }
     revalidatePath('/dashboard/issues');
   }
 
   return (
-    <DashboardPage container>
+    <>
       <h1 className="text-2xl font-bold mb-6">Order Issues</h1>
       {issues.length === 0 ? (
         <div className="text-gray-600">No issues reported.</div>
@@ -92,6 +91,6 @@ export default async function IssuesDashboardPage() {
           ))}
         </div>
       )}
-    </DashboardPage>
+    </>
   );
 }

@@ -20,9 +20,12 @@ export default function MarketsPricingEditor({ name = "markets", initial = [] })
         {rows.length === 0 && <div className="text-xs text-muted-foreground">No markets configured.</div>}
         {rows.map((it, idx) => (
           <div key={idx} className="grid grid-cols-1 md:grid-cols-[120px_1fr_160px_auto] gap-2 items-center">
-            <Input placeholder="Market (e.g. BD)" value={it.market} onChange={(e)=>update(idx,'market',e.target.value)} />
-            <Input type="number" placeholder="Price" value={it.price} onChange={(e)=>update(idx,'price', Number(e.target.value))} />
-            <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!it.taxIncluded} onChange={(e)=>update(idx,'taxIncluded', e.target.checked)} /> Tax included</label>
+            <Input placeholder="Market (e.g. BD)" aria-label="Market code" value={it.market} onChange={(e)=>update(idx,'market',e.target.value)} />
+            <Input type="number" placeholder="Price" aria-label="Market price" value={it.price} onChange={(e)=>update(idx,'price', Number(e.target.value))} />
+            <label className="inline-flex items-center gap-2 text-sm" htmlFor={`taxIncluded-${idx}`}>
+              <input id={`taxIncluded-${idx}`} type="checkbox" checked={!!it.taxIncluded} onChange={(e)=>update(idx,'taxIncluded', e.target.checked)} />
+              Tax included
+            </label>
             <Button type="button" variant="outline" size="sm" onClick={()=>remove(idx)}>Remove</Button>
             <input type="hidden" name={`${name}[${idx}][market]`} value={it.market} />
             <input type="hidden" name={`${name}[${idx}][price]`} value={it.price} />
