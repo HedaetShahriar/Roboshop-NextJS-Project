@@ -11,6 +11,13 @@ export default function OrderItemsModal({ order }) {
   const [open, setOpen] = useState(false);
   const items = Array.isArray(order?.items) ? order.items : [];
   const amounts = order?.amounts || {};
+  const discountAmount = typeof amounts?.discount === 'number'
+    ? Number(amounts.discount)
+    : Number(amounts?.discount?.amount || amounts?.discount?.value || 0);
+  const discountPercent = typeof amounts?.discount === 'object' && amounts?.discount?.type === 'percent'
+    ? Number(amounts.discount.value)
+    : null;
+  const shippingFee = Number(amounts?.shipping ?? order?.shipping?.fee ?? 0);
   const ordNo = order?.orderNumber || String(order?._id || '').slice(-6);
   const title = `Order #${ordNo}`;
   const shopName = process.env.NEXT_PUBLIC_SHOP_NAME || "Roboshop";
@@ -50,8 +57,12 @@ export default function OrderItemsModal({ order }) {
   })();
 
   const vatPercent = Number(process.env.NEXT_PUBLIC_INVOICE_VAT_PERCENT || 0);
-  const vatAmount = Math.max(0, Math.round((Number(amounts?.subtotal || 0) * vatPercent) / 100));
-  const displayedTotal = Number(amounts?.total || 0) + (vatPercent > 0 ? vatAmount : 0);
+  const subtotal = Number(amounts?.subtotal ?? items.reduce((s, it) => s + Number(it?.price || it?.unitPrice || 0) * Number(it?.qty || it?.quantity || 1), 0));
+  const baseTotal = isFinite(Number(amounts?.total))
+    ? Number(amounts.total)
+    : Math.max(0, subtotal - Math.max(0, discountAmount) + Math.max(0, shippingFee));
+  const vatAmount = Math.max(0, Math.round((subtotal * vatPercent) / 100));
+  const displayedTotal = baseTotal + (vatPercent > 0 ? vatAmount : 0);
 
   const addrLine = (a) => [a?.address1, a?.city, a?.state, a?.postalCode, a?.country].filter(Boolean).join(", ");
 
@@ -69,6 +80,12 @@ export default function OrderItemsModal({ order }) {
         <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${escapeHtml(currencyFmt.format(line))}</td>
       </tr>`;
     }).join('');
+    const discountHtml = (discountAmount > 0)
+      ? `<tr><td class=\"right\" style=\"color:#047857\">Discount${discountPercent!=null?` (${discountPercent}%)`:''}</td><td class=\"right\" style=\"color:#047857\">- ${escapeHtml(currencyFmt.format(discountAmount))}</td></tr>`
+      : '';
+    const shippingHtml = (shippingFee > 0)
+      ? `<tr><td class=\"right muted\">Shipping</td><td class=\"right\">${escapeHtml(currencyFmt.format(shippingFee))}</td></tr>`
+      : '';
     return `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeHtml(`${shopName} — Invoice ${ordNo}`)}</title>
       <meta name="viewport" content="width=device-width, initial-scale=1"/>
       <style>
@@ -134,13 +151,13 @@ export default function OrderItemsModal({ order }) {
         <thead><tr><th style="text-align:left;padding:8px">PRODUCT</th><th style="text-align:right;padding:8px">QTY</th><th style="text-align:right;padding:8px">UNIT PRICE</th><th style="text-align:right;padding:8px">AMOUNT</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <table class="mt16">
+    <table class="mt16">
         <tbody class="totals">
-          <tr><td class="right" style="width:80%">Subtotal</td><td class="right" style="width:20%">${escapeHtml(currencyFmt.format(Number(amounts?.subtotal ?? 0)))}</td></tr>
-          ${vatPercent > 0 ? `<tr><td class=\"right\">VAT (${vatPercent}%)</td><td class=\"right\">${escapeHtml(currencyFmt.format(vatAmount))}</td></tr>` : ''}
-          ${Number(amounts?.discount || 0) > 0 ? `<tr><td class=\"right\" style=\"color:#047857\">Discount</td><td class=\"right\" style=\"color:#047857\">- ${escapeHtml(currencyFmt.format(Number(amounts?.discount || 0)))}</td></tr>` : ''}
-          ${Number(amounts?.shipping || 0) > 0 ? `<tr><td class=\"right muted\">Shipping</td><td class=\"right\">${escapeHtml(currencyFmt.format(Number(amounts?.shipping || 0)))}</td></tr>` : ''}
-          <tr><td class="right">TOTAL</td><td class="right">${escapeHtml(currencyFmt.format(displayedTotal))}</td></tr>
+      <tr><td class="right" style="width:80%">Subtotal</td><td class="right" style="width:20%">${escapeHtml(currencyFmt.format(subtotal))}</td></tr>
+      ${discountHtml}
+      ${shippingHtml}
+      ${vatPercent > 0 ? `<tr><td class=\"right\">VAT (${vatPercent}%)</td><td class=\"right\">${escapeHtml(currencyFmt.format(vatAmount))}</td></tr>` : ''}
+      <tr><td class="right">TOTAL</td><td class="right">${escapeHtml(currencyFmt.format(displayedTotal))}</td></tr>
         </tbody>
       </table>
       <script>window.addEventListener('load',()=>{setTimeout(()=>{window.focus();window.print();},100)});</script>

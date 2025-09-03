@@ -97,7 +97,20 @@ export default async function OrdersRows({ orders = [], visibleCols = ['order','
                 <td className={"px-3 " + (density === 'compact' ? 'py-1.5' : 'py-2') + ' text-xs text-muted-foreground'}>{formatDateTime(o.createdAt)}</td>
               )}
               {cols.has('total') && (
-                <td className={"px-3 " + (density === 'compact' ? 'py-1.5' : 'py-2') + ' text-right tabular-nums'}>{currencyFmt.format(Number(o?.amounts?.total || 0))}</td>
+                <td className={"px-3 " + (density === 'compact' ? 'py-1.5' : 'py-2') + ' text-right'}>
+                  <div className="tabular-nums">{currencyFmt.format(Number(o?.amounts?.total || 0))}</div>
+                  {(() => {
+                    const hasDisc = typeof o?.amounts?.discount === 'number' ? o.amounts.discount > 0 : Boolean(o?.amounts?.discount?.amount || o?.amounts?.discount?.value);
+                    const hasShip = Number(o?.amounts?.shipping || 0) > 0;
+                    if (!hasDisc && !hasShip) return null;
+                    return (
+                      <div className="mt-0.5 flex justify-end gap-1">
+                        {hasDisc ? <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 px-1.5 py-0.5 text-[10px]">Disc</span> : null}
+                        {hasShip ? <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 px-1.5 py-0.5 text-[10px]">Ship</span> : null}
+                      </div>
+                    );
+                  })()}
+                </td>
               )}
               {cols.has('billing') && (
                 <td className={"px-3 " + (density === 'compact' ? 'py-1.5' : 'py-2')}>
@@ -111,7 +124,7 @@ export default async function OrdersRows({ orders = [], visibleCols = ['order','
               )}
               {cols.has('actions') && (
                 <td className={"px-2 sm:px-3 " + (density === 'compact' ? 'py-1.5' : 'py-2') + ' text-right'}>
-                  <RowActions id={o._id} currentStatus={o.status} contact={o.contact} shipping={o.shippingAddress} tracking={o.tracking} />
+                  <RowActions id={o._id} currentStatus={o.status} contact={o.contact} shipping={o.shippingAddress} tracking={o.tracking} shippingFee={o?.amounts?.shipping} discount={o?.amounts?.discount} />
                 </td>
               )}
             </tr>

@@ -25,6 +25,52 @@ export default function OrdersBulkActionsPanel({ formId = "bulkOrdersForm", defa
     return () => document.removeEventListener('change', update, true);
   }, []);
 
+  // Ensure values are submitted even if controls render in a portal by syncing to hidden inputs inside the form
+  useEffect(() => {
+    const form = document.getElementById(formId);
+    if (!form) return;
+    const ensure = (name) => {
+      let el = form.querySelector(`input[type="hidden"][name="${name}"]`);
+      if (!el) {
+        el = document.createElement('input');
+        el.type = 'hidden';
+        el.name = name;
+        form.appendChild(el);
+      }
+      return el;
+    };
+    const aEl = ensure('bulkAction');
+    const sEl = ensure('scope');
+    const rEl = ensure('bulkRiderName');
+    aEl.value = action;
+    sEl.value = scope;
+    rEl.value = rider;
+  }, [action, scope, rider, formId]);
+
+  // Initialize from any existing hidden inputs (if set by outside code before opening)
+  useEffect(() => {
+    const form = document.getElementById(formId);
+    if (!form) return;
+    const aVal = form.querySelector('input[type="hidden"][name="bulkAction"]')?.value;
+    const sVal = form.querySelector('input[type="hidden"][name="scope"]')?.value;
+    const rVal = form.querySelector('input[type="hidden"][name="bulkRiderName"]')?.value;
+    if (aVal) setAction(aVal);
+    if (sVal) setScope(sVal);
+    if (typeof rVal === 'string') setRider(rVal);
+  }, [formId]);
+
+  // Listen for external sync events to set the panel state from row actions, etc.
+  useEffect(() => {
+    const handler = (e) => {
+      const detail = (e && e.detail) || {};
+      if (detail.action) setAction(detail.action);
+      if (detail.scope) setScope(detail.scope);
+      if (Object.prototype.hasOwnProperty.call(detail, 'rider')) setRider(detail.rider || '');
+    };
+    window.addEventListener('orders:setBulkAction', handler);
+    return () => window.removeEventListener('orders:setBulkAction', handler);
+  }, []);
+
   const hint = useMemo(() => {
     switch (action) {
       case 'pack': return 'Move orders from processing → packed (if applicable).';

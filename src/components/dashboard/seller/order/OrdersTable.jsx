@@ -14,7 +14,6 @@ import { bulkOrders, updateOrderStatus } from "./server/actions";
 import OrdersAdvancedExtra from "./client/OrdersAdvancedExtra";
 import QuickRanges from "./client/QuickRanges";
 import DensityToggle from "./client/DensityToggle";
-import SelectedBar from "./client/SelectedBar";
 import ToastForm from "./client/ToastForm";
 
 export default async function OrdersTable({ sp = {} }) {
@@ -78,7 +77,7 @@ export default async function OrdersTable({ sp = {} }) {
               {/* Bulk */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button type="button" size="sm" variant="outline" className="font-medium inline-flex items-center gap-1">
+                  <Button id="orders-bulk-trigger" type="button" size="sm" variant="outline" className="font-medium inline-flex items-center gap-1">
                     <Boxes size={14} />
                     Bulk
                   </Button>
@@ -160,7 +159,7 @@ export default async function OrdersTable({ sp = {} }) {
         onSubmitToast="Applying bulk action…"
         successToast="Bulk action applied"
         errorToast="Bulk action failed"
-  requireField="bulkAction"
+        requireField="bulkAction"
       >
         {/* carry current filters for scope targeting */}
         {q ? <input type="hidden" name="search" value={q} /> : null}
@@ -173,12 +172,10 @@ export default async function OrdersTable({ sp = {} }) {
 
         {/* Mobile list */}
         <OrdersMobileList orders={orders} density={density} />
-  {/* Desktop table */}
-  <OrdersRows orders={orders} visibleCols={visibleColsArray} density={density} sortKey={sortKey} query={queryBase} basePath="/dashboard/seller/orders" tableHeight={560} />
+        {/* Desktop table */}
+        <OrdersRows orders={orders} visibleCols={visibleColsArray} density={density} sortKey={sortKey} query={queryBase} basePath="/dashboard/seller/orders" tableHeight={560} />
       </ToastForm>
 
-  {/* Sticky selected bar */}
-  <SelectedBar formId={formId} />
 
       {/* Pagination */}
       <div className="shrink-0">
