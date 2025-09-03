@@ -38,10 +38,16 @@ export default function QuickRanges({ className = "" }) {
 
   return (
     <div className={"hidden sm:flex items-center gap-1 " + className}>
-      <button type="button" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50 text-[12px]" onClick={() => apply('today')}>Today</button>
-      <button type="button" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50 text-[12px]" onClick={() => apply('7d')}>7 days</button>
-      <button type="button" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50 text-[12px]" onClick={() => apply('30d')}>30 days</button>
-      <button type="button" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50 text-[12px]" onClick={() => apply('clear')}>Clear</button>
+      {[
+        { k: 'today', label: 'Today' },
+        { k: '7d', label: '7d' },
+        { k: '30d', label: '30d' },
+        { k: 'clear', label: 'Clear' },
+      ].map(({ k, label }) => (
+        <button key={k} type="button" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50 text-[11px]" onClick={() => apply(k)}>
+          {label}
+        </button>
+      ))}
     </div>
   );
 }

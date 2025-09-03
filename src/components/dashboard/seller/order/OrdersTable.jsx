@@ -119,16 +119,24 @@ export default async function OrdersTable({ sp = {} }) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[min(92vw,460px)] p-3 rounded-xl shadow-lg border bg-white">
-                  <DisplayControls basePath="/dashboard/seller/orders" allCols={allColsDefault} visibleCols={visibleColsArray} query={{
-                    ...queryBase,
-                    cols: (colsParam && colsParam !== allColsDefault.join(',')) ? colsParam : undefined,
-                  }} />
+                  <div className="space-y-3">
+                    <DisplayControls basePath="/dashboard/seller/orders" allCols={allColsDefault} visibleCols={visibleColsArray} query={{
+                      ...queryBase,
+                      cols: (colsParam && colsParam !== allColsDefault.join(',')) ? colsParam : undefined,
+                    }} />
+                    <div className="border-t my-2" />
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-medium text-muted-foreground px-1 inline-flex items-center gap-1">
+                        Quick actions
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <QuickRanges />
+                        <DensityToggle />
+                      </div>
+                    </div>
+                  </div>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <div className="flex items-center gap-2">
-                <QuickRanges />
-                <DensityToggle />
-              </div>
             </div>
           )}
         />

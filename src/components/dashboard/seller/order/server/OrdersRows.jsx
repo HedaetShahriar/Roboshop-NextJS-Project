@@ -90,7 +90,12 @@ export default async function OrdersRows({ orders = [], visibleCols = ['order','
               )}
               {cols.has('status') && (
                 <td className={"px-3 " + (density === 'compact' ? 'py-1.5' : 'py-2')}>
-                  <span title={o.status} className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] capitalize ${badgeCls(o.status)}`}>{o.status}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span title={o.status} className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] capitalize ${badgeCls(o.status)}`}>{o.status}</span>
+                    {o?.rider?.name ? (
+                      <span className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] bg-violet-50/70 border-violet-200 text-violet-700">Rider: {o.rider.name}</span>
+                    ) : null}
+                  </div>
                 </td>
               )}
               {cols.has('created') && (

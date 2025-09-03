@@ -16,9 +16,15 @@ export default function DensityToggle({ className = "" }) {
   };
 
   return (
-    <button type="button" onClick={toggle} className={"h-8 px-2 rounded border bg-white hover:bg-zinc-50 text-xs inline-flex items-center gap-1 " + className} title="Toggle density">
+    <button
+      type="button"
+      onClick={toggle}
+      className={"h-8 w-8 rounded border bg-white hover:bg-zinc-50 inline-flex items-center justify-center " + className}
+      title={density === 'compact' ? 'Cozy rows' : 'Compact rows'}
+      aria-label={density === 'compact' ? 'Cozy rows' : 'Compact rows'}
+    >
       {density === 'compact' ? <Rows3 size={14} /> : <Rows size={14} />}
-      {density === 'compact' ? 'Cozy rows' : 'Compact rows'}
+      <span className="sr-only">{density === 'compact' ? 'Cozy rows' : 'Compact rows'}</span>
     </button>
   );
 }

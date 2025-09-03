@@ -230,58 +230,27 @@ function TableFilters({
             {/* Title + Advanced toggle */}
             <div className={"flex flex-col md:flex-row md:items-center md:justify-between " + (compact ? "gap-2" : "gap-3") }>
                 <div>
-                    <h2 className="text-lg font-bold tracking-tight">{title || 'Search & Filter'}</h2>
+                    <h2 className={(compact ? "text-base" : "text-lg") + " font-bold tracking-tight"}>{title || 'Search & Filter'}</h2>
                     <p className="text-xs text-muted-foreground">
                         {subtitle || 'Find items with advanced filtering'}
                     </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                    <div className="hidden md:flex items-center gap-2">
-                        {cfg.sort && sort && (
-                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">
-                                Sort: {sortLabelMap[sort] ?? sort}
-                            </span>
-                        )}
-                        {cfg.showCategory && category && (
-                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">Category: {category}</span>
-                        )}
-                        {cfg.showSubcategory && subcategory && (
-                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">Subcategory: {subcategory}</span>
-                        )}
-                        {cfg.showInStock && localInStock && (
-                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">In stock</span>
-                        )}
-                        {cfg.showHasDiscount && localHasDiscount && (
-                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">Has discount</span>
-                        )}
-                        {cfg.dateRange && (from || to) && (
-                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">
-                                Date: {from || '…'} → {to || '…'}
-                            </span>
-                        )}
-                        {cfg.showLowStock && localLowStock && (
-                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">Low stock</span>
-                        )}
-                        {cfg.showPriceRange && (minPrice || maxPrice) && (
-                            <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground bg-muted">
-                                Price: {minPrice || '…'} → {maxPrice || '…'}
-                            </span>
-                        )}
-                    </div>
+                    {/* Removed duplicate summary chips for a cleaner, more compact header */}
                     {(cfg.showInStock || cfg.showHasDiscount || cfg.showLowStock) && (
                         <div className="flex items-center gap-2">
                             {cfg.showInStock && (
-                                <button type="button" className={`h-8 px-3 rounded border text-xs ${localInStock ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`} onClick={() => setFilters({ inStock: !localInStock ? 1 : '' })}>
+                                <button type="button" className={`${compact ? 'h-8 px-2.5' : 'h-8 px-3'} rounded border text-xs ${localInStock ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`} onClick={() => setFilters({ inStock: !localInStock ? 1 : '' })}>
                                     In stock
                                 </button>
                             )}
                             {cfg.showHasDiscount && (
-                                <button type="button" className={`h-8 px-3 rounded border text-xs ${localHasDiscount ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`} onClick={() => setFilters({ hasDiscount: !localHasDiscount ? 1 : '' })}>
+                                <button type="button" className={`${compact ? 'h-8 px-2.5' : 'h-8 px-3'} rounded border text-xs ${localHasDiscount ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`} onClick={() => setFilters({ hasDiscount: !localHasDiscount ? 1 : '' })}>
                                     Has discount
                                 </button>
                             )}
                             {cfg.showLowStock && (
-                                <button type="button" className={`h-8 px-3 rounded border text-xs ${localLowStock ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`} onClick={() => setFilters({ lowStock: !localLowStock ? 1 : '' })}>
+                                <button type="button" className={`${compact ? 'h-8 px-2.5' : 'h-8 px-3'} rounded border text-xs ${localLowStock ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white hover:bg-zinc-50'}`} onClick={() => setFilters({ lowStock: !localLowStock ? 1 : '' })}>
                                     Low stock
                                 </button>
                             )}
@@ -290,7 +259,7 @@ function TableFilters({
                     {(cfg.showCategory || cfg.showSubcategory) && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button type="button" size="sm" variant="outline" className="font-medium relative inline-flex items-center gap-1">
+                                <Button type="button" size="sm" variant="outline" className={(compact ? 'h-8 px-2.5' : '') + " font-medium relative inline-flex items-center gap-1"}>
                                     <Tag size={14} />
                                     Category
                                     {((cfg.showCategory && category) || (cfg.showSubcategory && subcategory)) && (
@@ -369,7 +338,7 @@ function TableFilters({
                     {(cfg.dateRange || cfg.sort || advancedExtra) && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button type="button" size="sm" variant="outline" className="font-medium relative inline-flex items-center gap-1">
+                                <Button type="button" size="sm" variant="outline" className={(compact ? 'h-8 px-2.5' : '') + " font-medium relative inline-flex items-center gap-1"}>
                                     <SlidersHorizontal size={14} />
                                     {cfg.advancedButtonLabel}
                                     {activeCount > 0 && (
@@ -504,9 +473,9 @@ function TableFilters({
 
 
             {/* Primary row: Search */}
-            <div className={"grid grid-cols-1 " + (compact ? "gap-2" : "gap-3")}>
+        <div className={"grid grid-cols-1 " + (compact ? "gap-2" : "gap-3")}>
                 {cfg.search && (
-                    <form className="flex items-center gap-3 w-full" onSubmit={(e) => { 
+            <form className={"flex items-center w-full " + (compact ? "gap-2" : "gap-3")} onSubmit={(e) => { 
                         e.preventDefault(); 
                         if ((search ?? '') !== (localSearch ?? '')) {
                             setFilters({ search: localSearch });
@@ -539,7 +508,7 @@ function TableFilters({
                                 </button>
                             )}
                         </div>
-                        <Button type="submit" size="sm" className={compact ? 'h-9' : 'h-10'}>Search</Button>
+                        <Button type="submit" size="sm" className={(compact ? 'h-8 px-3' : 'h-10')}>Search</Button>
                     </form>
                 )}
 
@@ -609,7 +578,7 @@ function TableFilters({
                             type="button"
                             variant={!status ? 'default' : 'outline'}
                             size="sm"
-                            className="shrink-0"
+                            className={(compact ? 'h-8' : '') + " shrink-0"}
                             onClick={() => { if ((status ?? '') !== '') setFilters({ status: '' }); }}
                         >
                             All <span className="ml-1 text-xs text-muted-foreground">({(countsState?.all ?? counts?.all) ?? 0})</span>
@@ -620,7 +589,7 @@ function TableFilters({
                                 type="button"
                                 variant={status === s ? 'default' : 'outline'}
                                 size="sm"
-                                className="capitalize shrink-0"
+                                className={(compact ? 'h-8' : '') + " capitalize shrink-0"}
                                 onClick={() => { if (status !== s) setFilters({ status: s }); }}
                             >
                                 {s} <span className="ml-1 text-xs text-muted-foreground">({(countsState?.[s] ?? counts?.[s]) ?? 0})</span>
@@ -633,12 +602,12 @@ function TableFilters({
             
 
             {/* Action row */}
-            <div className={"flex flex-col md:flex-row md:items-center md:justify-between " + (compact ? "gap-1" : "gap-2")}>
+        <div className={"flex flex-col md:flex-row md:items-center md:justify-between " + (compact ? "gap-1" : "gap-2")}>
                 <div className="flex items-center gap-2">
                     {persistentExtra ?? null}
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button onClick={() => (resetFilters ? resetFilters() : setFilters({ search: '', from: '', to: '', sort: '', category: '', subcategory: '', inStock: '', hasDiscount: '', lowStock: '', minPrice: '', maxPrice: '' }))} size="sm" variant="outline" className="font-medium">
+            <Button onClick={() => (resetFilters ? resetFilters() : setFilters({ search: '', from: '', to: '', sort: '', category: '', subcategory: '', inStock: '', hasDiscount: '', lowStock: '', minPrice: '', maxPrice: '' }))} size="sm" variant="outline" className={(compact ? 'h-8 px-3' : '') + " font-medium"}>
                         Clear All Filters
                     </Button>
                     {rightActions}

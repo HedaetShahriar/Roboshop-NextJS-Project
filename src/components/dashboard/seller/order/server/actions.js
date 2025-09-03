@@ -264,3 +264,21 @@ export async function clearOrderShipping(formData) {
     return { ok: false, message: 'Failed to clear shipping fee' };
   }
 }
+
+export async function assignOrderRider(formData) {
+  try {
+    const id = String(formData.get('id') || '');
+    const riderName = String(formData.get('rider') || '').trim();
+    if (!id) return { ok: false, message: 'Missing order id' };
+    const db = await getDb();
+    const now = new Date();
+    const set = { status: 'assigned', updatedAt: now };
+    if (riderName) set['rider'] = { name: riderName };
+    const history = { code: 'rider-assigned', label: riderName ? `Rider assigned: ${riderName}` : 'Rider assigned', at: now };
+    await db.collection('orders').updateOne(idFilter(id), { $set: set, $push: { history } });
+    revalidatePath('/dashboard/seller/orders');
+    return { ok: true, message: riderName ? `Assigned to ${riderName}` : 'Assigned' };
+  } catch (e) {
+    return { ok: false, message: 'Failed to assign rider' };
+  }
+}
