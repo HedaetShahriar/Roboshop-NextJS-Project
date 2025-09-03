@@ -39,7 +39,6 @@ export default function CheckoutPage() {
     city: "",
     area: "",
     address1: "",
-    address2: "",
     postalCode: "",
     notes: "",
     billingSameAsShipping: true,
@@ -47,7 +46,6 @@ export default function CheckoutPage() {
     billingCity: "",
     billingArea: "",
     billingAddress1: "",
-    billingAddress2: "",
     billingPostalCode: "",
     paymentMethod: "cod", // cod | bkash | card
     bkashNumber: "",
@@ -107,7 +105,6 @@ export default function CheckoutPage() {
               city: f.city || preferred.city || "",
               area: f.area || preferred.area || "",
               address1: f.address1 || preferred.address1 || "",
-              address2: f.address2 || preferred.address2 || "",
               postalCode: f.postalCode || preferred.postalCode || "",
               // keep billing as same by default
             }));
@@ -373,10 +370,6 @@ export default function CheckoutPage() {
                   <Input id="address1" name="address1" value={form.address1} onChange={onChange} placeholder="House, Road" aria-invalid={!!errors.address1} required />
                   {errors.address1 && <p className="text-xs text-red-600">{errors.address1}</p>}
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="address2">Address Line 2</Label>
-                  <Input id="address2" name="address2" value={form.address2} onChange={onChange} placeholder="Apartment, Suite (optional)" />
-                </div>
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
@@ -429,10 +422,6 @@ export default function CheckoutPage() {
                       <Label htmlFor="billingAddress1">Address Line 1</Label>
                       <Input id="billingAddress1" name="billingAddress1" value={form.billingAddress1} onChange={onChange} placeholder="House, Road" aria-invalid={!!errors.billingAddress1} />
                       {errors.billingAddress1 && <p className="text-xs text-red-600">{errors.billingAddress1}</p>}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="billingAddress2">Address Line 2</Label>
-                      <Input id="billingAddress2" name="billingAddress2" value={form.billingAddress2} onChange={onChange} placeholder="Apartment, Suite (optional)" />
                     </div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">

@@ -26,8 +26,10 @@ export default function DisplayControls({ basePath = "/dashboard/seller/orders",
   };
 
   const presets = [
-    { name: 'Default', cols: allCols.join(',') },
-    { name: 'Compact', cols: ['order','status','created','total','actions'].filter(allCols.includes.bind(allCols)).join(',') },
+    { name: 'Default', cols: allCols.join(','), density: 'cozy' },
+    { name: 'Compact', cols: ['order','status','created','total','actions'].filter(allCols.includes.bind(allCols)).join(','), density: 'compact' },
+    { name: 'Fulfillment', cols: ['order','customer','status','location','actions'].filter(allCols.includes.bind(allCols)).join(','), density: 'compact' },
+    { name: 'Payments', cols: ['order','customer','payment','total','actions'].filter(allCols.includes.bind(allCols)).join(','), density: 'cozy' },
   ];
 
   return (
@@ -42,8 +44,13 @@ export default function DisplayControls({ basePath = "/dashboard/seller/orders",
         <div className="mt-3 text-[11px] font-medium text-muted-foreground px-1">Presets</div>
         <div className="mt-2 flex flex-wrap gap-2">
           {presets.map((p, i) => (
-            <Link key={i} href={`${basePath}${toQS({ cols: p.cols, page: 1 })}`} className="h-8 px-2 rounded border text-xs bg-white hover:bg-zinc-50">{p.name}</Link>
+            <Link key={i} href={`${basePath}${toQS({ cols: p.cols, density: p.density, page: 1 })}`} className="h-8 px-2 rounded border text-xs bg-white hover:bg-zinc-50">{p.name}</Link>
           ))}
+        </div>
+        <div className="mt-3 flex items-center gap-2 px-1">
+          <span className="text-[11px] text-muted-foreground">Density</span>
+          <Link href={`${basePath}${toQS({ density: 'cozy' })}`} className="h-7 px-2 rounded border text-[11px] bg-white hover:bg-zinc-50">Cozy</Link>
+          <Link href={`${basePath}${toQS({ density: 'compact' })}`} className="h-7 px-2 rounded border text-[11px] bg-white hover:bg-zinc-50">Compact</Link>
         </div>
       </div>
       <div>

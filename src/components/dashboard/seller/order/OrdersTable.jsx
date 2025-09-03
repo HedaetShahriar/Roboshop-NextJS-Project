@@ -11,6 +11,11 @@ import Link from "next/link";
 import DisplayControls from "./client/DisplayControls";
 import OrdersBulkActionsPanel from "./client/OrdersBulkActionsPanel";
 import { bulkOrders, updateOrderStatus } from "./server/actions";
+import OrdersAdvancedExtra from "./client/OrdersAdvancedExtra";
+import QuickRanges from "./client/QuickRanges";
+import DensityToggle from "./client/DensityToggle";
+import SelectedBar from "./client/SelectedBar";
+import ToastForm from "./client/ToastForm";
 
 export default async function OrdersTable({ sp = {} }) {
   const q = (sp?.search || sp?.q || '').toString().trim();
@@ -18,6 +23,7 @@ export default async function OrdersTable({ sp = {} }) {
   const toStr = (sp?.to || '').toString();
   const sortKey = (sp?.sort || 'newest').toString();
   const status = (sp?.status || '').toString();
+  const density = ((sp?.density || 'cozy').toString() === 'compact') ? 'compact' : 'cozy';
   const { page, pageSize } = getPageAndSize(sp);
 
   const [{ orders, total }, counts] = await Promise.all([
@@ -35,7 +41,7 @@ export default async function OrdersTable({ sp = {} }) {
   };
 
   const colsParam = (sp?.cols || '').toString();
-  const allColsDefault = ['order','customer','status','created','total','actions'];
+  const allColsDefault = ['order', 'customer', 'payment', 'status', 'created', 'total', 'billing', 'actions'];
   const visibleColsArray = (
     colsParam
       ? colsParam.split(',').map(s => s.trim()).filter(Boolean)
@@ -44,6 +50,8 @@ export default async function OrdersTable({ sp = {} }) {
 
   const totalCount = Number(total || 0);
   const pageCount = Math.max(0, Math.min(pageSize, totalCount - ((page - 1) * pageSize)));
+
+  const formId = "bulkOrdersForm";
 
   return (
     <div className="flex flex-col min-h-0 gap-2">
@@ -63,6 +71,8 @@ export default async function OrdersTable({ sp = {} }) {
           ]}
           searchPlaceholder="Search by order number, customer, phone, email"
           counts={counts}
+          countsUrl={`/api/seller/orders/counts?${new URLSearchParams(queryBase).toString()}`}
+          advancedExtra={<OrdersAdvancedExtra />}
           rightActions={(
             <div className="flex items-center gap-2">
               {/* Bulk */}
@@ -76,7 +86,7 @@ export default async function OrdersTable({ sp = {} }) {
                 <DropdownMenuContent align="end" className="w-[min(92vw,520px)] p-3 rounded-xl shadow-lg border bg-white">
                   <div className="space-y-2">
                     <div className="text-[11px] font-medium text-muted-foreground px-1 inline-flex items-center gap-1"><Boxes size={12} /> Bulk actions</div>
-                    <OrdersBulkActionsPanel formId="bulkOrdersForm" defaultScope="selected" pageCount={pageCount} total={totalCount} />
+                    <OrdersBulkActionsPanel formId={formId} defaultScope="selected" pageCount={pageCount} total={totalCount} />
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -116,6 +126,10 @@ export default async function OrdersTable({ sp = {} }) {
                   }} />
                 </DropdownMenuContent>
               </DropdownMenu>
+              <div className="flex items-center gap-2">
+                <QuickRanges />
+                <DensityToggle />
+              </div>
             </div>
           )}
         />
@@ -124,14 +138,30 @@ export default async function OrdersTable({ sp = {} }) {
       {/* Hidden forms for per-row status updates (avoid nested forms) */}
       <div className="hidden" aria-hidden="true">
         {orders.map((o) => (
-          <form key={o._id} id={`orderStatus-${o._id}`} action={updateOrderStatus}>
+          <ToastForm
+            key={o._id}
+            id={`orderStatus-${o._id}`}
+            action={updateOrderStatus}
+            onSubmitToast={`Updating #${o.number || o._id.slice(-6)}…`}
+            successToast={`Order updated`}
+            errorToast={`Failed to update order`}
+          >
             <input type="hidden" name="id" value={o._id} />
-          </form>
+            <input type="hidden" name="status" value="" />
+          </ToastForm>
         ))}
       </div>
 
-  {/* Bulk form + rows */}
-  <form id="bulkOrdersForm" action={bulkOrders} className="min-h-0 flex-1 flex flex-col gap-2">
+      {/* Bulk form + rows */}
+      <ToastForm
+        id={formId}
+        action={bulkOrders}
+        className="min-h-0 flex-1 flex flex-col gap-2"
+        onSubmitToast="Applying bulk action…"
+        successToast="Bulk action applied"
+        errorToast="Bulk action failed"
+  requireField="bulkAction"
+      >
         {/* carry current filters for scope targeting */}
         {q ? <input type="hidden" name="search" value={q} /> : null}
         {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
@@ -142,10 +172,13 @@ export default async function OrdersTable({ sp = {} }) {
         <input type="hidden" name="pageSize" value={String(pageSize)} />
 
         {/* Mobile list */}
-        <OrdersMobileList orders={orders} />
-        {/* Desktop table */}
-        <OrdersRows orders={orders} visibleCols={visibleColsArray} />
-      </form>
+        <OrdersMobileList orders={orders} density={density} />
+  {/* Desktop table */}
+  <OrdersRows orders={orders} visibleCols={visibleColsArray} density={density} sortKey={sortKey} query={queryBase} basePath="/dashboard/seller/orders" tableHeight={560} />
+      </ToastForm>
+
+  {/* Sticky selected bar */}
+  <SelectedBar formId={formId} />
 
       {/* Pagination */}
       <div className="shrink-0">
@@ -154,7 +187,7 @@ export default async function OrdersTable({ sp = {} }) {
           total={total}
           page={page}
           pageSize={pageSize}
-          query={queryBase}
+          query={{ ...queryBase, density: density !== 'cozy' ? density : undefined, cols: (colsParam && colsParam !== allColsDefault.join(',')) ? colsParam : undefined }}
         />
       </div>
     </div>

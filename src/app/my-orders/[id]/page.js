@@ -159,7 +159,7 @@ export default async function OrderDetailPage({ params }) {
               {order.contact?.phone && (
                 <div>{order.contact.phone}</div>
               )}
-              <div>{order.shippingAddress?.address1}{order.shippingAddress?.address2 ? `, ${order.shippingAddress.address2}` : ""}</div>
+              <div>{order.shippingAddress?.address1}</div>
               <div>{order.shippingAddress?.area ? `${order.shippingAddress.area}, ` : ""}{order.shippingAddress?.city}</div>
               <div>{order.shippingAddress?.country} {order.shippingAddress?.postalCode}</div>
               {order.shippingAddress?.notes && <div className="mt-1 text-gray-500">Notes: {order.shippingAddress.notes}</div>}

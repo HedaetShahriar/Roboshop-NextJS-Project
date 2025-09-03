@@ -2,10 +2,13 @@ import Link from "next/link";
 import { formatBDT } from "@/lib/currency";
 import { formatDateTime } from "@/lib/dates";
 // per-row update handled via hidden forms rendered by parent; we point to them via form attribute
+import RowActions from "../client/RowActions";
+import OrderItemsModal from "../client/OrderItemsModal";
+import BillingModal from "../client/BillingModal";
 
 const currencyFmt = { format: (n) => formatBDT(n) };
 
-export default async function OrdersMobileList({ orders = [] }) {
+export default async function OrdersMobileList({ orders = [], density = 'cozy' }) {
   if (!orders || orders.length === 0) {
     return (
       <div className="sm:hidden rounded-md border bg-white p-6 text-center text-sm text-muted-foreground">
@@ -16,7 +19,7 @@ export default async function OrdersMobileList({ orders = [] }) {
   return (
     <div className="sm:hidden space-y-2 overflow-auto">
       {orders.map((o) => (
-        <div key={o._id} className="rounded-md border bg-white p-3">
+  <div key={o._id} className={"rounded-md border bg-white " + (density === 'compact' ? 'p-2.5' : 'p-3')}>
           <div className="flex items-center gap-2">
             <div className="font-semibold">#{o.orderNumber || o._id.slice(-6)}</div>
             <span className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] capitalize ${badgeCls(o.status)}`}>{o.status}</span>
@@ -25,17 +28,30 @@ export default async function OrdersMobileList({ orders = [] }) {
             <label className="text-xs inline-flex items-center gap-2"><input form="bulkOrdersForm" type="checkbox" name="ids" value={o._id} /> Select</label>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">{formatDateTime(o.createdAt)} • {o.itemsCount || 0} items</div>
-          <div className="mt-2 flex items-center gap-2">
+          <div className={"mt-2 flex items-center gap-2 " + (density === 'compact' ? 'text-[13px]' : '')}>
             <div className="text-sm font-medium truncate">{o?.contact?.fullName || '—'}</div>
             <div className="ml-auto text-sm tabular-nums">{currencyFmt.format(Number(o?.amounts?.total || 0))}</div>
           </div>
+          {/* Billing quick access */}
+          <div className="mt-1">
+            <BillingModal order={o} />
+          </div>
+          {/* View items modal trigger */}
+          {Array.isArray(o.items) && o.items.length > 0 && (
+            <div className="mt-1"><OrderItemsModal order={o} /></div>
+          )}
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            <span className="capitalize">{o?.payment?.method || '—'}</span>
+            {o?.payment?.status ? <span> • {o.payment.status}</span> : null}
+            {o?.payment?.ref ? <span> • ref {String(o.payment.ref).slice(-8)}</span> : null}
+          </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            {o?.shippingAddress?.city || '—'}{o?.shippingAddress?.area ? <span> • {o.shippingAddress.area}</span> : null}
+          </div>
           <div className="mt-2 flex items-center gap-2">
             <Link href={`/dashboard/seller/orders/${o._id}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">View</Link>
-            <div className="ml-auto inline-flex items-center gap-1">
-              <select name="status" defaultValue={o.status} form={`orderStatus-${o._id}`} className="h-8 rounded border text-xs px-2 bg-white">
-                {['processing','packed','assigned','shipped','delivered','cancelled'].map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <button type="submit" form={`orderStatus-${o._id}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">Update</button>
+            <div className="ml-auto">
+              <RowActions id={o._id} currentStatus={o.status} contact={o.contact} shipping={o.shippingAddress} tracking={o.tracking} />
             </div>
           </div>
         </div>

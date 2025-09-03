@@ -20,7 +20,6 @@ export async function createAddress(userEmail, payload) {
     city: String(payload.city || ""),
     area: String(payload.area || ""),
     address1: String(payload.address1 || ""),
-    address2: String(payload.address2 || ""),
     postalCode: String(payload.postalCode || ""),
     createdAt: new Date(),
     updatedAt: new Date(),

@@ -12,7 +12,7 @@ export default function AddressModalButton({ address, label = 'View' }) {
   const {
     fullName,
     address1,
-    address2,
+    
     city,
     state,
     postalCode,
@@ -38,7 +38,7 @@ export default function AddressModalButton({ address, label = 'View' }) {
                 {email && <div><span className="text-muted-foreground">Email: </span>{email}</div>}
                 {phone && <div><span className="text-muted-foreground">Phone: </span>{phone}</div>}
                 {address1 && <div className="pt-1"><span className="text-muted-foreground">Address: </span>{address1}</div>}
-                {address2 && <div>{address2}</div>}
+                
                 {(city || state || postalCode) && (
                   <div>{[city, state, postalCode].filter(Boolean).join(', ')}</div>
                 )}

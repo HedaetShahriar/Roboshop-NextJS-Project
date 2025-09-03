@@ -26,7 +26,6 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
     city: "",
     area: "",
     address1: "",
-    address2: "",
     postalCode: "",
   });
   const [addrOpen, setAddrOpen] = useState(false);
@@ -148,11 +147,11 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
   };
 
   const openNewAddress = () => {
-    setAddrForm({ _id: null, label: "Home", country: "", city: "", area: "", address1: "", address2: "", postalCode: "" });
+    setAddrForm({ _id: null, label: "Home", country: "", city: "", area: "", address1: "", postalCode: "" });
     setAddrOpen(true);
   };
   const openEditAddress = (a) => {
-    setAddrForm({ _id: a._id, label: a.label || "Home", country: a.country || "", city: a.city || "", area: a.area || "", address1: a.address1 || "", address2: a.address2 || "", postalCode: a.postalCode || "" });
+    setAddrForm({ _id: a._id, label: a.label || "Home", country: a.country || "", city: a.city || "", area: a.area || "", address1: a.address1 || "", postalCode: a.postalCode || "" });
     setAddrOpen(true);
   };
   const saveAddress = async () => {
@@ -160,7 +159,7 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
     const isEdit = !!payload._id;
     const url = "/api/addresses" + (isEdit ? "" : "");
     const method = isEdit ? "PUT" : "POST";
-    const body = isEdit ? { id: payload._id, label: payload.label, country: payload.country, city: payload.city, area: payload.area, address1: payload.address1, address2: payload.address2, postalCode: payload.postalCode } : payload;
+    const body = isEdit ? { id: payload._id, label: payload.label, country: payload.country, city: payload.city, area: payload.area, address1: payload.address1, postalCode: payload.postalCode } : payload;
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!res.ok) return;
     // Refresh list
@@ -257,7 +256,7 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
                     <li key={a._id} className="border rounded p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
                       <div>
                         <div className="font-medium">{a.label}</div>
-                        <div className="text-sm text-gray-600">{a.address1}{a.address2 ? `, ${a.address2}` : ""}</div>
+                        <div className="text-sm text-gray-600">{a.address1}</div>
                         <div className="text-sm text-gray-600">{a.area ? `${a.area}, ` : ""}{a.city}</div>
                         <div className="text-sm text-gray-600">{a.country} {a.postalCode}</div>
                       </div>
@@ -301,10 +300,7 @@ export default function ProfileClient({ initialProfile, initialAddresses }) {
                     <Label htmlFor="address1">Address Line 1</Label>
                     <Input id="address1" value={addrForm.address1} onChange={(e) => setAddrForm((f) => ({ ...f, address1: e.target.value }))} />
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="address2">Address Line 2</Label>
-                    <Input id="address2" value={addrForm.address2} onChange={(e) => setAddrForm((f) => ({ ...f, address2: e.target.value }))} />
-                  </div>
+                  
                 </div>
                 <div className="grid md:grid-cols-3 gap-4 mt-4">
                   <div className="grid gap-2">

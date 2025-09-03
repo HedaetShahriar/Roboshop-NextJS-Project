@@ -16,10 +16,13 @@ function buildProjection() {
     status: 1,
     contact: 1,
     shippingAddress: 1,
+  billingAddress: 1,
     payment: 1,
     amounts: 1,
     createdAt: 1,
     updatedAt: 1,
+  // Include items for row expand mini-list
+  items: 1,
     itemsCount: { $cond: [{ $isArray: "$items" }, { $size: "$items" }, 0] },
   };
 }
@@ -49,9 +52,18 @@ export async function getOrdersAndTotal(sp = {}) {
   return { orders, total, page, pageSize };
 }
 
+// Simple in-memory cache for quick counts (best-effort; TTL 15s)
+const _countsCache = new Map();
+const COUNTS_TTL_MS = 15000;
+
 export async function getOrdersQuickCounts(sp = {}) {
-  const db = await getDb();
   const base = buildOrdersWhere({ ...sp, status: '' });
+  const key = JSON.stringify(base);
+  const now = Date.now();
+  const hit = _countsCache.get(key);
+  if (hit && (now - hit.t) < COUNTS_TTL_MS) return hit.v;
+
+  const db = await getDb();
   const statuses = ['processing', 'packed', 'assigned', 'shipped', 'delivered', 'cancelled'];
   const counts = await Promise.all([
     db.collection('orders').countDocuments(base),
@@ -60,5 +72,12 @@ export async function getOrdersQuickCounts(sp = {}) {
   const [all, ...rest] = counts;
   const obj = { all };
   statuses.forEach((s, i) => obj[s] = rest[i] || 0);
+  _countsCache.set(key, { v: obj, t: now });
+  // GC occasionally
+  if (_countsCache.size > 200) {
+    for (const [k, val] of _countsCache) {
+      if ((now - val.t) >= COUNTS_TTL_MS) _countsCache.delete(k);
+    }
+  }
   return obj;
 }

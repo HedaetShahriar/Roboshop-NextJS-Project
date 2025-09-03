@@ -8,6 +8,10 @@ export function buildOrdersWhere(sp = {}) {
   const fromStr = (sp?.from || '').toString();
   const toStr = (sp?.to || '').toString();
   const status = (sp?.status || '').toString().trim();
+  const paymentStatus = (sp?.paymentStatus || '').toString().trim();
+  const paymentMethod = (sp?.paymentMethod || '').toString().trim();
+  const codOnly = Boolean(sp?.codOnly);
+  const city = (sp?.city || '').toString().trim();
   const where = {};
 
   if (q) {
@@ -21,6 +25,10 @@ export function buildOrdersWhere(sp = {}) {
   }
 
   if (status) where.status = status;
+  if (paymentStatus) where['payment.status'] = paymentStatus;
+  if (paymentMethod) where['payment.method'] = paymentMethod;
+  if (codOnly) where['payment.method'] = { $regex: /^cod$/i };
+  if (city) where['shippingAddress.city'] = { $regex: new RegExp(`^${escapeRegex(city)}`, 'i') };
 
   // Date range (createdAt)
   const created = {};

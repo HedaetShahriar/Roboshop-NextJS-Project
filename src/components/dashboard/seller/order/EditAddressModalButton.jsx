@@ -10,7 +10,7 @@ export default function EditAddressModalButton({ orderId, initialAddress = {}, a
   const {
     fullName = "",
     address1 = "",
-    address2 = "",
+    
     city = "",
     state = "",
     postalCode = "",
@@ -58,10 +58,7 @@ export default function EditAddressModalButton({ orderId, initialAddress = {}, a
                   <label className="block text-xs text-muted-foreground mb-1">Address line 1</label>
                   <input name="address1" defaultValue={address1} className="w-full h-9 px-3 rounded border" placeholder="123 Main St" />
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs text-muted-foreground mb-1">Address line 2</label>
-                  <input name="address2" defaultValue={address2} className="w-full h-9 px-3 rounded border" placeholder="Apt, suite, etc." />
-                </div>
+                
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1">City</label>
                   <input name="city" defaultValue={city} className="w-full h-9 px-3 rounded border" placeholder="City" />

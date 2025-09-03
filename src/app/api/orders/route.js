@@ -56,7 +56,6 @@ export async function POST(request) {
       city: form.city,
       area: form.area,
       address1: form.address1,
-      address2: form.address2,
       postalCode: form.postalCode,
       notes: form.notes || "",
     },
@@ -67,7 +66,6 @@ export async function POST(request) {
           city: form.billingCity,
           area: form.billingArea,
           address1: form.billingAddress1,
-          address2: form.billingAddress2,
           postalCode: form.billingPostalCode,
         },
     payment: {

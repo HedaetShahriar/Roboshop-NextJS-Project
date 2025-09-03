@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, memo } from 'react';
+import { useState, useMemo, useEffect, memo, useRef } from 'react';
 import { Search, X, Calendar, Tag, Tags, SlidersHorizontal, ArrowUpDown, Percent, AlertTriangle, CircleDollarSign, RotateCcw, Check, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,7 @@ function TableFilters({
     advancedExtra,
     persistentExtra,
     counts, // optional: status counts { all, processing, packed, ... }
+    countsUrl, // optional: fetch counts on mount for streaming updates
     title,
     subtitle,
     compact = false,
@@ -39,6 +40,8 @@ function TableFilters({
     const { search, status, from, to, sort, inStock, hasDiscount, minPrice, maxPrice, lowStock, category, subcategory } = filters;
 
     const [localSearch, setLocalSearch] = useState(search || '');
+    const [countsState, setCountsState] = useState(counts);
+    const searchRef = useRef(null);
     // Local advanced filter state (apply on click)
     const [localFrom, setLocalFrom] = useState(from || '');
     const [localTo, setLocalTo] = useState(to || '');
@@ -205,8 +208,25 @@ function TableFilters({
         }
     };
 
+    // Fetch counts on mount/when countsUrl changes (best-effort)
+    useEffect(() => {
+        let ignore = false;
+        if (!countsUrl) return;
+        (async () => {
+            try {
+                const res = await fetch(countsUrl, { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!ignore) setCountsState(data ?? counts);
+            } catch {}
+        })();
+        return () => { ignore = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [countsUrl]);
+
     return (
         <div className={compact ? "space-y-2" : "space-y-3"}>
+            <KeyboardShortcuts searchRef={searchRef} />
             {/* Title + Advanced toggle */}
             <div className={"flex flex-col md:flex-row md:items-center md:justify-between " + (compact ? "gap-2" : "gap-3") }>
                 <div>
@@ -497,9 +517,10 @@ function TableFilters({
                                 <Search size={18} />
                             </span>
                             <Input
+                                ref={searchRef}
                                 value={localSearch}
                                 placeholder={searchPlaceholder || 'Search'}
-                className={(compact ? 'h-9' : 'h-10') + " pl-9 pr-9 w-full bg-white"}
+                                className={(compact ? 'h-9' : 'h-10') + " pl-9 pr-9 w-full bg-white"}
                                 onChange={(e) => setLocalSearch(e.target.value)}
                             />
                             {localSearch?.length > 0 && (
@@ -591,7 +612,7 @@ function TableFilters({
                             className="shrink-0"
                             onClick={() => { if ((status ?? '') !== '') setFilters({ status: '' }); }}
                         >
-                            All <span className="ml-1 text-xs text-muted-foreground">({(counts?.all) ?? 0})</span>
+                            All <span className="ml-1 text-xs text-muted-foreground">({(countsState?.all ?? counts?.all) ?? 0})</span>
                         </Button>
                         {statuses.map((s) => (
                             <Button
@@ -602,7 +623,7 @@ function TableFilters({
                                 className="capitalize shrink-0"
                                 onClick={() => { if (status !== s) setFilters({ status: s }); }}
                             >
-                                {s} <span className="ml-1 text-xs text-muted-foreground">({(counts?.[s]) ?? 0})</span>
+                                {s} <span className="ml-1 text-xs text-muted-foreground">({(countsState?.[s] ?? counts?.[s]) ?? 0})</span>
                             </Button>
                         ))}
                     </div>
@@ -628,3 +649,52 @@ function TableFilters({
 }
 
 export default memo(TableFilters);
+
+function KeyboardShortcuts({ searchRef }) {
+    useEffect(() => {
+        let lastChecked = null;
+        const onKey = (e) => {
+            const active = document.activeElement;
+            const isTyping = active && ((active.tagName === 'INPUT') || (active.tagName === 'TEXTAREA') || active.isContentEditable);
+            if (e.key === '/') {
+                if (searchRef?.current) {
+                    e.preventDefault();
+                    searchRef.current.focus();
+                }
+            }
+            if ((e.key === 'a' || e.key === 'A') && !e.ctrlKey && !e.metaKey && !isTyping) {
+                const boxes = document.querySelectorAll('form#bulkOrdersForm input[type="checkbox"][name="ids"]');
+                if (boxes.length) {
+                    e.preventDefault();
+                    boxes.forEach(b => { b.checked = true; b.dispatchEvent(new Event('change', { bubbles: true })); });
+                }
+            }
+        };
+        const onClick = (e) => {
+            const target = e.target;
+            if (target && target.matches('form#bulkOrdersForm input[type="checkbox"][name="ids"]')) {
+                if (e.shiftKey && lastChecked && lastChecked !== target) {
+                    const boxes = Array.from(document.querySelectorAll('form#bulkOrdersForm input[type="checkbox"][name="ids"]'));
+                    const start = boxes.indexOf(lastChecked);
+                    const end = boxes.indexOf(target);
+                    if (start !== -1 && end !== -1) {
+                        const [a, b] = start < end ? [start, end] : [end, start];
+                        const checkVal = target.checked;
+                        for (let i = a; i <= b; i++) {
+                            const box = boxes[i];
+                            if (box) { box.checked = checkVal; box.dispatchEvent(new Event('change', { bubbles: true })); }
+                        }
+                    }
+                }
+                lastChecked = target;
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        window.addEventListener('click', onClick, true);
+        return () => {
+            window.removeEventListener('keydown', onKey);
+            window.removeEventListener('click', onClick, true);
+        };
+    }, [searchRef]);
+    return null;
+}
