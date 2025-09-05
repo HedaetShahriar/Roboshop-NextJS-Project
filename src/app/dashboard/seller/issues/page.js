@@ -16,6 +16,19 @@ export default async function IssuesDashboardPage() {
   const db = await getDb();
   const issues = await db.collection('order_issues').find({}).sort({ createdAt: -1 }).toArray();
 
+  // Safely render any dynamic value to avoid rendering objects as React children
+  const safeText = (val, { fallback = '-' } = {}) => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+    // Handle Mongo ObjectId and Date
+    if (val instanceof Date) return formatDateTime(val);
+    if (val && typeof val.toString === 'function' && val.toString !== Object.prototype.toString) {
+      try { return val.toString(); } catch {}
+    }
+    try { return JSON.stringify(val); } catch { return fallback; }
+  };
+
   async function updateIssue(formData) {
     'use server';
     const session = await getServerSession(authOptions);
@@ -43,7 +56,8 @@ export default async function IssuesDashboardPage() {
         );
       } catch { }
     }
-    revalidatePath('/dashboard/issues');
+  // Revalidate the correct issues route path
+  revalidatePath('/dashboard/seller/issues');
   }
 
   return (
@@ -54,29 +68,29 @@ export default async function IssuesDashboardPage() {
       ) : (
         <div className="space-y-4">
           {issues.map((issue) => (
-            <div key={issue._id.toString()} className="border rounded bg-white p-4">
+            <div key={issue._id?.toString?.() ?? String(issue._id)} className="border rounded bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <div className="font-semibold">{issue.subject}</div>
-                  <div className="text-xs text-gray-500">Order {issue.orderNumber} • {formatDateTime(issue.createdAt)}</div>
+                  <div className="font-semibold">{safeText(issue.subject)}</div>
+                  <div className="text-xs text-gray-500">Order {safeText(issue.orderNumber)} • {formatDateTime(issue.createdAt)}</div>
                 </div>
                 <div>
-                  <span className={`px-2 py-1 rounded text-sm ${issue.status === 'resolved' ? 'bg-green-100 text-green-800' : issue.status === 'in_progress' ? 'bg-amber-100 text-amber-800' : 'bg-zinc-100'}`}>{issue.status}</span>
+                  <span className={`px-2 py-1 rounded text-sm ${issue.status === 'resolved' ? 'bg-green-100 text-green-800' : issue.status === 'in_progress' ? 'bg-amber-100 text-amber-800' : 'bg-zinc-100'}`}>{safeText(issue.status)}</span>
                 </div>
               </div>
               <div className="mt-3 text-sm">
-                <div className="font-medium">Category: <span className="font-normal capitalize">{issue.category}</span></div>
+                <div className="font-medium">Category: <span className="font-normal capitalize">{safeText(issue.category)}</span></div>
                 <div className="mt-2 border rounded p-2 bg-zinc-50">
                   <div className="text-xs text-gray-500 mb-1">Conversation</div>
                   <ul className="space-y-1 max-h-48 overflow-auto pr-1">
-                    {issue.messages?.map((m, idx) => (
-                      <li key={idx} className="text-sm"><span className="font-semibold capitalize">{m.by}</span>: {m.text} <span className="text-xs text-gray-500">• {formatDateTime(m.at)}</span></li>
+                    {(Array.isArray(issue.messages) ? issue.messages : []).map((m, idx) => (
+                      <li key={idx} className="text-sm"><span className="font-semibold capitalize">{safeText(m?.by)}</span>: {safeText(m?.text)} <span className="text-xs text-gray-500">• {formatDateTime(m?.at)}</span></li>
                     ))}
                   </ul>
                 </div>
               </div>
               <form action={updateIssue} className="mt-3 space-y-2">
-                <input type="hidden" name="id" value={issue._id.toString()} />
+                <input type="hidden" name="id" value={issue._id?.toString?.() ?? String(issue._id)} />
                 <div className="flex flex-wrap items-center gap-2">
                   <select name="status" defaultValue={issue.status} className="border rounded px-2 py-1 text-sm">
                     <option value="open">Open</option>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Package, MessageSquare, PlusSquare, Bike, Shield, PanelLeftOpen, PanelLeftClose } from "lucide-react";
+import { LayoutDashboard, Package, MessageSquare, PlusSquare, Bike, Shield, Users, Settings, PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import { usePathname } from "next/navigation";
 import DashboardNavbar from "./DashboardNavbar";
 import { useSession } from "next-auth/react";
@@ -16,7 +16,18 @@ const iconFor = (label) => {
   if (key.includes('add')) return PlusSquare;
   if (key.includes('rider')) return Bike;
   if (key.includes('admin')) return Shield;
+  if (key.includes('user')) return Users;
+  if (key.includes('setting')) return Settings;
   return LayoutDashboard;
+};
+
+// Resolve icon from nav item: prefer explicit icon, then fallback to label-based inference
+const resolveIcon = (navItem) => {
+  if (navItem?.icon) {
+    if (typeof navItem.icon === 'function') return navItem.icon;
+    if (typeof navItem.icon === 'string') return iconFor(navItem.icon);
+  }
+  return iconFor(navItem?.label);
 };
 
 export default function DashboardShell({ role, nav, children }) {
@@ -110,7 +121,7 @@ export default function DashboardShell({ role, nav, children }) {
             </div>
             <ul className="space-y-1 p-2 md:p-1">
               {nav.map((l) => {
-                const Icon = iconFor(l.label);
+                const Icon = resolveIcon(l);
                 const active = pathname === l.href;
                 return (
                   <li key={l.href}>

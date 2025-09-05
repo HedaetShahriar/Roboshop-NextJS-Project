@@ -16,7 +16,7 @@ import QuickRanges from "./client/QuickRanges";
 import DensityToggle from "./client/DensityToggle";
 import ToastForm from "./client/ToastForm";
 
-export default async function OrdersTable({ sp = {} }) {
+export default async function OrdersTable({ sp = {}, readOnly = false, basePath = "/dashboard/seller/orders" }) {
   const q = (sp?.search || sp?.q || '').toString().trim();
   const fromStr = (sp?.from || '').toString();
   const toStr = (sp?.to || '').toString();
@@ -41,11 +41,14 @@ export default async function OrdersTable({ sp = {} }) {
 
   const colsParam = (sp?.cols || '').toString();
   const allColsDefault = ['order', 'customer', 'payment', 'status', 'created', 'total', 'billing', 'actions'];
-  const visibleColsArray = (
+  let visibleColsArray = (
     colsParam
       ? colsParam.split(',').map(s => s.trim()).filter(Boolean)
       : allColsDefault
   );
+  if (readOnly) {
+    visibleColsArray = visibleColsArray.filter(c => c !== 'actions');
+  }
 
   const totalCount = Number(total || 0);
   const pageCount = Math.max(0, Math.min(pageSize, totalCount - ((page - 1) * pageSize)));
@@ -75,20 +78,22 @@ export default async function OrdersTable({ sp = {} }) {
           rightActions={(
             <div className="flex items-center gap-2">
               {/* Bulk */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button id="orders-bulk-trigger" type="button" size="sm" variant="outline" className="font-medium inline-flex items-center gap-1">
-                    <Boxes size={14} />
-                    Bulk
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[min(92vw,520px)] p-3 rounded-xl shadow-lg border bg-white">
-                  <div className="space-y-2">
-                    <div className="text-[11px] font-medium text-muted-foreground px-1 inline-flex items-center gap-1"><Boxes size={12} /> Bulk actions</div>
-                    <OrdersBulkActionsPanel formId={formId} defaultScope="selected" pageCount={pageCount} total={totalCount} />
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {!readOnly && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button id="orders-bulk-trigger" type="button" size="sm" variant="outline" className="font-medium inline-flex items-center gap-1">
+                      <Boxes size={14} />
+                      Bulk
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[min(92vw,520px)] p-3 rounded-xl shadow-lg border bg-white">
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-medium text-muted-foreground px-1 inline-flex items-center gap-1"><Boxes size={12} /> Bulk actions</div>
+                      <OrdersBulkActionsPanel formId={formId} defaultScope="selected" pageCount={pageCount} total={totalCount} />
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
               {/* Export */}
               <DropdownMenu>
@@ -120,7 +125,7 @@ export default async function OrdersTable({ sp = {} }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[min(92vw,460px)] p-3 rounded-xl shadow-lg border bg-white">
                   <div className="space-y-3">
-                    <DisplayControls basePath="/dashboard/seller/orders" allCols={allColsDefault} visibleCols={visibleColsArray} query={{
+                    <DisplayControls basePath={basePath} allCols={allColsDefault} visibleCols={visibleColsArray} query={{
                       ...queryBase,
                       cols: (colsParam && colsParam !== allColsDefault.join(',')) ? colsParam : undefined,
                     }} />
@@ -143,52 +148,63 @@ export default async function OrdersTable({ sp = {} }) {
       </div>
 
       {/* Hidden forms for per-row status updates (avoid nested forms) */}
-      <div className="hidden" aria-hidden="true">
-        {orders.map((o) => (
-          <ToastForm
-            key={o._id}
-            id={`orderStatus-${o._id}`}
-            action={updateOrderStatus}
-            onSubmitToast={`Updating #${o.number || o._id.slice(-6)}…`}
-            successToast={`Order updated`}
-            errorToast={`Failed to update order`}
-          >
-            <input type="hidden" name="id" value={o._id} />
-            <input type="hidden" name="status" value="" />
-          </ToastForm>
-        ))}
-      </div>
+      {!readOnly && (
+        <div className="hidden" aria-hidden="true">
+          {orders.map((o) => (
+            <ToastForm
+              key={o._id}
+              id={`orderStatus-${o._id}`}
+              action={updateOrderStatus}
+              onSubmitToast={`Updating #${o.number || o._id.slice(-6)}…`}
+              successToast={`Order updated`}
+              errorToast={`Failed to update order`}
+            >
+              <input type="hidden" name="id" value={o._id} />
+              <input type="hidden" name="status" value="" />
+            </ToastForm>
+          ))}
+        </div>
+      )}
 
       {/* Bulk form + rows */}
-      <ToastForm
-        id={formId}
-        action={bulkOrders}
-        className="min-h-0 flex-1 flex flex-col gap-2"
-        onSubmitToast="Applying bulk action…"
-        successToast="Bulk action applied"
-        errorToast="Bulk action failed"
-        requireField="bulkAction"
-      >
-        {/* carry current filters for scope targeting */}
-        {q ? <input type="hidden" name="search" value={q} /> : null}
-        {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
-        {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
-        {sortKey ? <input type="hidden" name="sort" value={sortKey} /> : null}
-        {status ? <input type="hidden" name="status" value={status} /> : null}
-        <input type="hidden" name="page" value={String(page)} />
-        <input type="hidden" name="pageSize" value={String(pageSize)} />
+      {readOnly ? (
+        <>
+          {/* Mobile list */}
+          <OrdersMobileList orders={orders} density={density} readOnly basePath={basePath} />
+          {/* Desktop table */}
+          <OrdersRows orders={orders} visibleCols={visibleColsArray} density={density} sortKey={sortKey} query={queryBase} basePath={basePath} tableHeight={560} readOnly />
+        </>
+      ) : (
+        <ToastForm
+          id={formId}
+          action={bulkOrders}
+          className="min-h-0 flex-1 flex flex-col gap-2"
+          onSubmitToast="Applying bulk action…"
+          successToast="Bulk action applied"
+          errorToast="Bulk action failed"
+          requireField="bulkAction"
+        >
+          {/* carry current filters for scope targeting */}
+          {q ? <input type="hidden" name="search" value={q} /> : null}
+          {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
+          {toStr ? <input type="hidden" name="to" value={toStr} /> : null}
+          {sortKey ? <input type="hidden" name="sort" value={sortKey} /> : null}
+          {status ? <input type="hidden" name="status" value={status} /> : null}
+          <input type="hidden" name="page" value={String(page)} />
+          <input type="hidden" name="pageSize" value={String(pageSize)} />
 
-        {/* Mobile list */}
-        <OrdersMobileList orders={orders} density={density} />
-        {/* Desktop table */}
-        <OrdersRows orders={orders} visibleCols={visibleColsArray} density={density} sortKey={sortKey} query={queryBase} basePath="/dashboard/seller/orders" tableHeight={560} />
-      </ToastForm>
+          {/* Mobile list */}
+          <OrdersMobileList orders={orders} density={density} basePath={basePath} />
+          {/* Desktop table */}
+          <OrdersRows orders={orders} visibleCols={visibleColsArray} density={density} sortKey={sortKey} query={queryBase} basePath={basePath} tableHeight={560} />
+        </ToastForm>
+      )}
 
 
       {/* Pagination */}
       <div className="shrink-0">
         <PaginationServer
-          basePath="/dashboard/seller/orders"
+          basePath={basePath}
           total={total}
           page={page}
           pageSize={pageSize}

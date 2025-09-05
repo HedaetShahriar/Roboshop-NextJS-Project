@@ -10,7 +10,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 const currencyFmt = { format: (n) => formatBDT(n) };
 
-export default async function OrdersRows({ orders = [], visibleCols = ['order','customer','status','created','total','actions'], density = 'cozy', sortKey = 'newest', query = {}, basePath = '/dashboard/seller/orders', tableHeight = 560 }) {
+export default async function OrdersRows({ orders = [], visibleCols = ['order','customer','status','created','total','actions'], density = 'cozy', sortKey = 'newest', query = {}, basePath = '/dashboard/seller/orders', tableHeight = 560, readOnly = false }) {
   const cols = new Set(visibleCols || []);
   const pageTotal = (orders || []).reduce((acc, o) => acc + Number(o?.amounts?.total || 0), 0);
   const pageItems = (orders || []).reduce((acc, o) => acc + Number(o?.itemsCount || (Array.isArray(o?.items) ? o.items.length : 0)), 0);
@@ -41,7 +41,7 @@ export default async function OrdersRows({ orders = [], visibleCols = ['order','
       <table className={"min-w-full table-auto " + (density === 'compact' ? 'text-[12px]' : 'text-xs sm:text-sm')} data-orders-table>
         <thead className="sticky top-0 z-[1] bg-white shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.06)]">
           <tr className="text-left">
-            <th className="px-1 py-2 text-[11px] text-muted-foreground"><SelectAllOnPage /></th>
+            <th className="px-1 py-2 text-[11px] text-muted-foreground">{!readOnly ? <SelectAllOnPage /> : null}</th>
             {cols.has('order') && <th className="px-2 py-2 font-medium text-left w-[90px]">Order</th>}
             {cols.has('customer') && <th className="px-3 py-2 font-medium text-left">Customer</th>}
             {cols.has('payment') && <th className="px-3 py-2 font-medium text-left">Payment</th>}
@@ -61,17 +61,17 @@ export default async function OrdersRows({ orders = [], visibleCols = ['order','
               </th>
             )}
             {cols.has('billing') && <th className="px-3 py-2 font-medium text-left">Billing</th>}
-            {cols.has('actions') && <th className="px-2 sm:px-3 py-2 font-medium text-right w-[140px]">Actions</th>}
+            {cols.has('actions') && !readOnly && <th className="px-2 sm:px-3 py-2 font-medium text-right w-[140px]">Actions</th>}
           </tr>
         </thead>
         <tbody>
           {orders.map((o, i) => (
             <tr key={o._id} className={(density === 'compact' ? 'border-t odd:bg-zinc-50/40' : 'border-t odd:bg-zinc-50/40') + ''} data-row-idx={i}>
-              <td className={"px-1 " + (density === 'compact' ? 'py-1.5' : 'py-2')}><input form="bulkOrdersForm" type="checkbox" name="ids" value={o._id} aria-label={`Select order ${o.orderNumber || o._id}`} /></td>
+              <td className={"px-1 " + (density === 'compact' ? 'py-1.5' : 'py-2')}>{!readOnly ? <input form="bulkOrdersForm" type="checkbox" name="ids" value={o._id} aria-label={`Select order ${o.orderNumber || o._id}`} /> : null}</td>
               {cols.has('order') && (
                 <td className={"px-2 " + (density === 'compact' ? 'py-1.5' : 'py-2')}>
                   <div className="font-medium">
-                    <Link href={`/dashboard/seller/orders/${o._id}`} className="hover:underline">#{o.orderNumber || o._id.slice(-6)}</Link>
+                    <Link href={`${basePath}/${o._id}`} className="hover:underline">#{o.orderNumber || o._id.slice(-6)}</Link>
                   </div>
                   <div className="text-[11px] text-muted-foreground">{o.itemsCount || 0} items{Array.isArray(o.items) && o.items.length ? <> · <OrderItemsModal order={o} /></> : null}</div>
                 </td>
@@ -127,7 +127,7 @@ export default async function OrdersRows({ orders = [], visibleCols = ['order','
                   </div>
                 </td>
               )}
-              {cols.has('actions') && (
+              {cols.has('actions') && !readOnly && (
                 <td className={"px-2 sm:px-3 " + (density === 'compact' ? 'py-1.5' : 'py-2') + ' text-right'}>
                   <RowActions id={o._id} currentStatus={o.status} contact={o.contact} shipping={o.shippingAddress} tracking={o.tracking} shippingFee={o?.amounts?.shipping} discount={o?.amounts?.discount} />
                 </td>
@@ -153,7 +153,7 @@ export default async function OrdersRows({ orders = [], visibleCols = ['order','
               {cols.has('created') && <td className="px-3 py-2" />}
               {cols.has('total') && <td className="px-3 py-2 text-right font-medium tabular-nums">{currencyFmt.format(pageTotal)}</td>}
               {cols.has('billing') && <td className="px-3 py-2" />}
-              {cols.has('actions') && <td className="px-3 py-2" />}
+              {cols.has('actions') && !readOnly && <td className="px-3 py-2" />}
             </tr>
           </tfoot>
         ) : null}

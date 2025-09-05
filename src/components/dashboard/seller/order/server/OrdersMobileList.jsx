@@ -8,7 +8,7 @@ import BillingModal from "../client/BillingModal";
 
 const currencyFmt = { format: (n) => formatBDT(n) };
 
-export default async function OrdersMobileList({ orders = [], density = 'cozy' }) {
+export default async function OrdersMobileList({ orders = [], density = 'cozy', readOnly = false, basePath = '/dashboard/seller/orders' }) {
   if (!orders || orders.length === 0) {
     return (
       <div className="sm:hidden rounded-md border bg-white p-6 text-center text-sm text-muted-foreground">
@@ -24,9 +24,11 @@ export default async function OrdersMobileList({ orders = [], density = 'cozy' }
             <div className="font-semibold">#{o.orderNumber || o._id.slice(-6)}</div>
             <span className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] capitalize ${badgeCls(o.status)}`}>{o.status}</span>
           </div>
-          <div className="mt-2">
-            <label className="text-xs inline-flex items-center gap-2"><input form="bulkOrdersForm" type="checkbox" name="ids" value={o._id} /> Select</label>
-          </div>
+          {!readOnly && (
+            <div className="mt-2">
+              <label className="text-xs inline-flex items-center gap-2"><input form="bulkOrdersForm" type="checkbox" name="ids" value={o._id} /> Select</label>
+            </div>
+          )}
           <div className="mt-1 text-xs text-muted-foreground">{formatDateTime(o.createdAt)} • {o.itemsCount || 0} items</div>
           <div className={"mt-2 flex items-center gap-2 " + (density === 'compact' ? 'text-[13px]' : '')}>
             <div className="text-sm font-medium truncate">{o?.contact?.fullName || '—'}</div>
@@ -49,10 +51,12 @@ export default async function OrdersMobileList({ orders = [], density = 'cozy' }
             {o?.shippingAddress?.city || '—'}{o?.shippingAddress?.area ? <span> • {o.shippingAddress.area}</span> : null}
           </div>
           <div className="mt-2 flex items-center gap-2">
-            <Link href={`/dashboard/seller/orders/${o._id}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">View</Link>
-            <div className="ml-auto">
-              <RowActions id={o._id} currentStatus={o.status} contact={o.contact} shipping={o.shippingAddress} tracking={o.tracking} />
-            </div>
+            <Link href={`${basePath}/${o._id}`} className="h-8 px-3 rounded border text-xs bg-white hover:bg-zinc-50">View</Link>
+            {!readOnly && (
+              <div className="ml-auto">
+                <RowActions id={o._id} currentStatus={o.status} contact={o.contact} shipping={o.shippingAddress} tracking={o.tracking} />
+              </div>
+            )}
           </div>
         </div>
       ))}

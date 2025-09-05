@@ -20,6 +20,7 @@ const currencyFmt = { format: (n) => formatBDT(n) };
 
 export default async function ProductsTable(props) {
   const sp = props?.sp ?? props?.params ?? {};
+  const basePath = props?.basePath || "/dashboard/seller/products";
   const { page, pageSize } = getPageAndSize(sp);
   const q = (sp?.search || sp?.q || '').toString().trim();
   const fromStr = (sp?.from || '').toString();
@@ -139,7 +140,7 @@ export default async function ProductsTable(props) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[min(92vw,460px)] p-3 rounded-xl shadow-lg border bg-white">
-                  <DisplayControls basePath="/dashboard/seller/products" allCols={allColsDefault} visibleCols={visibleColsArray} query={{
+                  <DisplayControls basePath={basePath} allCols={allColsDefault} visibleCols={visibleColsArray} query={{
                     search: q || undefined,
                     from: fromStr || undefined,
                     to: toStr || undefined,
@@ -322,6 +323,7 @@ export default async function ProductsTable(props) {
           toStr={toStr}
           sortKey={sortKey}
           colsParam={colsParam}
+          basePath={basePath}
         />
       </Suspense>
 
@@ -373,12 +375,12 @@ async function BulkCountsHole({ sp, scopeParam, page, pageSize }) {
   );
 }
 
-async function PaginationHole({ sp, page, pageSize, q, fromStr, toStr, sortKey, colsParam }) {
+async function PaginationHole({ sp, page, pageSize, q, fromStr, toStr, sortKey, colsParam, basePath = "/dashboard/seller/products" }) {
   const totals = await getProductsFilteredTotals(sp);
   const total = Number(totals?.count || 0);
   return (
     <PaginationServer
-      basePath="/dashboard/seller/products"
+  basePath={basePath}
       total={total}
       page={page}
       pageSize={pageSize}
