@@ -10,7 +10,7 @@ export default async function AdminProductsPage({ searchParams }) {
   return (
     <div className="flex flex-col min-h-0">
       {/* @ts-expect-error Server Component */}
-      <ProductsTable sp={searchParams || {}} basePath="/dashboard/admin/products" />
+  <ProductsTable sp={searchParams || {}} basePath="/dashboard/admin/products" />
     </div>
   );
 }

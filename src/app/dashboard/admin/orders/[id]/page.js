@@ -5,6 +5,7 @@ import getDb from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { formatBDT } from "@/lib/currency";
 import { formatDateTime } from "@/lib/dates";
+import { adminAssignRider, adminUpdateOrderStatus, adminRefundOrder } from "../actions";
 
 export default async function AdminOrderDetail({ params }) {
   const session = await getServerSession(authOptions);
@@ -22,6 +23,29 @@ export default async function AdminOrderDetail({ params }) {
         <div><span className="text-muted-foreground">Created:</span> {formatDateTime(order.createdAt)}</div>
         <div><span className="text-muted-foreground">Total:</span> {formatBDT(Number(order?.amounts?.total || 0))}</div>
         <div><span className="text-muted-foreground">Customer:</span> {order?.contact?.fullName} ({order?.contact?.email || order?.contact?.phone})</div>
+      </div>
+      <div className="rounded border bg-white p-4 text-sm space-y-3">
+        <div className="font-medium">Admin actions</div>
+        <form action={adminAssignRider} className="flex items-center gap-2">
+          <input type="hidden" name="id" value={order._id.toString()} />
+          <input type="text" name="rider" placeholder="Rider name" className="border rounded px-2 py-1 text-xs" />
+          <button type="submit" className="px-2 py-1 rounded bg-zinc-900 text-white text-xs">Assign rider</button>
+        </form>
+        <form action={adminUpdateOrderStatus} className="flex items-center gap-2">
+          <input type="hidden" name="id" value={order._id.toString()} />
+          <select name="status" defaultValue={order.status} className="border rounded px-2 py-1 text-xs">
+            {['processing','packed','assigned','shipped','delivered','cancelled','refunded'].map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <button type="submit" className="px-2 py-1 rounded bg-zinc-900 text-white text-xs">Update status</button>
+        </form>
+        <form action={adminRefundOrder} className="flex items-center gap-2">
+          <input type="hidden" name="id" value={order._id.toString()} />
+          <input type="number" step="0.01" min="0" name="amount" placeholder="Amount" className="border rounded px-2 py-1 text-xs w-28" />
+          <input type="text" name="reason" placeholder="Reason (optional)" className="border rounded px-2 py-1 text-xs w-56" />
+          <button type="submit" className="px-2 py-1 rounded bg-zinc-900 text-white text-xs">Refund</button>
+        </form>
       </div>
     </div>
   );

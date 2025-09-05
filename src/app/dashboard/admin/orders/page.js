@@ -10,6 +10,7 @@ export default async function AdminOrdersPage({ searchParams }) {
   // Reuse the seller OrdersTable in read-only mode for admin view
   return (
     <div className="flex flex-col min-h-0">
+  <div className="mb-2 text-xs text-muted-foreground">Open an order to assign riders, update status, or refund.</div>
       {/* @ts-expect-error Server Component */}
       <OrdersTable sp={searchParams || {}} readOnly basePath="/dashboard/admin/orders" />
     </div>

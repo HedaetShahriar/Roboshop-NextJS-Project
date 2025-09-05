@@ -188,7 +188,7 @@ export default async function ProductsTable(props) {
       </div>
 
       {/* Scrollable content: bulk form + table */}
-      <form id="bulkProductsForm" action={bulkProducts} className="min-h-0 flex-1 flex flex-col gap-2">
+  <form id="bulkProductsForm" action={bulkProducts} className="min-h-0 flex-1 flex flex-col gap-2">
         {/* carry current filters for scope targeting and dry run */}
         <input type="hidden" name="search" value={q} />
         {fromStr ? <input type="hidden" name="from" value={fromStr} /> : null}
@@ -205,6 +205,9 @@ export default async function ProductsTable(props) {
         {colsParam ? <input type="hidden" name="cols" value={colsParam} /> : null}
         <input type="hidden" name="page" value={String(page)} />
         <input type="hidden" name="pageSize" value={String(pageSize)} />
+  {/* super admin impersonation (optional) */}
+  {sp?.impersonateSellerId ? <input type="hidden" name="impersonateSellerId" value={String(sp.impersonateSellerId)} /> : null}
+  {sp?.sellerId && !sp?.impersonateSellerId ? <input type="hidden" name="impersonateSellerId" value={String(sp.sellerId)} /> : null}
 
         {/* Rows area streamed with Suspense */}
         <Suspense fallback={

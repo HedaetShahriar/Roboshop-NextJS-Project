@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { formatDateTime } from "@/lib/dates";
 
 export const dynamic = 'force-dynamic';
 
@@ -73,7 +74,7 @@ export default async function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+  <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
         <p className="text-muted-foreground text-sm">Overview of platform health and recent activity.</p>
@@ -154,6 +155,39 @@ export default async function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Global Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Latest audit events across the platform</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* @ts-expect-error Server Component */}
+          {await (async function ActivityList() {
+            const logs = await db.collection('audit_logs').find({}).sort({ createdAt: -1 }).limit(8).toArray();
+            return (
+              <ul className="divide-y text-sm">
+                {logs.map(l => (
+                  <li key={l._id.toString()} className="py-2 flex items-center justify-between gap-2">
+                    <div>
+                      <div className="font-medium">{l.type}: {l.action}</div>
+                      <div className="text-xs text-muted-foreground">{l.userEmail} • {l.scope} • {l.idsCount ?? (Array.isArray(l.ids)? l.ids.length : 0)} item(s)</div>
+                    </div>
+                    <div className="text-xs text-muted-foreground whitespace-nowrap">{formatDateTime(l.createdAt)}</div>
+                  </li>
+                ))}
+                {logs.length === 0 && (
+                  <li className="py-2 text-muted-foreground">No recent activity.</li>
+                )}
+              </ul>
+            );
+          })()}
+          <div className="mt-3 text-right">
+            <Link href="/dashboard/admin/activity" className="text-sm text-primary hover:underline">View activity →</Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

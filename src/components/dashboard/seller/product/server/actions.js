@@ -8,13 +8,24 @@ import { getProductsAndTotalCached as getProductsAndTotal } from "@/lib/products
 import { buildProductsWhere } from "@/lib/productsQuery";
 import { addProductAudit } from "@/lib/audit";
 
+async function getActingContext() {
+    const session = await getServerSession(authOptions);
+    return { session, role: session?.user?.role || 'customer', email: session?.user?.email };
+}
+
+function asOwnerFilter(filter, impersonateSellerId) {
+    // If super admin provides impersonateSellerId, enforce sellerId on write filters
+    if (!impersonateSellerId) return filter;
+    // Assuming product doc contains sellerId field
+    return { $and: [filter, { sellerId: impersonateSellerId }] };
+}
+
 // Adjust single product stock by delta
 export async function adjustStock(prevState, formData) {
     'use server';
     // Support both direct form action (formData only) and useActionState(prev, formData)
     if (!(formData instanceof FormData)) formData = /** @type {FormData} */ (prevState);
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role || 'customer';
+    const { session, role } = await getActingContext();
     if (role === 'customer') return { ok: false };
     const id = formData.get('id');
     const delta = Number(formData.get('delta'));
@@ -35,8 +46,7 @@ export async function adjustStock(prevState, formData) {
 export async function updatePricing(prevState, formData) {
     'use server';
     if (!(formData instanceof FormData)) formData = /** @type {FormData} */ (prevState);
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role || 'customer';
+    const { session, role } = await getActingContext();
     if (role === 'customer') return { ok: false };
     const id = formData.get('id');
     let price = Number(formData.get('price'));
@@ -60,8 +70,7 @@ export async function updatePricing(prevState, formData) {
 export async function clearDiscountSingle(prevState, formData) {
     'use server';
     if (!(formData instanceof FormData)) formData = /** @type {FormData} */ (prevState);
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role || 'customer';
+    const { session, role } = await getActingContext();
     if (role === 'customer') return { ok: false };
     const id = formData.get('id');
     if (!id) return { ok: false };
@@ -77,8 +86,7 @@ export async function clearDiscountSingle(prevState, formData) {
 export async function setVisibility(prevState, formData) {
     'use server';
     if (!(formData instanceof FormData)) formData = /** @type {FormData} */ (prevState);
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role || 'customer';
+    const { session, role } = await getActingContext();
     if (role === 'customer') return { ok: false };
     const id = formData.get('id');
     const hiddenRaw = formData.get('hidden');
@@ -99,8 +107,7 @@ export async function setVisibility(prevState, formData) {
 export async function updateProductDetails(prevState, formData) {
     'use server';
     if (!(formData instanceof FormData)) formData = /** @type {FormData} */ (prevState);
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role || 'customer';
+    const { session, role } = await getActingContext();
     if (role === 'customer') return { ok: false };
     const id = formData.get('id');
     if (!id) return { ok: false, message: 'Missing id' };
@@ -218,10 +225,10 @@ export async function updateProductDetails(prevState, formData) {
 // Bulk operations for products, with support for selected/page/filtered scopes
 export async function bulkProducts(formData) {
     'use server';
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role || 'customer';
+    const { session, role } = await getActingContext();
     if (role === 'customer') return;
     const action = formData.get('bulkAction');
+    const impersonateSellerId = formData.get('impersonateSellerId')?.toString() || '';
     const scope = (formData.get('scope') || 'selected').toString(); // selected | page | filtered
     const db = await getDb();
     const now = new Date();
@@ -270,7 +277,10 @@ export async function bulkProducts(formData) {
     if (!action) return;
 
     // Helpers for choosing the final filter (selected/page vs filtered)
-    const targetFilter = () => (filter ? filter : idsFilter());
+    const targetFilter = () => {
+        const base = (filter ? filter : idsFilter());
+        return asOwnerFilter(base, impersonateSellerId || (role !== 'admin' ? (session?.user?.id || session?.user?._id || '') : ''));
+    };
     const tf = targetFilter();
     if (!tf) return;
 
@@ -393,6 +403,7 @@ export async function bulkProducts(formData) {
             filters: filter || {},
             params: {
                 stockDeltaRaw, stockSetRaw, discountPriceRaw, discountPercentRaw, priceSetRaw,
+                impersonateSellerId: impersonateSellerId || undefined,
             }
         });
     } catch { }

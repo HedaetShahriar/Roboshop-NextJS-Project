@@ -11,6 +11,7 @@ export default function AdminLayout({ children }) {
   { href: '/dashboard/admin/issues', label: 'Issues' },
   { href: '/dashboard/admin/riders', label: 'Riders' },
   { href: '/dashboard/admin/settings', label: 'Settings' },
+  { href: '/dashboard/admin/activity', label: 'Activity' },
   ];
   return <DashboardShell role="admin" nav={nav}>{children}</DashboardShell>;
 }

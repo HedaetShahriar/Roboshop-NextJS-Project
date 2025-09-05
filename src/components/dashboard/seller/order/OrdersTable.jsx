@@ -11,6 +11,7 @@ import Link from "next/link";
 import DisplayControls from "./client/DisplayControls";
 import OrdersBulkActionsPanel from "./client/OrdersBulkActionsPanel";
 import { bulkOrders, updateOrderStatus } from "./server/actions";
+import { adminAssignRider, adminUpdateOrderStatus } from "@/app/dashboard/admin/orders/actions";
 import OrdersAdvancedExtra from "./client/OrdersAdvancedExtra";
 import QuickRanges from "./client/QuickRanges";
 import DensityToggle from "./client/DensityToggle";
@@ -162,6 +163,22 @@ export default async function OrdersTable({ sp = {}, readOnly = false, basePath 
               <input type="hidden" name="id" value={o._id} />
               <input type="hidden" name="status" value="" />
             </ToastForm>
+          ))}
+        </div>
+      )}
+      {readOnly && (
+        <div className="hidden" aria-hidden="true">
+          {orders.map((o) => (
+            <>
+              <ToastForm key={`admin-assign-${o._id}`} id={`adminAssign-${o._id}`} action={adminAssignRider} onSubmitToast={`Assigning…`} successToast={`Assigned`} errorToast={`Failed`}>
+                <input type="hidden" name="id" value={o._id} />
+                <input type="hidden" name="rider" value="" />
+              </ToastForm>
+              <ToastForm key={`admin-status-${o._id}`} id={`adminStatus-${o._id}`} action={adminUpdateOrderStatus} onSubmitToast={`Updating…`} successToast={`Updated`} errorToast={`Failed`}>
+                <input type="hidden" name="id" value={o._id} />
+                <input type="hidden" name="status" value="" />
+              </ToastForm>
+            </>
           ))}
         </div>
       )}
