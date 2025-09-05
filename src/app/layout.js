@@ -21,9 +21,13 @@ export default async function RootLayout({ children }) {
   try {
     settings = await getPlatformSettings();
   } catch {}
+  const themeVars = settings?.theme ? {
+    '--primary': settings.theme.primaryColor,
+    '--accent': settings.theme.accentColor,
+  } : {};
   return (
     <html lang="en">
-      <body className={`${inter.className} min-h-dvh grid grid-rows-[auto_1fr_auto]`}>
+      <body className={`${inter.className} min-h-dvh grid grid-rows-[auto_1fr_auto]`} style={themeVars}>
         <Providers session={session}>
           <Toaster />
           <Navbar />

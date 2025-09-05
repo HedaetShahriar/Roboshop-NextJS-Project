@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import getDb from "@/lib/mongodb";
 import BrandingPreview from "@/components/admin/settings/BrandingPreview";
 import SectionNav from "@/components/admin/settings/SectionNav";
+import NavigationEditorSection from "@/components/admin/settings/NavigationEditorSection";
+import SectionJumpSelect from "@/components/admin/settings/SectionJumpSelect";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -275,6 +277,7 @@ export default async function AdminSettingsPage() {
         <p className="text-muted-foreground text-sm">Configure platform-wide settings and integrations.</p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 items-start">
+  <SectionJumpSelect className="lg:hidden rounded-xl border bg-white p-3 shadow-sm" ids={["platform","branding","theme","homepage","seo","navigation","payments","emails","analytics","commerce","features"]} />
         <div className="hidden lg:block">
           <SectionNav sections={[
             { id: 'platform', label: 'Platform' },
@@ -457,21 +460,12 @@ export default async function AdminSettingsPage() {
               <CardDescription>Edit header, footer and social links using simple JSON arrays.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <form action={saveNavigation} className="space-y-3">
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">Header links (JSON: [{`{`}label, href{`}`}])</span>
-                  <textarea name="headerLinks" className="w-full border rounded px-2 py-1 h-24" defaultValue={JSON.stringify(settings?.navigation?.headerLinks || [], null, 2)} />
-                </label>
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">Footer links (JSON: [{`{`}label, href{`}`}])</span>
-                  <textarea name="footerLinks" className="w-full border rounded px-2 py-1 h-24" defaultValue={JSON.stringify(settings?.navigation?.footerLinks || [], null, 2)} />
-                </label>
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">Social links (JSON: [{`{`}label, href, icon{`}`}])</span>
-                  <textarea name="socialLinks" className="w-full border rounded px-2 py-1 h-24" defaultValue={JSON.stringify(settings?.navigation?.socialLinks || [], null, 2)} />
-                </label>
-                <Button type="submit">Save</Button>
-              </form>
+              <NavigationEditorSection
+                action={saveNavigation}
+                defaultHeader={settings?.navigation?.headerLinks || []}
+                defaultFooter={settings?.navigation?.footerLinks || []}
+                defaultSocial={settings?.navigation?.socialLinks || []}
+              />
             </CardContent>
           </Card>
           <Card id="payments">
