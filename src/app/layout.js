@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar & Footer/Navbar";
 import Footer from "@/components/Navbar & Footer/Footer";
 import { Toaster } from "@/components/ui/sonner";
 import { getPlatformSettings } from "@/lib/settings";
+import { getReadableTextColor } from "@/lib/colors";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -24,6 +25,8 @@ export default async function RootLayout({ children }) {
   const themeVars = settings?.theme ? {
     '--primary': settings.theme.primaryColor,
     '--accent': settings.theme.accentColor,
+    '--primary-foreground': getReadableTextColor(settings.theme.primaryColor),
+    '--accent-foreground': getReadableTextColor(settings.theme.accentColor),
   } : {};
   return (
     <html lang="en">

@@ -67,7 +67,7 @@ export default function Navbar() {
   if (isDashboard) return null;
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-white">
+  <nav className="sticky top-0 z-50 w-full border-b bg-background">
   <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Left: mobile menu + logo */}
@@ -75,7 +75,7 @@ export default function Navbar() {
             {/* Mobile menu toggle */}
             <div className="md:hidden relative" ref={menuRef}>
               <button
-                className="inline-flex items-center justify-center rounded-md p-2 hover:bg-zinc-100"
+                className="inline-flex items-center justify-center rounded-md p-2 hover:bg-accent"
                 aria-label="Toggle navigation menu"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
@@ -93,7 +93,7 @@ export default function Navbar() {
             </div>
 
             {/* Logo */}
-            <Link href="/" className="text-2xl font-bold inline-flex items-center gap-2">
+            <Link href="/" className="text-2xl font-bold inline-flex items-center gap-2 text-primary">
               {nav.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={nav.logoUrl} alt={nav.siteName} className="h-7 w-auto" />
@@ -114,7 +114,7 @@ export default function Navbar() {
             <div className="relative" ref={cartRef}>
             {/* Cart trigger */}
             <button
-              className="relative inline-flex items-center justify-center rounded-md p-2 hover:bg-zinc-100"
+              className="relative inline-flex items-center justify-center rounded-md p-2 hover:bg-accent"
               aria-label="Open cart"
               aria-haspopup="menu"
               aria-expanded={cartOpen}
@@ -122,13 +122,13 @@ export default function Navbar() {
             >
               <ShoppingCart className="size-6" />
               {count > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
                   {count}
                 </span>
               )}
             </button>
             {cartOpen && (
-              <div role="menu" className="absolute right-0 mt-2 w-72 rounded-md border bg-white py-2 shadow-lg ring-1 ring-black/5">
+              <div role="menu" className="absolute right-0 mt-2 w-72 rounded-md border bg-background py-2 shadow-lg ring-1 ring-black/5">
                 <div className="px-3 pb-2 max-h-80 overflow-auto">
                   {items.length === 0 ? (
                     <p className="text-sm text-zinc-500">Your cart is empty.</p>
@@ -151,7 +151,7 @@ export default function Navbar() {
                             onChange={(e) => updateQty(it.id, Number(e.target.value))}
                             className="w-14 rounded border px-2 py-1 text-sm"
                           />
-                          <button className="text-xs text-red-600 hover:underline" onClick={() => removeItem(it.id)}>
+                          <button className="text-xs text-destructive hover:underline" onClick={() => removeItem(it.id)}>
                             Remove
                           </button>
                         </li>
@@ -190,7 +190,7 @@ export default function Navbar() {
             {/* Profile */}
             <div className="relative" ref={profileRef}>
               <button
-                className="inline-flex items-center gap-2 rounded-full hover:bg-zinc-100 p-1"
+                className="inline-flex items-center gap-2 rounded-full hover:bg-accent p-1"
                 aria-haspopup="menu"
                 aria-expanded={profileOpen}
                 onClick={() => { setProfileOpen(v => !v); setMenuOpen(false); setCartOpen(false); }}
@@ -210,20 +210,20 @@ export default function Navbar() {
                 )}
               </button>
               {profileOpen && (
-                <div role="menu" className="absolute right-0 mt-2 w-56 rounded-md border bg-white py-2 shadow-lg ring-1 ring-black/5">
+                <div role="menu" className="absolute right-0 mt-2 w-56 rounded-md border bg-background py-2 shadow-lg ring-1 ring-black/5">
                   {status === 'authenticated' ? (
                     <>
-                      <Link href="/profile" className="block px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => setProfileOpen(false)}>My Profile</Link>
+                      <Link href="/profile" className="block px-3 py-2 text-sm hover:bg-accent" onClick={() => setProfileOpen(false)}>My Profile</Link>
                       {session?.user?.role && session.user.role !== 'customer' && (
                         <Link
                           href={session.user.role === 'seller' ? '/dashboard/seller' : session.user.role === 'rider' ? '/dashboard/rider' : '/dashboard/admin'}
-                          className="block px-3 py-2 text-sm hover:bg-zinc-50"
+                          className="block px-3 py-2 text-sm hover:bg-accent"
                           onClick={() => setProfileOpen(false)}
                         >
                           Dashboard
                         </Link>
                       )}
-                      <Link href="/my-orders" className="block px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => setProfileOpen(false)}>My Orders</Link>
+                      <Link href="/my-orders" className="block px-3 py-2 text-sm hover:bg-accent" onClick={() => setProfileOpen(false)}>My Orders</Link>
                       <div className="mt-1 border-t" />
                       <div className="px-2 pt-2">
                         <Button variant="destructive" size="sm" className="w-full" onClick={() => { setProfileOpen(false); signOut(); }}>
