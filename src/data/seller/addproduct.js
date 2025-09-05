@@ -13,6 +13,10 @@ export async function addProduct(formData) {
 
   // Gather and validate product fields (align with src/data/product.json)
   const name = (formData.get('name') || '').toString().trim();
+  const sku = (formData.get('sku') || '').toString().trim();
+  const category = (formData.get('category') || '').toString().trim();
+  const subcategory = (formData.get('subcategory') || '').toString().trim();
+  const description = (formData.get('description') || '').toString().trim();
   const image = (formData.get('image') || '').toString().trim();
   const price = parseFloat(formData.get('price'));
   const hasDiscountRaw = formData.get('has_discount_price');
@@ -48,23 +52,43 @@ export async function addProduct(formData) {
 
   try {
     const db = await getDb();
-    await db.collection("products").insertOne({
+    const now = new Date();
+    const filter = sku ? { sku } : { slug };
+    const set = {
       name,
       slug,
+      sku: sku || undefined,
+      category: category || undefined,
+      subcategory: subcategory || undefined,
+      description: description || undefined,
       image,
       price,
       has_discount_price: !!hasDiscount,
       discount_price: hasDiscount ? discountPrice : 0,
       current_stock: currentStock,
+      updatedAt: now,
+    };
+    const setOnInsert = {
+      createdAt: now,
       product_rating: 0,
       product_max_rating: 5,
       product_rating_count: 0,
       promotions: [],
-      createdAt: new Date(),
-    });
+    };
+    const result = await db.collection("products").updateOne(
+      filter,
+      { $set: set, $setOnInsert: setOnInsert },
+      { upsert: true }
+    );
 
     revalidatePath('/products');
-    return { success: 'Product added successfully!' };
+    if (result.upsertedCount && result.upsertedCount > 0) {
+      return { success: 'Product added successfully!' };
+    }
+    if (result.matchedCount > 0) {
+      return { success: 'Product updated successfully!' };
+    }
+    return { success: 'Product saved.' };
 
   } catch (error) {
     console.error(error);

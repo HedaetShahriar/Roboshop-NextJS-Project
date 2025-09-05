@@ -116,9 +116,9 @@ export default function ImportProductsPage() {
       const res = await fetch('/api/seller/products/import', { method: 'POST', body: fd });
       const json = await res.json();
       if (json?.ok) {
-        const entry = { startedAt, status: 'success', inserted: json.inserted, file: file.name };
+        const entry = { startedAt, status: 'success', inserted: json.inserted, updated: json.updated, file: file.name };
         saveHistory(entry);
-        setMsg({ type: 'success', text: `Imported ${json.inserted} products.` });
+        setMsg({ type: 'success', text: `Imported ${json.inserted} and updated ${json.updated}.` });
         // reset preview state
         setPreview(null);
         setSelectedFile(null);
@@ -257,7 +257,7 @@ export default function ImportProductsPage() {
                   <div>
                     <div className="font-medium">{h.file} <span className="text-xs text-muted-foreground">({new Date(h.startedAt).toLocaleString()})</span></div>
                     {h.status === 'success' ? (
-                      <div className="text-green-600">Inserted {h.inserted}</div>
+                      <div className="text-green-600">Inserted {h.inserted}{typeof h.updated === 'number' ? `, Updated ${h.updated}` : ''}</div>
                     ) : (
                       <div className="text-red-600">{h.error || 'Failed'}</div>
                     )}

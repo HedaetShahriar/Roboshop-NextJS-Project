@@ -45,8 +45,8 @@ export async function POST(req) {
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
     if (!rows.length) return NextResponse.json({ ok: false, error: 'No rows found' }, { status: 400 });
 
-    const db = await getDb();
-    const docs = [];
+  const db = await getDb();
+  const docs = [];
     for (const r of rows) {
       const name = String(r.name || '').trim();
       const image = String(r.image || '').trim();
@@ -81,18 +81,49 @@ export async function POST(req) {
         has_discount_price: !!hasDiscount,
         discount_price: hasDiscount ? discountPrice : 0,
         current_stock: currentStock,
-        product_rating: 0,
-        product_max_rating: 5,
-        product_rating_count: 0,
-        promotions: [],
-        createdAt: new Date(),
       });
     }
 
     if (!docs.length) return NextResponse.json({ ok: false, error: 'No valid rows after validation' }, { status: 400 });
 
-    const res = await db.collection('products').insertMany(docs);
-    return NextResponse.json({ ok: true, inserted: res.insertedCount ?? docs.length });
+    // Build bulk upsert operations: prefer matching by SKU when present, otherwise slug
+    const now = new Date();
+    const ops = docs.map((d) => {
+      const filter = d.sku ? { sku: d.sku } : { slug: d.slug };
+      const set = {
+        name: d.name,
+        slug: d.slug,
+        sku: d.sku,
+        category: d.category,
+        subcategory: d.subcategory,
+        description: d.description,
+        image: d.image,
+        price: d.price,
+        has_discount_price: d.has_discount_price,
+        discount_price: d.discount_price,
+        current_stock: d.current_stock,
+        updatedAt: now,
+      };
+      const setOnInsert = {
+        createdAt: now,
+        product_rating: 0,
+        product_max_rating: 5,
+        product_rating_count: 0,
+        promotions: [],
+      };
+      return {
+        updateOne: {
+          filter,
+          update: { $set: set, $setOnInsert: setOnInsert },
+          upsert: true,
+        },
+      };
+    });
+
+    const res = await db.collection('products').bulkWrite(ops, { ordered: false });
+    const inserted = res.upsertedCount || 0;
+    const updated = res.modifiedCount || 0;
+    return NextResponse.json({ ok: true, inserted, updated });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ ok: false, error: 'Failed to parse or import file' }, { status: 500 });
