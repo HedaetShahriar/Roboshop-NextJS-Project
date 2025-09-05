@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import getDb from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { addIssueAudit } from "@/lib/audit";
+import ConfirmButton from "@/app/dashboard/admin/coupons/client/ConfirmButton";
 
 export default async function AdminIssueDetail({ params }) {
   const session = await getServerSession(authOptions);
@@ -55,6 +56,12 @@ export default async function AdminIssueDetail({ params }) {
           </select>
           <button type="submit" className="px-2 py-1 rounded bg-zinc-900 text-white text-xs">Update</button>
         </form>
+        <div className="pt-1">
+          <form id="resolveForm" action={updateStatus}>
+            <input type="hidden" name="status" value="resolved" />
+            <ConfirmButton className="h-7 px-2 rounded bg-emerald-600 text-white text-xs" message="Mark this issue as resolved? This will close the thread." formId="resolveForm">Mark resolved</ConfirmButton>
+          </form>
+        </div>
       </div>
       <div className="rounded border bg-white p-4 text-sm space-y-2">
         <div className="font-medium">Message thread</div>

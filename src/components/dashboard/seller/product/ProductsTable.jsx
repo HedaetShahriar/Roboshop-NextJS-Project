@@ -12,6 +12,7 @@ import { LayoutGrid, Boxes, Download, Filter, FileDown, Check } from "lucide-rea
 import { buildQuery } from "@/lib/url";
 import DisplayControls from "./client/DisplayControls";
 import { bulkProducts } from "./server/actions";
+import DeleteForms from "./server/DeleteForms";
 import ProductsRows from "./server/ProductsRows";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -186,6 +187,9 @@ export default async function ProductsTable(props) {
           )}
         />
       </div>
+
+  {/* Detached delete forms; one per product on this page */}
+  <DeleteForms sp={sp} />
 
       {/* Scrollable content: bulk form + table */}
   <form id="bulkProductsForm" action={bulkProducts} className="min-h-0 flex-1 flex flex-col gap-2">

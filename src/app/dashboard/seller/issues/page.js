@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { ObjectId } from "mongodb";
 import getDb from "@/lib/mongodb";
 import { formatDateTime } from "@/lib/dates";
+import ConfirmButton from "@/app/dashboard/admin/coupons/client/ConfirmButton";
 
 export const dynamic = 'force-dynamic';
 
@@ -89,7 +90,7 @@ export default async function IssuesDashboardPage() {
                   </ul>
                 </div>
               </div>
-              <form action={updateIssue} className="mt-3 space-y-2">
+              <form action={updateIssue} className="mt-3 space-y-2" id={`issue-form-${issue._id?.toString?.() ?? String(issue._id)}`}>
                 <input type="hidden" name="id" value={issue._id?.toString?.() ?? String(issue._id)} />
                 <div className="flex flex-wrap items-center gap-2">
                   <select name="status" defaultValue={issue.status} className="border rounded px-2 py-1 text-sm">
@@ -99,6 +100,14 @@ export default async function IssuesDashboardPage() {
                   </select>
                   <input name="message" placeholder="Reply (optional)" className="border rounded px-2 py-1 text-sm flex-1 min-w-[200px]" />
                   <button type="submit" className="px-3 py-1 rounded bg-blue-600 text-white text-sm">Update</button>
+                  {issue.status !== 'resolved' && (
+                    <ConfirmButton
+                      className="px-3 py-1 rounded bg-emerald-600 text-white text-sm"
+                      message="Close this issue as resolved?"
+                      formId={`issue-form-${issue._id?.toString?.() ?? String(issue._id)}`}
+                      hiddenFields={[{ name: 'status', value: 'resolved' }]}
+                    >Mark resolved</ConfirmButton>
+                  )}
                 </div>
               </form>
             </div>

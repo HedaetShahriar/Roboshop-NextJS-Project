@@ -53,3 +53,20 @@ export async function addIssueAudit({ userEmail, action, ids = [], params = {} }
     await db.collection('audit_logs').insertOne(doc);
   } catch {}
 }
+
+export async function addCouponAudit({ userEmail, action, ids = [], params = {} }) {
+  try {
+    const db = await getDb();
+    const doc = {
+      type: 'coupons',
+      userEmail,
+      action,
+      scope: Array.isArray(ids) && ids.length > 1 ? 'bulk' : 'single',
+      ids: Array.isArray(ids) ? ids.slice(0, 50) : [],
+      idsCount: Array.isArray(ids) ? ids.length : 0,
+      params,
+      createdAt: new Date(),
+    };
+    await db.collection('audit_logs').insertOne(doc);
+  } catch {}
+}

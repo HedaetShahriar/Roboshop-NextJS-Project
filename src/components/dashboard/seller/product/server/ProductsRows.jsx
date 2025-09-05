@@ -2,7 +2,7 @@ import ProductsMobileCard from "./ProductsMobileCard";
 import ProductsTableRow from "./ProductsTableRow";
 import SelectAllOnPage from "../client/SelectAllOnPage";
 import { getProductsAndTotalCached as getProductsAndTotal } from "@/lib/productsService";
-import { adjustStock, updatePricing, clearDiscountSingle, setVisibility } from "./actions";
+import { adjustStock, updatePricing, clearDiscountSingle, setVisibility, deleteSingle } from "./actions";
 import Link from "next/link";
 
 export default async function ProductsRows({ sp, visibleColsArray, formId = "bulkProductsForm" }) {
@@ -32,7 +32,7 @@ export default async function ProductsRows({ sp, visibleColsArray, formId = "bul
                 {products.map((p) => {
                     const id = p._id?.toString?.() || p._id;
                     return (
-                        <ProductsMobileCard key={id} p={p} id={id} adjustStockAction={adjustStock} updatePricingAction={updatePricing} clearDiscountAction={clearDiscountSingle} setVisibilityAction={setVisibility} />
+                        <ProductsMobileCard key={id} p={p} id={id} adjustStockAction={adjustStock} updatePricingAction={updatePricing} clearDiscountAction={clearDiscountSingle} setVisibilityAction={setVisibility} deleteAction={deleteSingle} />
                     );
                 })}
             </div>
@@ -72,6 +72,7 @@ export default async function ProductsRows({ sp, visibleColsArray, formId = "bul
                                     updatePricingAction={updatePricing}
                                     clearDiscountAction={clearDiscountSingle}
                                     setVisibilityAction={setVisibility}
+                                    deleteAction={deleteSingle}
                                 />
                             );
                         })}

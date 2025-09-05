@@ -3,6 +3,7 @@ import ActionsDropdown from "../client/ActionsDropdown";
 import { formatBDT } from "@/lib/currency";
 import { formatDateTime } from "@/lib/dates";
 import { Eye, EyeOff, Pencil, Plus, Minus, Tag, CircleDollarSign, Trash2, Percent } from "lucide-react";
+import ConfirmButton from "@/app/dashboard/admin/coupons/client/ConfirmButton";
 import CopyLinkButton from "../client/CopyLinkButton";
 import FormWithToast from "../client/FormWithToast";
 
@@ -17,6 +18,7 @@ export default function ProductsTableRow({
     updatePricingAction,
     clearDiscountAction,
     setVisibilityAction,
+    deleteAction,
 }) {
     const currencyFmt = { format: (n) => formatBDT(n) };
     const ratingVal = typeof p.product_rating !== 'undefined' ? Number(p.product_rating) : null;
@@ -277,6 +279,14 @@ export default function ProductsTableRow({
                                             <button type="submit" className="h-7 px-2 rounded border bg-white hover:bg-zinc-50 inline-flex items-center gap-1 text-amber-700" title="Hide from customers"><EyeOff className="size-3.5" /> Hide</button>
                                         </FormWithToast>
                                     )}
+                                </div>
+                            </li>
+                            <li className="my-1 h-px bg-zinc-100" />
+                            {/* Danger: Delete */}
+                            <li className="px-2">
+                                <div className="flex items-center gap-2">
+                                    <input type="text" name="confirmDelete" placeholder="Type DELETE" pattern="DELETE" className="h-7 w-28 rounded border px-2 text-[11px]" form={`delete-product-${id}`} />
+                                    <ConfirmButton className="h-7 px-2 rounded bg-rose-600 text-white text-[11px]" message="Permanently delete this product? This cannot be undone." formId={`delete-product-${id}`}>Delete</ConfirmButton>
                                 </div>
                             </li>
                         </ul>

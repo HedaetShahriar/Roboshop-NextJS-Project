@@ -1,11 +1,12 @@
 import Link from "next/link";
 import ActionsDropdown from "../client/ActionsDropdown";
+import ConfirmButton from "@/app/dashboard/admin/coupons/client/ConfirmButton";
 import CopyLinkButton from "../client/CopyLinkButton";
 import FormWithToast from "../client/FormWithToast";
 import { formatBDT } from "@/lib/currency";
 import { formatDateTime } from "@/lib/dates";
 
-export default function ProductsMobileCard({ p, id, adjustStockAction, updatePricingAction, clearDiscountAction, setVisibilityAction }) {
+export default function ProductsMobileCard({ p, id, adjustStockAction, updatePricingAction, clearDiscountAction, setVisibilityAction, deleteAction }) {
   const currencyFmt = { format: (n) => formatBDT(n) };
   const categoryVal = p.category ?? p.categoryName ?? p.category_name ?? p.category_title ?? p.categoryLabel;
   const subcategoryVal = p.subcategory ?? p.subCategory ?? p.sub_category ?? p.subcategoryName ?? p.subcategory_name ?? p.subCategoryName ?? p.subcategoryLabel;
@@ -215,6 +216,12 @@ export default function ProductsMobileCard({ p, id, adjustStockAction, updatePri
             </li>
           </ul>
         </ActionsDropdown>
+        <ConfirmButton
+          className="ml-auto h-8 px-3 rounded bg-rose-600 text-white text-xs"
+          message="Permanently delete this product? This cannot be undone."
+          formId={`delete-product-${id}`}
+          hiddenFields={[{ name: 'confirmDelete', value: 'DELETE' }]}
+        >Delete</ConfirmButton>
         {p.has_discount_price && Number(p.discount_price) > 0 ? (
           <span className="ml-auto inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] text-rose-700">On sale</span>
         ) : null}

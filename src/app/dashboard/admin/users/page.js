@@ -4,6 +4,8 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import getDb from "@/lib/mongodb";
 import { revalidatePath } from "next/cache";
 import PaginationServer from "@/components/dashboard/shared/table/PaginationServer";
+import ConfirmButton from "../coupons/client/ConfirmButton";
+import SubmitFormButton from "@/components/client/SubmitFormButton";
 
 function getPageAndSize(sp) {
   const page = Math.max(1, parseInt(sp?.page || '1', 10) || 1);
@@ -47,11 +49,18 @@ export default async function AdminUsersPage({ searchParams }) {
     if (session?.user?.role !== 'admin') return;
     const id = formData.get('id');
     const newRole = formData.get('role');
+  const returnTo = formData.get('returnTo');
     const db = await getDb();
     if (!['customer','seller','rider','admin'].includes(String(newRole))) return;
   const { ObjectId } = await import('mongodb');
+  const target = await db.collection('users').findOne({ _id: new ObjectId(id) }, { projection: { email: 1, role: 1 } });
+  if (!target) return;
+  // Prevent changing your own role and demoting other admins
+  if (target?.email && session?.user?.email && String(target.email) === String(session.user.email)) return;
+  if (String(target?.role) === 'admin' && String(newRole) !== 'admin') return;
   await db.collection('users').updateOne({ _id: new ObjectId(id) }, { $set: { role: newRole } });
-    revalidatePath('/dashboard/admin/users');
+  revalidatePath('/dashboard/admin/users');
+  if (returnTo) redirect(String(returnTo));
   }
 
   async function toggleSuspend(formData) {
@@ -60,10 +69,12 @@ export default async function AdminUsersPage({ searchParams }) {
     if (session?.user?.role !== 'admin') return;
     const id = formData.get('id');
     const suspend = formData.get('suspend') === '1';
+  const returnTo = formData.get('returnTo');
     const db = await getDb();
   const { ObjectId } = await import('mongodb');
   await db.collection('users').updateOne({ _id: new ObjectId(id) }, { $set: { suspended: suspend } });
-    revalidatePath('/dashboard/admin/users');
+  revalidatePath('/dashboard/admin/users');
+  if (returnTo) redirect(String(returnTo));
   }
 
   async function bulkUsers(formData) {
@@ -72,6 +83,7 @@ export default async function AdminUsersPage({ searchParams }) {
     if (session?.user?.role !== 'admin') return;
     const action = formData.get('bulkAction');
     const ids = formData.getAll('ids');
+  const returnTo = formData.get('returnTo');
     const db = await getDb();
   const { ObjectId } = await import('mongodb');
   const objectIds = ids.filter(Boolean).map((id) => new ObjectId(String(id)));
@@ -86,7 +98,8 @@ export default async function AdminUsersPage({ searchParams }) {
         await db.collection('users').updateMany({ _id: { $in: objectIds } }, { $set: { role } });
       }
     }
-    revalidatePath('/dashboard/admin/users');
+  revalidatePath('/dashboard/admin/users');
+  if (returnTo) redirect(String(returnTo));
   }
 
   const total = await db.collection('users').countDocuments(query);
@@ -108,6 +121,17 @@ export default async function AdminUsersPage({ searchParams }) {
     sort: sortKey !== 'newest' ? sortKey : undefined,
     pageSize: pageSize !== 20 ? String(pageSize) : undefined,
   };
+  const currentQS = new URLSearchParams({
+    ...(q ? { q } : {}),
+    ...(roleFilter ? { role: roleFilter } : {}),
+    ...(suspended ? { s: suspended } : {}),
+    ...(fromStr ? { from: fromStr } : {}),
+    ...(toStr ? { to: toStr } : {}),
+    ...(sortKey && sortKey !== 'newest' ? { sort: sortKey } : {}),
+    ...(page && page !== 1 ? { page: String(page) } : {}),
+    ...(pageSize && pageSize !== 20 ? { pageSize: String(pageSize) } : {}),
+  }).toString();
+  const returnToUrl = currentQS ? `${basePath}?${currentQS}` : basePath;
 
   return (
     <div className="space-y-3">
@@ -141,7 +165,25 @@ export default async function AdminUsersPage({ searchParams }) {
         <button type="submit" className="px-3 py-1 rounded bg-zinc-900 text-white text-sm">Apply</button>
       </form>
 
+      {/* Detached per-user forms (outside of any form to avoid nesting) */}
+  <div className="hidden" aria-hidden="true">
+        {users.map((u) => (
+          <form key={`role-${u._id.toString()}`} id={`role-${u._id.toString()}`} action={updateUserRole}>
+            <input type="hidden" name="id" value={u._id.toString()} />
+    <input type="hidden" name="returnTo" value={returnToUrl} />
+          </form>
+        ))}
+        {users.map((u) => (
+          <form key={`suspend-${u._id.toString()}`} id={`suspend-${u._id.toString()}`} action={toggleSuspend}>
+            <input type="hidden" name="id" value={u._id.toString()} />
+            <input type="hidden" name="suspend" value={u.suspended ? '0' : '1'} />
+    <input type="hidden" name="returnTo" value={returnToUrl} />
+          </form>
+        ))}
+      </div>
+
       <form action={bulkUsers} className="space-y-2">
+        <input type="hidden" name="returnTo" value={returnToUrl} />
         <div className="flex items-center gap-2">
           <select name="bulkAction" className="border rounded px-2 py-1 text-sm">
             <option value="">Bulk actions…</option>
@@ -166,21 +208,30 @@ export default async function AdminUsersPage({ searchParams }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <form action={updateUserRole} className="flex items-center gap-1">
-                    <input type="hidden" name="id" value={u._id.toString()} />
-                    <select name="role" defaultValue={u.role} className="border rounded px-2 py-1 text-xs">
+                  <div className="flex items-center gap-1">
+                    <select id={`role-select-${u._id.toString()}`} name="role" defaultValue={u.role} className="border rounded px-2 py-1 text-xs" form={`role-${u._id.toString()}`} disabled={u.role === 'admin'}>
                       <option value="customer">Customer</option>
                       <option value="seller">Seller</option>
                       <option value="rider">Rider</option>
                       <option value="admin">Admin</option>
                     </select>
-                    <button type="submit" className="px-2 py-1 rounded bg-zinc-100 text-xs">Change</button>
-                  </form>
-                  <form action={toggleSuspend}>
-                    <input type="hidden" name="id" value={u._id.toString()} />
-                    <input type="hidden" name="suspend" value={u.suspended ? '0' : '1'} />
-                    <button type="submit" className={`px-2 py-1 rounded text-xs ${u.suspended ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{u.suspended ? 'Unsuspend' : 'Suspend'}</button>
-                  </form>
+                    <SubmitFormButton
+                      formId={`role-${u._id.toString()}`}
+                      sourceId={`role-select-${u._id.toString()}`}
+                      targetName="role"
+                      className="px-2 py-1 rounded bg-zinc-100 text-xs"
+                      disabled={u.role === 'admin'}
+                    >
+                      Change
+                    </SubmitFormButton>
+                  </div>
+                  <ConfirmButton
+                    className={`px-2 py-1 rounded text-xs ${u.suspended ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                    message={u.suspended ? 'Unsuspend this user?' : 'Suspend this user?'}
+                    formId={`suspend-${u._id.toString()}`}
+                  >
+                    {u.suspended ? 'Unsuspend' : 'Suspend'}
+                  </ConfirmButton>
                 </div>
               </div>
             </li>

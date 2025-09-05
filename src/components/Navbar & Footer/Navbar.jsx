@@ -35,9 +35,32 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [isDashboard]);
 
+  const [nav, setNav] = useState({ siteName: 'Roboshop', headerLinks: [{ label: 'Products', href: '/products' }] });
+  useEffect(() => {
+    let canceled = false;
+    async function load() {
+      try {
+        const res = await fetch('/api/public/settings');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!canceled) {
+          setNav({
+            siteName: data?.siteName || 'Roboshop',
+            headerLinks: data?.navigation?.headerLinks?.length ? data.navigation.headerLinks : [{ label: 'Products', href: '/products' }],
+            logoUrl: data?.branding?.logoUrl || '',
+          });
+        }
+      } catch {}
+    }
+    load();
+    return () => { canceled = true; };
+  }, []);
+
   const NavLinks = () => (
     <>
-      <Link href="/products" className="px-3 py-2 rounded-md hover:bg-zinc-100">Products</Link>
+      {nav.headerLinks.map((l, idx) => (
+        <Link key={idx} href={l.href} className="px-3 py-2 rounded-md hover:bg-zinc-100">{l.label}</Link>
+      ))}
     </>
   );
 
@@ -71,7 +94,13 @@ export default function Navbar() {
 
             {/* Logo */}
             <Link href="/" className="text-2xl font-bold inline-flex items-center gap-2">
-              🤖 <span className="hidden sm:inline">Roboshop</span>
+              {nav.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={nav.logoUrl} alt={nav.siteName} className="h-7 w-auto" />
+              ) : (
+                <>🤖</>
+              )}
+              <span className="hidden sm:inline">{nav.siteName}</span>
             </Link>
           </div>
 

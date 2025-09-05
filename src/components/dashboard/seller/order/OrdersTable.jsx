@@ -16,6 +16,7 @@ import OrdersAdvancedExtra from "./client/OrdersAdvancedExtra";
 import QuickRanges from "./client/QuickRanges";
 import DensityToggle from "./client/DensityToggle";
 import ToastForm from "./client/ToastForm";
+import { Fragment } from "react";
 
 export default async function OrdersTable({ sp = {}, readOnly = false, basePath = "/dashboard/seller/orders" }) {
   const q = (sp?.search || sp?.q || '').toString().trim();
@@ -169,16 +170,16 @@ export default async function OrdersTable({ sp = {}, readOnly = false, basePath 
       {readOnly && (
         <div className="hidden" aria-hidden="true">
           {orders.map((o) => (
-            <>
-              <ToastForm key={`admin-assign-${o._id}`} id={`adminAssign-${o._id}`} action={adminAssignRider} onSubmitToast={`Assigning…`} successToast={`Assigned`} errorToast={`Failed`}>
+            <Fragment key={o._id}>
+              <ToastForm id={`adminAssign-${o._id}`} action={adminAssignRider} onSubmitToast={`Assigning…`} successToast={`Assigned`} errorToast={`Failed`}>
                 <input type="hidden" name="id" value={o._id} />
                 <input type="hidden" name="rider" value="" />
               </ToastForm>
-              <ToastForm key={`admin-status-${o._id}`} id={`adminStatus-${o._id}`} action={adminUpdateOrderStatus} onSubmitToast={`Updating…`} successToast={`Updated`} errorToast={`Failed`}>
+              <ToastForm id={`adminStatus-${o._id}`} action={adminUpdateOrderStatus} onSubmitToast={`Updating…`} successToast={`Updated`} errorToast={`Failed`}>
                 <input type="hidden" name="id" value={o._id} />
                 <input type="hidden" name="status" value="" />
               </ToastForm>
-            </>
+            </Fragment>
           ))}
         </div>
       )}

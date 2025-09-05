@@ -1,5 +1,6 @@
 import Link from "next/link";
 import getDb  from "@/lib/mongodb";
+import { getPlatformSettings } from "@/lib/settings";
 import productsStatic from "@/data/product.json";
 import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/ProductCard";
@@ -11,8 +12,10 @@ export default async function HomePage() {
   // Fetch a handful of products; fallback to static JSON if DB is empty/unavailable
   let highlightedProducts = [];
   let onSaleProducts = [];
+  let settings = null;
   try {
     const db = await getDb();
+    settings = await getPlatformSettings();
     const all = await db.collection("products").find({}).limit(20).toArray();
     const products = all.map(p => ({ ...p, _id: p._id.toString() }));
     const discounted = products.filter(p => p.has_discount_price && Number(p.discount_price) > 0);
@@ -27,10 +30,16 @@ export default async function HomePage() {
     highlightedProducts = source.slice(0, 4);
     onSaleProducts = discounted.slice(0, 8);
   }
+  const homepage = settings?.homepage || null;
 
   return (
     <>
-      <Hero />
+      {homepage?.showHero !== false ? <Hero
+        title={homepage?.heroTitle}
+        subtitle={homepage?.heroSubtitle}
+        ctaText={homepage?.heroCtaText}
+        ctaHref={homepage?.heroCtaHref}
+      /> : null}
       <section className="py-12 bg-white px-2">
         <div className="container mx-auto text-center">
           <h2 className="text-3xl font-bold tracking-tight mb-8">Featured Products</h2>

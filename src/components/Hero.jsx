@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Truck, ShieldCheck, Headphones, BadgeCheck } from "lucide-react";
 
-export default function Hero() {
+export default function Hero({ title, subtitle, ctaText, ctaHref }) {
   return (
     <section className="relative overflow-hidden bg-zinc-900 text-white">
       <div className="absolute inset-0 opacity-20">
@@ -21,14 +21,14 @@ export default function Hero() {
           Your robotics parts partner
         </span>
         <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
-          Build smarter with quality robotics components
+          {title || 'Build smarter with quality robotics components'}
         </h1>
         <p className="mt-4 text-lg text-zinc-300 max-w-2xl mx-auto">
-          Sensors, batteries, microcontrollers, and more—curated for makers, students, and pros.
+          {subtitle || 'Sensors, batteries, microcontrollers, and more—curated for makers, students, and pros.'}
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Button asChild size="lg">
-            <Link href="/products">Shop Now</Link>
+            <Link href={ctaHref || "/products"}>{ctaText || 'Shop Now'}</Link>
           </Button>
           <Button asChild size="lg" variant="outline" className="bg-white text-zinc-900 hover:bg-white/90">
             <Link href="/products?filter=deals">Browse Deals</Link>

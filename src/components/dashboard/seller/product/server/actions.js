@@ -103,6 +103,26 @@ export async function setVisibility(prevState, formData) {
     return { ok: true };
 }
 
+// Delete a single product (dangerous)
+export async function deleteSingle(prevState, formData) {
+    'use server';
+    if (!(formData instanceof FormData)) formData = /** @type {FormData} */ (prevState);
+    const { session, role } = await getActingContext();
+    if (role === 'customer') return { ok: false };
+    const id = formData.get('id');
+    const confirmDelete = String(formData.get('confirmDelete') || '');
+    if (!id || confirmDelete !== 'DELETE') return { ok: false };
+    const db = await getDb();
+    let _id; try { _id = new ObjectId(String(id)); } catch { return { ok: false } }
+    await db.collection('products').deleteOne({ _id });
+    try {
+        await addProductAudit({ userEmail: session?.user?.email, action: 'delete', ids: [String(id)], scope: 'single' });
+    } catch {}
+    revalidateTag('products:list');
+    revalidatePath('/dashboard/seller/products');
+    return { ok: true };
+}
+
 // Update product details (name, image, sku/slug, category, subcategory, price/discount, stock, visibility)
 export async function updateProductDetails(prevState, formData) {
     'use server';

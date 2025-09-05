@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatBDT } from '@/lib/currency';
 import { Boxes, Tag, Eye, EyeOff, Percent, CircleDollarSign, AlertTriangle, SlidersHorizontal } from 'lucide-react';
+import ConfirmButton from '@/app/dashboard/admin/coupons/client/ConfirmButton';
 
 export default function BulkActionsPanel({ defaultScope = 'selected', pageCount = 0, total = 0, formId, compact = true }) {
   const [action, setAction] = useState('stockInc');
@@ -204,7 +205,10 @@ export default function BulkActionsPanel({ defaultScope = 'selected', pageCount 
               <span className="text-[10px] text-muted-foreground">e.g., 12.30 → 12</span>
             )}
             {action === 'deleteProducts' && (
-              <input name="confirmDelete" placeholder="Type DELETE" className="h-8 px-2 rounded border text-[12px] sm:w-full w-44" form={formId} required pattern="DELETE" />
+              <div className="flex items-center gap-2">
+                <input name="confirmDelete" placeholder="Type DELETE" className="h-8 px-2 rounded border text-[12px] sm:w-full w-44" form={formId} required pattern="DELETE" />
+                <ConfirmButton className="h-8 px-3 rounded bg-rose-600 text-white" message="Permanently delete targeted products? This cannot be undone." formId={formId}>Confirm delete</ConfirmButton>
+              </div>
             )}
             <div className="sm:col-span-2 flex items-center justify-end">
               <label className="inline-flex items-center gap-1 text-[11px]">
@@ -280,7 +284,10 @@ export default function BulkActionsPanel({ defaultScope = 'selected', pageCount 
           <span className="text-[11px] text-muted-foreground">Will round prices and discounts to nearest whole; clears discount if not less than price</span>
         )}
         {action === 'deleteProducts' && (
-          <input name="confirmDelete" placeholder="Type DELETE to confirm" className="h-9 px-3 rounded border text-xs w-44" form={formId} />
+          <div className="flex items-center gap-2">
+            <input name="confirmDelete" placeholder="Type DELETE to confirm" className="h-9 px-3 rounded border text-xs w-44" form={formId} />
+            <ConfirmButton className="h-9 px-3 rounded bg-rose-600 text-white text-xs" message="Permanently delete targeted products? This cannot be undone." formId={formId}>Confirm delete</ConfirmButton>
+          </div>
         )}
         <label className="inline-flex items-center gap-2 text-xs ml-auto">
           <input type="checkbox" name="dryRun" value="1" form={formId} /> Dry run

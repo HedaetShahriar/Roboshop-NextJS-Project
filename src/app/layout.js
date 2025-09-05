@@ -6,6 +6,7 @@ import Providers from "./providers";
 import Navbar from "@/components/Navbar & Footer/Navbar";
 import Footer from "@/components/Navbar & Footer/Footer";
 import { Toaster } from "@/components/ui/sonner";
+import { getPlatformSettings } from "@/lib/settings";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,6 +17,10 @@ export const metadata = {
 
 export default async function RootLayout({ children }) {
   const session = await getServerSession(authOptions);
+  let settings = null;
+  try {
+    settings = await getPlatformSettings();
+  } catch {}
   return (
     <html lang="en">
       <body className={`${inter.className} min-h-dvh grid grid-rows-[auto_1fr_auto]`}>
