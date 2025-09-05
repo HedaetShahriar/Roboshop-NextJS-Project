@@ -37,9 +37,9 @@ export default function Hero({ title, subtitle, ctaText, ctaHref }) {
         <div className="mt-6 text-sm text-zinc-300">
           Popular: <Link className="underline hover:text-white" href="/products">Sensors</Link> ·
           {" "}
-          <Link className="underline hover:text-white" href="/products">Arduino</Link> ·
+            <Link className="underline hover:text-white" href="/products">Arduino</Link> ·
           {" "}
-          <Link className="underline hover:text-white" href="/products">Batteries</Link>
+            <Link className="underline hover:text-white" href="/products">Batteries</Link>
         </div>
         <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-4 text-left max-w-4xl mx-auto">
           <div className="flex items-center gap-3 rounded-lg bg-white/5 p-3 ring-1 ring-white/10">

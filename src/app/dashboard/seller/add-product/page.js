@@ -103,12 +103,12 @@ export default function AddProductPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Add product</h1>
           <p className="text-sm text-muted-foreground mt-1">Create a new product with clear details, pricing, and inventory.</p>
         </div>
-        <Link href="/dashboard/seller/import-products" className="inline-flex">
+  <Link href="/dashboard/seller/import-products" className="inline-flex">
           <Button type="button" variant="default" className="gap-2">
             <Upload className="h-4 w-4" />
             Go to Import
           </Button>
-        </Link>
+  </Link>
       </div>
 
       <form ref={formRef} action={handleSubmit} className="grid md:grid-cols-3 gap-5 items-start">

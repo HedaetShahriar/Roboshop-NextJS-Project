@@ -59,7 +59,7 @@ export default function Navbar() {
   const NavLinks = () => (
     <>
       {nav.headerLinks.map((l, idx) => (
-        <Link key={idx} href={l.href} className="px-3 py-2 rounded-md hover:bg-zinc-100">{l.label}</Link>
+  <Link key={idx} href={l.href} className="px-3 py-2 rounded-md hover:bg-zinc-100">{l.label}</Link>
       ))}
     </>
   );

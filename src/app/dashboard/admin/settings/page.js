@@ -216,6 +216,11 @@ async function savePerformance(formData) {
     { $set: { performance: { ...(prev?.performance || {}), prefetch, imageDomains } } },
     { upsert: true }
   );
+  // Best-effort: write a local snapshot for next.config consumption on next build
+  try {
+    const fs = await import('fs');
+    await fs.promises.writeFile(process.cwd() + '/.next-runtime-settings.json', JSON.stringify({ performance: { imageDomains } }, null, 2), 'utf8');
+  } catch {}
   redirect('/dashboard/admin/settings#performance');
 }
 
@@ -383,9 +388,9 @@ export default async function AdminSettingsPage() {
         <h2 className="text-2xl font-semibold tracking-tight">Settings</h2>
         <p className="text-muted-foreground text-sm">Configure platform-wide settings and integrations.</p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 items-start">
-  <SectionJumpSelect className="lg:hidden rounded-xl border bg-white p-3 shadow-sm" ids={["platform","branding","theme","homepage","seo","advanced-seo","navigation","payments","emails","smtp","analytics","performance","security","commerce","checkout-advanced","features"]} />
-        <div className="hidden lg:block">
+      <div className="space-y-4">
+        <SectionJumpSelect className="lg:hidden rounded-xl border bg-white p-3 shadow-sm" ids={["platform","branding","theme","homepage","seo","advanced-seo","navigation","payments","emails","smtp","analytics","performance","security","commerce","checkout-advanced","features"]} />
+        <div className="hidden lg:block rounded-xl border bg-white p-2 shadow-sm">
           <SectionNav sections={[
             { id: 'platform', label: 'Platform' },
             { id: 'branding', label: 'Branding' },

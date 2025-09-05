@@ -84,7 +84,7 @@ export default function DashboardNavbar({ role, onMenuClick, label }) {
               <Link href="/" className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-zinc-50"><Home className="size-4" /> Back to store</Link>
               <Link href="/profile" className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-zinc-50"><User className="size-4" /> My Profile</Link>
               <div className="mt-1 border-t" />
-              <button className="flex w-full items-center gap-2 text-left px-3 py-2 text-sm hover:bg-zinc-50" onClick={() => signOut()}><LogOut className="size-4" /> Logout</button>
+              <Link href="/" className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-zinc-50"><Home className="size-4" /> Back to store</Link>
             </div>
           )}
         </div>
