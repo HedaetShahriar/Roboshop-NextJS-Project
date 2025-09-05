@@ -42,7 +42,11 @@ async function getSettings() {
       title: 'Roboshop',
       description: 'Your one-stop shop for robotics parts!',
       ogImageUrl: '',
-      twitterHandle: '',
+  twitterHandle: '',
+  robotsPolicy: '',
+  canonicalBaseUrl: '',
+  verification: { google: '', bing: '' },
+  generateSitemap: true,
     },
     navigation: {
       headerLinks: [
@@ -62,11 +66,24 @@ async function getSettings() {
       provider: 'none', // none | gtag | plausible | umami
       measurementId: '',
     },
+    performance: {
+      prefetch: 'auto', // auto | viewport | off
+      imageDomains: [],
+    },
+    security: {
+      csp: "default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https:",
+      corsOrigins: [],
+    },
     commerce: {
       shippingFlatFee: 0,
       freeShippingThreshold: 0,
       taxRatePercent: 0,
       currencyCode: 'BDT',
+      allowGuestCheckout: true,
+      inventoryTracking: true,
+      backorders: 'off', // off | allow | allow-with-warning
+      orderPrefix: 'RS-',
+      minOrderAmount: 0,
     },
     features: {
       enableCoupons: true,
@@ -78,7 +95,8 @@ async function getSettings() {
     payments: { provider: 'Stripe', publicKey: '', secretKey: '' },
     emails: {
       orderConfirmation: 'Thank you for your order, {{name}}!',
-      shipmentUpdate: 'Your order {{number}} is on the way!'
+  shipmentUpdate: 'Your order {{number}} is on the way!',
+  smtp: { host: '', port: 587, user: '', pass: '', from: '' },
     },
   };
 }
@@ -164,6 +182,95 @@ async function saveSEO(formData) {
     { upsert: true }
   );
   redirect('/dashboard/admin/settings#seo');
+}
+
+async function saveSEOAdvanced(formData) {
+  'use server';
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== 'admin') return;
+  const robotsPolicy = String(formData.get('robotsPolicy') || '');
+  const canonicalBaseUrl = String(formData.get('canonicalBaseUrl') || '').trim();
+  const google = String(formData.get('googleVerification') || '').trim();
+  const bing = String(formData.get('bingVerification') || '').trim();
+  const generateSitemap = formData.get('generateSitemap') === 'on' || formData.get('generateSitemap') === 'true';
+  const prev = await getSettings();
+  const db = await getDb();
+  await db.collection('settings').updateOne(
+    { _id: 'platform' },
+    { $set: { seo: { ...(prev?.seo || {}), robotsPolicy, canonicalBaseUrl, verification: { ...(prev?.seo?.verification || {}), google, bing }, generateSitemap } } },
+    { upsert: true }
+  );
+  redirect('/dashboard/admin/settings#advanced-seo');
+}
+
+async function savePerformance(formData) {
+  'use server';
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== 'admin') return;
+  const prefetch = String(formData.get('prefetch') || 'auto');
+  const imageDomains = parseJsonArray(String(formData.get('imageDomains') || '[]')).map(String);
+  const prev = await getSettings();
+  const db = await getDb();
+  await db.collection('settings').updateOne(
+    { _id: 'platform' },
+    { $set: { performance: { ...(prev?.performance || {}), prefetch, imageDomains } } },
+    { upsert: true }
+  );
+  redirect('/dashboard/admin/settings#performance');
+}
+
+async function saveSecurity(formData) {
+  'use server';
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== 'admin') return;
+  const csp = String(formData.get('csp') || '');
+  const corsOrigins = parseJsonArray(String(formData.get('corsOrigins') || '[]')).map(String);
+  const prev = await getSettings();
+  const db = await getDb();
+  await db.collection('settings').updateOne(
+    { _id: 'platform' },
+    { $set: { security: { ...(prev?.security || {}), csp, corsOrigins } } },
+    { upsert: true }
+  );
+  redirect('/dashboard/admin/settings#security');
+}
+
+async function saveCheckoutAdvanced(formData) {
+  'use server';
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== 'admin') return;
+  const allowGuestCheckout = formData.get('allowGuestCheckout') === 'on' || formData.get('allowGuestCheckout') === 'true';
+  const inventoryTracking = formData.get('inventoryTracking') === 'on' || formData.get('inventoryTracking') === 'true';
+  const backorders = String(formData.get('backorders') || 'off');
+  const orderPrefix = String(formData.get('orderPrefix') || '').trim();
+  const minOrderAmount = Math.max(0, parseFloat(String(formData.get('minOrderAmount') || '0')) || 0);
+  const prev = await getSettings();
+  const db = await getDb();
+  await db.collection('settings').updateOne(
+    { _id: 'platform' },
+    { $set: { commerce: { ...(prev?.commerce || {}), allowGuestCheckout, inventoryTracking, backorders, orderPrefix, minOrderAmount } } },
+    { upsert: true }
+  );
+  redirect('/dashboard/admin/settings#checkout-advanced');
+}
+
+async function saveSMTP(formData) {
+  'use server';
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== 'admin') return;
+  const host = String(formData.get('smtpHost') || '');
+  const port = Math.max(1, parseInt(String(formData.get('smtpPort') || '587'), 10) || 587);
+  const user = String(formData.get('smtpUser') || '');
+  const pass = String(formData.get('smtpPass') || '');
+  const from = String(formData.get('smtpFrom') || '');
+  const prev = await getSettings();
+  const db = await getDb();
+  await db.collection('settings').updateOne(
+    { _id: 'platform' },
+    { $set: { emails: { ...(prev?.emails || {}), smtp: { host, port, user, pass, from } } } },
+    { upsert: true }
+  );
+  redirect('/dashboard/admin/settings#smtp');
 }
 
 function parseJsonArray(text) {
@@ -277,7 +384,7 @@ export default async function AdminSettingsPage() {
         <p className="text-muted-foreground text-sm">Configure platform-wide settings and integrations.</p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 items-start">
-  <SectionJumpSelect className="lg:hidden rounded-xl border bg-white p-3 shadow-sm" ids={["platform","branding","theme","homepage","seo","navigation","payments","emails","analytics","commerce","features"]} />
+  <SectionJumpSelect className="lg:hidden rounded-xl border bg-white p-3 shadow-sm" ids={["platform","branding","theme","homepage","seo","advanced-seo","navigation","payments","emails","smtp","analytics","performance","security","commerce","checkout-advanced","features"]} />
         <div className="hidden lg:block">
           <SectionNav sections={[
             { id: 'platform', label: 'Platform' },
@@ -285,11 +392,16 @@ export default async function AdminSettingsPage() {
             { id: 'theme', label: 'Theme' },
             { id: 'homepage', label: 'Homepage' },
             { id: 'seo', label: 'SEO' },
+            { id: 'advanced-seo', label: 'Advanced SEO' },
             { id: 'navigation', label: 'Navigation & Footer' },
             { id: 'payments', label: 'Payments' },
             { id: 'emails', label: 'Email Templates' },
+            { id: 'smtp', label: 'SMTP' },
             { id: 'analytics', label: 'Analytics' },
+            { id: 'performance', label: 'Performance' },
+            { id: 'security', label: 'Security' },
             { id: 'commerce', label: 'Shipping & Tax' },
+            { id: 'checkout-advanced', label: 'Checkout & Orders' },
             { id: 'features', label: 'Features & Maintenance' },
           ]} />
         </div>
@@ -454,6 +566,44 @@ export default async function AdminSettingsPage() {
               </form>
             </CardContent>
           </Card>
+          <Card id="advanced-seo">
+            <CardHeader>
+              <CardTitle>Advanced SEO</CardTitle>
+              <CardDescription>Robots, canonical base, verification and sitemap generation.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <form action={saveSEOAdvanced} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid gap-1">
+                    <Label htmlFor="canonicalBaseUrl">Canonical base URL</Label>
+                    <Input id="canonicalBaseUrl" name="canonicalBaseUrl" placeholder="https://www.example.com" defaultValue={settings?.seo?.canonicalBaseUrl || ''} />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="generateSitemap">Generate sitemap.xml</Label>
+                    <div className="flex items-center gap-2"><input id="generateSitemap" name="generateSitemap" type="checkbox" defaultChecked={!!settings?.seo?.generateSitemap} /><span className="text-xs text-muted-foreground">Enable sitemap generation</span></div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid gap-1">
+                    <Label htmlFor="googleVerification">Google verification</Label>
+                    <Input id="googleVerification" name="googleVerification" defaultValue={settings?.seo?.verification?.google || ''} />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="bingVerification">Bing verification</Label>
+                    <Input id="bingVerification" name="bingVerification" defaultValue={settings?.seo?.verification?.bing || ''} />
+                  </div>
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="robotsPolicy">robots.txt content</Label>
+                  <textarea id="robotsPolicy" name="robotsPolicy" className="w-full border rounded px-3 py-2 h-36" placeholder="# Example
+User-agent: *
+Allow: /
+Sitemap: https://www.example.com/sitemap.xml" defaultValue={settings?.seo?.robotsPolicy || ''} />
+                </div>
+                <Button type="submit">Save</Button>
+              </form>
+            </CardContent>
+          </Card>
           <Card id="navigation">
             <CardHeader>
               <CardTitle>Navigation & Footer</CardTitle>
@@ -514,6 +664,39 @@ export default async function AdminSettingsPage() {
               </form>
             </CardContent>
           </Card>
+          <Card id="smtp">
+            <CardHeader>
+              <CardTitle>SMTP</CardTitle>
+              <CardDescription>Transactional email provider settings (sensitive).</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <form action={saveSMTP} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid gap-1">
+                    <Label htmlFor="smtpHost">Host</Label>
+                    <Input id="smtpHost" name="smtpHost" defaultValue={settings?.emails?.smtp?.host || ''} />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="smtpPort">Port</Label>
+                    <Input id="smtpPort" name="smtpPort" type="number" min="1" defaultValue={settings?.emails?.smtp?.port ?? 587} />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="smtpUser">User</Label>
+                    <Input id="smtpUser" name="smtpUser" defaultValue={settings?.emails?.smtp?.user || ''} />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="smtpPass">Password</Label>
+                    <Input id="smtpPass" name="smtpPass" type="password" defaultValue={settings?.emails?.smtp?.pass || ''} />
+                  </div>
+                  <div className="grid gap-1 md:col-span-2">
+                    <Label htmlFor="smtpFrom">From address</Label>
+                    <Input id="smtpFrom" name="smtpFrom" placeholder="Roboshop <no-reply@example.com>" defaultValue={settings?.emails?.smtp?.from || ''} />
+                  </div>
+                </div>
+                <Button type="submit">Save</Button>
+              </form>
+            </CardContent>
+          </Card>
           <Card id="analytics">
             <CardHeader>
               <CardTitle>Analytics</CardTitle>
@@ -534,6 +717,52 @@ export default async function AdminSettingsPage() {
                   <span className="text-xs text-muted-foreground">Measurement ID / Site ID</span>
                   <input name="measurementId" className="w-full border rounded px-2 py-1" defaultValue={settings?.analytics?.measurementId || ''} />
                 </label>
+                <Button type="submit">Save</Button>
+              </form>
+            </CardContent>
+          </Card>
+          <Card id="performance">
+            <CardHeader>
+              <CardTitle>Performance</CardTitle>
+              <CardDescription>Prefetch behavior and image domains (informational).</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <form action={savePerformance} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid gap-1">
+                    <Label htmlFor="prefetch">Link prefetch</Label>
+                    <select id="prefetch" name="prefetch" className="w-full border rounded px-2 py-1" defaultValue={settings?.performance?.prefetch || 'auto'}>
+                      <option value="auto">Auto</option>
+                      <option value="viewport">Viewport</option>
+                      <option value="off">Off</option>
+                    </select>
+                    <div className="text-xs text-muted-foreground">Controls default intent; wire to Link as needed.</div>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="imageDomains">Image domains (JSON array)</Label>
+                    <textarea id="imageDomains" name="imageDomains" className="w-full border rounded px-3 py-2 h-24" defaultValue={JSON.stringify(settings?.performance?.imageDomains || [], null, 2)} />
+                    <div className="text-xs text-muted-foreground">Changing domains requires next.config update on build.</div>
+                  </div>
+                </div>
+                <Button type="submit">Save</Button>
+              </form>
+            </CardContent>
+          </Card>
+          <Card id="security">
+            <CardHeader>
+              <CardTitle>Security</CardTitle>
+              <CardDescription>CSP header and CORS allow-list (stored only; wire via middleware to enforce).</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <form action={saveSecurity} className="space-y-3">
+                <div className="grid gap-1">
+                  <Label htmlFor="csp">Content-Security-Policy</Label>
+                  <textarea id="csp" name="csp" className="w-full border rounded px-3 py-2 h-28" defaultValue={settings?.security?.csp || ''} />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="corsOrigins">CORS origins (JSON array)</Label>
+                  <textarea id="corsOrigins" name="corsOrigins" className="w-full border rounded px-3 py-2 h-24" defaultValue={JSON.stringify(settings?.security?.corsOrigins || [], null, 2)} />
+                </div>
                 <Button type="submit">Save</Button>
               </form>
             </CardContent>
@@ -561,6 +790,43 @@ export default async function AdminSettingsPage() {
                   <div className="grid gap-1">
                     <Label htmlFor="currencyCode">Currency code</Label>
                     <Input id="currencyCode" name="currencyCode" className="uppercase" defaultValue={settings?.commerce?.currencyCode || 'BDT'} />
+                  </div>
+                </div>
+                <Button type="submit">Save</Button>
+              </form>
+            </CardContent>
+          </Card>
+          <Card id="checkout-advanced">
+            <CardHeader>
+              <CardTitle>Checkout & Orders</CardTitle>
+              <CardDescription>Guest checkout, inventory and order constraints.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <form action={saveCheckoutAdvanced} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <label className="inline-flex items-center gap-2">
+                    <input type="checkbox" name="allowGuestCheckout" defaultChecked={!!settings?.commerce?.allowGuestCheckout} />
+                    <span>Allow guest checkout</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input type="checkbox" name="inventoryTracking" defaultChecked={!!settings?.commerce?.inventoryTracking} />
+                    <span>Enable inventory tracking</span>
+                  </label>
+                  <div className="grid gap-1">
+                    <Label htmlFor="backorders">Backorders</Label>
+                    <select id="backorders" name="backorders" className="w-full border rounded px-2 py-1" defaultValue={settings?.commerce?.backorders || 'off'}>
+                      <option value="off">Off</option>
+                      <option value="allow">Allow</option>
+                      <option value="allow-with-warning">Allow with warning</option>
+                    </select>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="orderPrefix">Order number prefix</Label>
+                    <Input id="orderPrefix" name="orderPrefix" defaultValue={settings?.commerce?.orderPrefix || ''} />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="minOrderAmount">Minimum order amount</Label>
+                    <Input id="minOrderAmount" name="minOrderAmount" type="number" min="0" step="0.01" defaultValue={settings?.commerce?.minOrderAmount ?? 0} />
                   </div>
                 </div>
                 <Button type="submit">Save</Button>
