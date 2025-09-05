@@ -19,23 +19,3 @@ export async function addProductAudit({ userEmail, action, scope = 'single', ids
     // best effort; ignore failures
   }
 }
-
-export async function addIssuesAudit({ userEmail, action, scope = 'single', ids = [], filters = {}, params = {} }) {
-  try {
-    const db = await getDb();
-    const doc = {
-      type: 'issues',
-      userEmail,
-      action,
-      scope,
-      ids: Array.isArray(ids) ? ids.slice(0, 50) : [],
-      idsCount: Array.isArray(ids) ? ids.length : 0,
-      filters,
-      params,
-      createdAt: new Date(),
-    };
-    await db.collection('audit_logs').insertOne(doc);
-  } catch {
-    // best effort
-  }
-}

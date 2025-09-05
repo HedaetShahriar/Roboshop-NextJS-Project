@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { authOptions } from "../../app/api/auth/[...nextauth]/route";
 import { getServerSession } from "next-auth";
+import getDb from "@/lib/mongodb";
 
 export async function addProduct(formData) {
   const session = await getServerSession(authOptions);
