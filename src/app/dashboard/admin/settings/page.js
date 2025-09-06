@@ -27,7 +27,8 @@ async function getSettings() {
       primaryColor: '#0f172a',
       accentColor: '#22c55e',
       defaultMode: 'system', // light | dark | system
-      density: 'comfortable', // compact | comfortable
+  density: 'comfortable', // compact | comfortable
+  borderRadius: 'md', // sm | md | lg | xl
     },
     homepage: {
       showHero: true,
@@ -92,6 +93,12 @@ async function getSettings() {
       maintenanceMode: false,
       maintenanceMessage: 'We are performing scheduled maintenance. Please check back soon.',
     },
+    ui: {
+      navbarSticky: true,
+      navbarTransparentOnHome: false,
+      showFooterSocial: true,
+      footerText: '',
+    },
     payments: { provider: 'Stripe', publicKey: '', secretKey: '' },
     emails: {
       orderConfirmation: 'Thank you for your order, {{name}}!',
@@ -138,13 +145,32 @@ async function saveTheme(formData) {
   const accentColor = String(formData.get('accentColor') || '#22c55e');
   const defaultMode = String(formData.get('defaultMode') || 'system');
   const density = String(formData.get('density') || 'comfortable');
+  const borderRadius = String(formData.get('borderRadius') || 'md');
   const db = await getDb();
   await db.collection('settings').updateOne(
     { _id: 'platform' },
-    { $set: { theme: { primaryColor, accentColor, defaultMode, density } } },
+    { $set: { theme: { primaryColor, accentColor, defaultMode, density, borderRadius } } },
     { upsert: true }
   );
   redirect('/dashboard/admin/settings#theme');
+}
+
+async function saveUI(formData) {
+  'use server';
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== 'admin') return;
+  const navbarSticky = formData.get('navbarSticky') === 'on' || formData.get('navbarSticky') === 'true';
+  const navbarTransparentOnHome = formData.get('navbarTransparentOnHome') === 'on' || formData.get('navbarTransparentOnHome') === 'true';
+  const showFooterSocial = formData.get('showFooterSocial') === 'on' || formData.get('showFooterSocial') === 'true';
+  const footerText = String(formData.get('footerText') || '').trim();
+  const prev = await getSettings();
+  const db = await getDb();
+  await db.collection('settings').updateOne(
+    { _id: 'platform' },
+    { $set: { ui: { ...(prev?.ui || {}), navbarSticky, navbarTransparentOnHome, showFooterSocial, footerText } } },
+    { upsert: true }
+  );
+  redirect('/dashboard/admin/settings#ui');
 }
 
 async function saveHomepage(formData) {
@@ -389,12 +415,13 @@ export default async function AdminSettingsPage() {
         <p className="text-muted-foreground text-sm">Configure platform-wide settings and integrations.</p>
       </div>
       <div className="space-y-4">
-        <SectionJumpSelect className="lg:hidden rounded-xl border bg-white p-3 shadow-sm" ids={["platform","branding","theme","homepage","seo","advanced-seo","navigation","payments","emails","smtp","analytics","performance","security","commerce","checkout-advanced","features"]} />
-        <div className="hidden lg:block rounded-xl border bg-white p-2 shadow-sm">
+  <SectionJumpSelect className="lg:hidden rounded-xl border bg-white p-3 shadow-sm sticky top-0 z-30" ids={["platform","branding","theme","ui","homepage","seo","advanced-seo","navigation","payments","emails","smtp","analytics","performance","security","commerce","checkout-advanced","features"]} />
+  <div className="hidden lg:block rounded-xl border bg-white p-2 shadow-sm sticky top-0 z-30">
           <SectionNav sections={[
             { id: 'platform', label: 'Platform' },
             { id: 'branding', label: 'Branding' },
             { id: 'theme', label: 'Theme' },
+            { id: 'ui', label: 'Layout & UI' },
             { id: 'homepage', label: 'Homepage' },
             { id: 'seo', label: 'SEO' },
             { id: 'advanced-seo', label: 'Advanced SEO' },
@@ -495,6 +522,44 @@ export default async function AdminSettingsPage() {
                       <option value="compact">Compact</option>
                       <option value="comfortable">Comfortable</option>
                     </select>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label htmlFor="borderRadius">Border radius</Label>
+                    <select id="borderRadius" name="borderRadius" className="w-full border rounded px-2 py-1" defaultValue={settings?.theme?.borderRadius || 'md'}>
+                      <option value="sm">Small</option>
+                      <option value="md">Medium</option>
+                      <option value="lg">Large</option>
+                      <option value="xl">Extra large</option>
+                    </select>
+                  </div>
+                </div>
+                <Button type="submit">Save</Button>
+              </form>
+            </CardContent>
+          </Card>
+          <Card id="ui">
+            <CardHeader>
+              <CardTitle>Layout & UI</CardTitle>
+              <CardDescription>Navbar behavior and footer content.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <form action={saveUI} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <label className="inline-flex items-center gap-2">
+                    <input type="checkbox" name="navbarSticky" defaultChecked={settings?.ui?.navbarSticky ?? true} />
+                    <span>Sticky navbar</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input type="checkbox" name="navbarTransparentOnHome" defaultChecked={settings?.ui?.navbarTransparentOnHome ?? false} />
+                    <span>Transparent navbar on home</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input type="checkbox" name="showFooterSocial" defaultChecked={settings?.ui?.showFooterSocial ?? true} />
+                    <span>Show footer social links</span>
+                  </label>
+                  <div className="grid gap-1 md:col-span-2">
+                    <Label htmlFor="footerText">Footer text</Label>
+                    <Input id="footerText" name="footerText" placeholder="© 2025 Roboshop. All rights reserved." defaultValue={settings?.ui?.footerText || ''} />
                   </div>
                 </div>
                 <Button type="submit">Save</Button>

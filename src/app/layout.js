@@ -27,6 +27,7 @@ export default async function RootLayout({ children }) {
     '--accent': settings.theme.accentColor,
     '--primary-foreground': getReadableTextColor(settings.theme.primaryColor),
     '--accent-foreground': getReadableTextColor(settings.theme.accentColor),
+  '--radius': settings.theme.borderRadius === 'sm' ? '0.5rem' : settings.theme.borderRadius === 'lg' ? '0.75rem' : settings.theme.borderRadius === 'xl' ? '1rem' : '0.625rem',
   } : {};
   return (
     <html lang="en">

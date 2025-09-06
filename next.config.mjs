@@ -63,12 +63,6 @@ const nextConfig = {
             },
             {
                 protocol: 'https',
-                hostname: 'i.imgur.com',
-                port: '',
-                pathname: '/**',
-            },
-            {
-                protocol: 'https',
                 hostname: 'images.ctfassets.net',
                 port: '',
                 pathname: '/**',
@@ -76,6 +70,12 @@ const nextConfig = {
             {
                 protocol: 'https',
                 hostname: 'placehold.co',
+                port: '',
+                pathname: '/**',
+            },
+            {
+                protocol: 'https',
+                hostname: 'example.com',
                 port: '',
                 pathname: '/**',
             },
