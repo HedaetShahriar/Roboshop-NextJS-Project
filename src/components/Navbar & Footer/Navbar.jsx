@@ -35,7 +35,11 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [isDashboard]);
 
-  const [nav, setNav] = useState({ siteName: 'Roboshop', headerLinks: [{ label: 'Products', href: '/products' }] });
+  const [nav, setNav] = useState({ siteName: 'Roboshop', headerLinks: [
+    { label: 'Products', href: '/products' },
+    { label: 'About', href: '/about' },
+    { label: 'Contact', href: '/contact' },
+  ] });
   useEffect(() => {
     let canceled = false;
     async function load() {
@@ -44,9 +48,19 @@ export default function Navbar() {
         if (!res.ok) return;
         const data = await res.json();
         if (!canceled) {
+          const defaults = [
+            { label: 'Products', href: '/products' },
+            { label: 'About', href: '/about' },
+            { label: 'Contact', href: '/contact' },
+          ];
+          let headerLinks = (data?.navigation?.headerLinks?.length ? data.navigation.headerLinks : defaults).slice(0, 10);
+          // Ensure About/Contact exist even if settings omitted them (avoid duplicates by href)
+          const have = new Set(headerLinks.map(l => (l.href || '').toLowerCase()));
+          defaults.forEach(d => { if (!have.has((d.href || '').toLowerCase())) headerLinks.push(d); });
+
           setNav({
             siteName: data?.siteName || 'Roboshop',
-            headerLinks: data?.navigation?.headerLinks?.length ? data.navigation.headerLinks : [{ label: 'Products', href: '/products' }],
+            headerLinks,
             logoUrl: data?.branding?.logoUrl || '',
           });
         }
