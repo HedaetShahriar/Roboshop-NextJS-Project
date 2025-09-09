@@ -7,10 +7,11 @@ import { useCart } from "@/context/cart-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { formatBDT } from "@/lib/currency";
+import { Check, ChevronRight, ChevronDown, User, MapPin, Truck, Wallet, CreditCard as CreditCardIcon, ClipboardCheck, BadgePercent } from "lucide-react";
 
 // Lightweight area suggestions for popular cities (optional, non-blocking)
 const SUGGESTED_AREAS = {
@@ -463,18 +464,29 @@ export default function CheckoutPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Sticky progress bar */}
+      {(() => { const progress = Math.round(((step + 1) / 4) * 100); return (
+        <div className="sticky top-0 z-20 -mx-4 mb-4 bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/50">
+          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      ); })()}
       <h1 className="text-3xl font-bold mb-4">Checkout</h1>
       {/* Stepper */}
-      <ol className="mb-6 flex flex-wrap items-center gap-3 text-sm">
-        {["Contact", "Address", "Delivery & Payment", "Review"].map((label, i) => (
-          <li key={label} className={`inline-flex items-center gap-2 ${i <= step ? "text-primary" : "text-muted-foreground"}`}>
-            <span className={`h-6 w-6 rounded-full flex items-center justify-center text-xs border ${i <= step ? "bg-primary text-primary-foreground border-primary" : "bg-muted"}`}>
-              {i + 1}
-            </span>
-            <button type="button" className="hover:underline disabled:no-underline" onClick={() => setStep(i)} disabled={i > step}>{label}</button>
-            {i < 3 && <span className="mx-1 text-muted-foreground">›</span>}
-          </li>
-        ))}
+      <ol className="mb-6 flex flex-wrap items-center gap-3 text-sm" aria-label="Checkout steps">
+        {["Contact", "Address", "Delivery & Payment", "Review"].map((label, i) => {
+          const state = i < step ? "complete" : i === step ? "current" : "upcoming";
+          return (
+            <li key={label} className={`inline-flex items-center gap-2 ${i <= step ? "text-primary" : "text-muted-foreground"}`} aria-current={state === "current" ? "step" : undefined}>
+              <span className={`h-6 w-6 rounded-full flex items-center justify-center text-xs border ${i <= step ? "bg-primary text-primary-foreground border-primary" : "bg-muted"}`}>
+                {i < step ? <Check className="h-3.5 w-3.5" aria-hidden /> : (i + 1)}
+              </span>
+              <button type="button" className="hover:underline disabled:no-underline" onClick={() => setStep(i)} disabled={i > step}>{label}</button>
+              {i < 3 && <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />}
+            </li>
+          );
+        })}
       </ol>
 
       {items.length === 0 && (
@@ -496,10 +508,11 @@ export default function CheckoutPage() {
           {/* Step 1: Contact */}
           <Card ref={refContact}>
             <CardHeader>
-              <CardTitle>Contact Information</CardTitle>
+              <CardTitle className="flex items-center gap-2"><User className="h-5 w-5 text-primary" aria-hidden /> Contact Information</CardTitle>
+              <CardDescription>We use this to send order updates and delivery info.</CardDescription>
             </CardHeader>
             {step === 0 ? (
-              <CardContent className="grid gap-4">
+              <CardContent className="grid gap-4" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (validateContact()) setStep(1); } }}>
               {loadingProfile ? (
                 <div className="space-y-3">
                   <div className="h-5 w-40 bg-muted rounded animate-pulse" />
@@ -552,10 +565,11 @@ export default function CheckoutPage() {
           {/* Step 2: Address */}
           <Card ref={refAddress}>
             <CardHeader>
-              <CardTitle>Shipping Address</CardTitle>
+              <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" aria-hidden /> Shipping Address</CardTitle>
+              <CardDescription>Where should we deliver your order?</CardDescription>
             </CardHeader>
             {step === 1 ? (
-              <CardContent className="grid gap-4">
+              <CardContent className="grid gap-4" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (validateAddress()) setStep(2); } }}>
                 {loadingAddresses ? (
                   <div className="space-y-3">
                     <div className="h-5 w-24 bg-muted rounded animate-pulse" />
@@ -596,8 +610,9 @@ export default function CheckoutPage() {
                 <div className="rounded-md border p-4">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-medium">Additional details</div>
-                    <button type="button" className="text-sm text-primary hover:underline" aria-expanded={showAddressMore} aria-controls="address-details" onClick={() => setShowAddressMore((v) => !v)}>
-                      {showAddressMore ? 'Hide' : 'Add details'}
+                    <button type="button" className="inline-flex items-center gap-1 text-sm text-primary hover:underline" aria-expanded={showAddressMore} aria-controls="address-details" onClick={() => setShowAddressMore((v) => !v)}>
+                      <span>{showAddressMore ? 'Hide' : 'Add details'}</span>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${showAddressMore ? 'rotate-180' : ''}`} aria-hidden />
                     </button>
                   </div>
                   {showAddressMore && (
@@ -691,7 +706,8 @@ export default function CheckoutPage() {
           {/* Billing */}
           <Card ref={refPayment}>
             <CardHeader>
-              <CardTitle>Billing Address</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" aria-hidden /> Billing Address</CardTitle>
+              <CardDescription>Optional — only fill if different from shipping.</CardDescription>
             </CardHeader>
             <CardContent className={`grid gap-4 ${step >= 1 ? '' : 'opacity-60 pointer-events-none select-none'}`}>
               <div className="flex items-center gap-2">
@@ -742,17 +758,32 @@ export default function CheckoutPage() {
           {/* Step 3: Delivery & Payment */}
           <Card>
             <CardHeader>
-              <CardTitle>Delivery & Payment</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Truck className="h-5 w-5 text-primary" aria-hidden /> Delivery & Payment</CardTitle>
+              <CardDescription>Choose a shipping speed and how you want to pay.</CardDescription>
             </CardHeader>
             {step === 2 ? (
               <CardContent className="space-y-4">
               {/* Shipping method */}
               <div className="space-y-2">
                 <div className="text-sm font-medium">Shipping</div>
-                <div className="grid gap-2">
-                  <label className="flex items-center gap-2"><input type="radio" name="shippingMethod" value="pickup" checked={form.shippingMethod === 'pickup'} onChange={onChange} /> Store Pickup (Free)</label>
-                  <label className="flex items-center gap-2"><input type="radio" name="shippingMethod" value="standard" checked={form.shippingMethod === 'standard'} onChange={onChange} /> Standard (৳ 60, free over ৳ 1,000)</label>
-                  <label className="flex items-center gap-2"><input type="radio" name="shippingMethod" value="express" checked={form.shippingMethod === 'express'} onChange={onChange} /> Express (৳ 120)</label>
+                <div className="inline-grid grid-cols-3 gap-1 rounded-lg border bg-muted/30 p-1 text-sm" role="tablist" aria-label="Shipping method">
+                  {[
+                    { key: 'pickup', label: 'Pickup', sub: 'Free' },
+                    { key: 'standard', label: 'Standard', sub: `${formatBDT(60)}` },
+                    { key: 'express', label: 'Express', sub: `${formatBDT(120)}` },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      role="tab"
+                      aria-selected={form.shippingMethod === opt.key}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, shippingMethod: opt.key }))}
+                      className={`rounded-md px-3 py-2 text-left transition-colors ${form.shippingMethod === opt.key ? 'bg-background border shadow-sm' : 'text-muted-foreground'} border`}
+                    >
+                      <div className="font-medium">{opt.label}</div>
+                      <div className="text-xs">{opt.sub}</div>
+                    </button>
+                  ))}
                 </div>
                 <div className="text-xs text-muted-foreground">{deliveryEstimate}</div>
               </div>
@@ -760,19 +791,23 @@ export default function CheckoutPage() {
               {/* Payment options */}
               <div className="space-y-3">
                 <div className="text-sm font-medium">Payment</div>
-                <div className="grid gap-2">
-                  <div className="flex items-center gap-2">
-                    <input type="radio" id="pm-cod" name="paymentMethod" value="cod" checked={form.paymentMethod === "cod"} onChange={onChange} />
-                    <Label htmlFor="pm-cod">Cash on Delivery</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input type="radio" id="pm-bkash" name="paymentMethod" value="bkash" checked={form.paymentMethod === "bkash"} onChange={onChange} />
-                    <Label htmlFor="pm-bkash">bKash</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input type="radio" id="pm-card" name="paymentMethod" value="card" checked={form.paymentMethod === "card"} onChange={onChange} />
-                    <Label htmlFor="pm-card">Credit/Debit Card</Label>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {[
+                    { key: 'cod', label: 'Cash on Delivery', icon: Wallet },
+                    { key: 'bkash', label: 'bKash', icon: CreditCardIcon },
+                    { key: 'card', label: 'Credit/Debit Card', icon: CreditCardIcon },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, paymentMethod: opt.key }))}
+                      className={`flex items-center gap-2 rounded-lg border p-3 text-left transition-colors ${form.paymentMethod === opt.key ? 'bg-background border-primary shadow-sm' : 'bg-muted/20'}`}
+                      aria-pressed={form.paymentMethod === opt.key}
+                    >
+                      <opt.icon className="h-5 w-5 text-primary" aria-hidden />
+                      <span className="text-sm">{opt.label}</span>
+                    </button>
+                  ))}
                 </div>
 
                 {form.paymentMethod === "bkash" && (
@@ -834,7 +869,8 @@ export default function CheckoutPage() {
           {/* Step 4: Review & Confirm */}
           <Card ref={refReview} className={step === 3 ? '' : 'hidden'}>
             <CardHeader>
-              <CardTitle>Review & Confirm</CardTitle>
+              <CardTitle className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-primary" aria-hidden /> Review & Confirm</CardTitle>
+              <CardDescription>Double-check details before placing your order.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div className="grid md:grid-cols-2 gap-4">
@@ -916,7 +952,7 @@ export default function CheckoutPage() {
                   <Button asChild variant="secondary"><Link href="/products">Continue shopping</Link></Button>
                 </div>
               ) : (
-                <ul className="divide-y">
+                <ul className="divide-y max-h-64 overflow-auto pr-1">
                   {items.map((it) => (
                     <li key={it.id} className="py-3 flex items-center gap-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -944,7 +980,7 @@ export default function CheckoutPage() {
                 <div className="col-span-2">
                   <Input placeholder="Promo code" value={promoCode} onChange={(e) => { setPromoCode(e.target.value); setPromoMessage(null); }} />
                 </div>
-                <Button onClick={applyPromo} variant="secondary">Apply</Button>
+                <Button onClick={applyPromo} variant="secondary"><BadgePercent className="h-4 w-4 mr-1" aria-hidden /> Apply</Button>
               </div>
               {/* Promo feedback below the input */}
               {promoMessage && (
@@ -953,7 +989,7 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <div className="space-y-1 text-sm">
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-sm">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatBDT(subtotal)}</span></div>
                 <div className="flex justify-between"><span>Discount</span><span className="text-red-600">- {formatBDT(discount)}</span></div>
                 <div className="flex justify-between"><span>Shipping</span><span>{formatBDT(shipping)}</span></div>
