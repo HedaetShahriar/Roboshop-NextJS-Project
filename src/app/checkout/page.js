@@ -7,11 +7,11 @@ import { useCart } from "@/context/cart-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { formatBDT } from "@/lib/currency";
-import { Check, ChevronRight, ChevronDown, User, MapPin, Truck, Wallet, CreditCard as CreditCardIcon, ClipboardCheck, BadgePercent } from "lucide-react";
+import { ChevronDown, User, MapPin, Truck, Wallet, CreditCard as CreditCardIcon, BadgePercent, ShoppingCart, Clock, ShieldCheck } from "lucide-react";
 
 // Lightweight area suggestions for popular cities (optional, non-blocking)
 const SUGGESTED_AREAS = {
@@ -27,6 +27,26 @@ const KNOWN_PROMOS = {
   SAVE50: { type: "flat", value: 50, label: `${formatBDT(50)} OFF` },
 };
 
+// Reusable tile button for consistent selection UI
+function OptionTile({ active, onClick, icon: Icon, label, sub }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-2 rounded-xl border p-3 text-left transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+        active ? 'bg-card border-primary/60 shadow-sm' : 'bg-muted/30 hover:bg-muted/40'
+      }`}
+      aria-pressed={!!active}
+    >
+      {Icon ? <Icon className="h-5 w-5 text-primary" aria-hidden /> : null}
+      <div className="leading-tight">
+        <div className="text-sm font-medium">{label}</div>
+        {sub ? <div className="text-xs text-muted-foreground">{sub}</div> : null}
+      </div>
+    </button>
+  );
+}
+
 export default function CheckoutPage() {
   const { items, subtotal, updateQty, removeItem, clear, setCartFromServer, updatedAt } = useCart();
   const router = useRouter();
@@ -39,11 +59,7 @@ export default function CheckoutPage() {
   // Removed saved-address dropdown per feedback; still prefill best address silently
   const [placing, setPlacing] = useState(false);
   const [errors, setErrors] = useState({});
-  const [step, setStep] = useState(() => {
-    if (typeof window === 'undefined') return 0;
-    const s = Number(localStorage.getItem('checkoutStep'));
-    return Number.isFinite(s) && s >= 0 && s <= 3 ? s : 0;
-  }); // 0: Contact, 1: Address, 2: Delivery & Payment, 3: Review
+  // Single page design: no stepper; all sections are visible and editable
   const [showAddressMore, setShowAddressMore] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('checkoutShowAddressMore') === '1';
@@ -58,15 +74,9 @@ export default function CheckoutPage() {
   const refContact = useRef(null);
   const refAddress = useRef(null);
   const refPayment = useRef(null);
-  const refReview = useRef(null);
+  // No review section in single-page mode
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('checkoutStep', String(step));
-    const target = step === 0 ? refContact.current : step === 1 ? refAddress.current : step === 2 ? refPayment.current : refReview.current;
-    if (target?.scrollIntoView) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, [step]);
+  // Removed step-based scroll; single page keeps everything visible
 
   useEffect(() => {
     if (typeof window !== 'undefined') localStorage.setItem('checkoutShowAddressMore', showAddressMore ? '1' : '0');
@@ -76,7 +86,8 @@ export default function CheckoutPage() {
   const [form, setForm] = useState({
     fullName: "",
     email: "",
-    phone: "",
+  phone: "",
+  phoneCountry: "BD",
     country: "Bangladesh",
     city: "",
     area: "",
@@ -106,6 +117,32 @@ export default function CheckoutPage() {
   const suggestedAreas = useMemo(() => {
     return SUGGESTED_AREAS[(form.city || '').toLowerCase()] || [];
   }, [form.city]);
+
+  // Phone helpers: keep E.164 in state; render prefix + local part in UI
+  const phonePrefix = useMemo(() => (form.phoneCountry === 'BD' ? '+880' : '+'), [form.phoneCountry]);
+  const phoneLocal = useMemo(() => {
+    const raw = String(form.phone || '');
+    if (raw.startsWith(phonePrefix)) return raw.slice(phonePrefix.length);
+    if (form.phoneCountry === 'BD') {
+      const digits = raw.replace(/\D+/g, '');
+      const m = digits.match(/^(?:880)?(1\d{9})$/);
+      return m ? m[1] : digits;
+    }
+    return raw.replace(/^\+/, '');
+  }, [form.phone, form.phoneCountry, phonePrefix]);
+
+  const onChangePhoneLocal = (e) => {
+    let digits = String(e.target.value || '').replace(/\D+/g, '');
+    // Normalize BD: allow entering 01XXXXXXXXX or 1XXXXXXXXX
+    if (form.phoneCountry === 'BD') {
+      if (digits.startsWith('01')) digits = digits.slice(1);
+      if (digits.startsWith('8801')) digits = digits.slice(3);
+    }
+    digits = digits.slice(0, 10);
+    const next = phonePrefix + digits;
+    setForm((f) => ({ ...f, phone: next }));
+    setErrors((prev) => (prev.phone ? { ...prev, phone: undefined } : prev));
+  };
 
   const discount = useMemo(() => {
     if (!appliedPromo) return 0;
@@ -289,12 +326,10 @@ export default function CheckoutPage() {
     }
     setForm((f) => {
       const next = { ...f, [name]: v };
-      // Auto-advance when delivery window chosen and current address is valid
-      if (name === 'deliveryWindow' && step === 1 && next.deliveryWindow) {
-        const errs = validateAddressForm(next);
-        if (Object.keys(errs).length === 0) {
-          setStep(2);
-        }
+      if (name === 'phoneCountry') {
+        const newPrefix = v === 'BD' ? '+880' : '+';
+        const localDigits = String((f.phone || '').replace(/^\+880/, '').replace(/^\+/, '')).replace(/\D+/g, '');
+        next.phone = newPrefix + localDigits;
       }
       return next;
     });
@@ -326,7 +361,11 @@ export default function CheckoutPage() {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) {
       errs.email = "Please enter a valid email address.";
     }
-    if (!/^\+?[0-9\-\s]{7,15}$/.test(form.phone)) {
+    if (form.phoneCountry === 'BD') {
+      if (!/^\+8801\d{9}$/.test(form.phone)) {
+        errs.phone = "Enter 1XXXXXXXXX; we’ll add +880.";
+      }
+    } else if (!/^\+?[0-9\-\s]{7,15}$/.test(form.phone)) {
       errs.phone = "Please enter a valid phone number.";
     }
     // Shipping
@@ -380,7 +419,9 @@ export default function CheckoutPage() {
     const errs = {};
     if (!form.fullName || form.fullName.trim().length < 3) errs.fullName = "Please enter your full name (min 3 characters).";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) errs.email = "Please enter a valid email address.";
-    if (!/^\+?[0-9\-\s]{7,15}$/.test(form.phone)) errs.phone = "Please enter a valid phone number.";
+    if (form.phoneCountry === 'BD') {
+      if (!/^\+8801\d{9}$/.test(form.phone)) errs.phone = "Enter 1XXXXXXXXX; we’ll add +880.";
+    } else if (!/^\+?[0-9\-\s]{7,15}$/.test(form.phone)) errs.phone = "Please enter a valid phone number.";
     setErrors((prev) => ({ ...prev, ...errs }));
     const first = Object.values(errs)[0];
     if (first) toast.error(String(first));
@@ -463,31 +504,9 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Sticky progress bar */}
-      {(() => { const progress = Math.round(((step + 1) / 4) * 100); return (
-        <div className="sticky top-0 z-20 -mx-4 mb-4 bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-      ); })()}
-      <h1 className="text-3xl font-bold mb-4">Checkout</h1>
-      {/* Stepper */}
-      <ol className="mb-6 flex flex-wrap items-center gap-3 text-sm" aria-label="Checkout steps">
-        {["Contact", "Address", "Delivery & Payment", "Review"].map((label, i) => {
-          const state = i < step ? "complete" : i === step ? "current" : "upcoming";
-          return (
-            <li key={label} className={`inline-flex items-center gap-2 ${i <= step ? "text-primary" : "text-muted-foreground"}`} aria-current={state === "current" ? "step" : undefined}>
-              <span className={`h-6 w-6 rounded-full flex items-center justify-center text-xs border ${i <= step ? "bg-primary text-primary-foreground border-primary" : "bg-muted"}`}>
-                {i < step ? <Check className="h-3.5 w-3.5" aria-hidden /> : (i + 1)}
-              </span>
-              <button type="button" className="hover:underline disabled:no-underline" onClick={() => setStep(i)} disabled={i > step}>{label}</button>
-              {i < 3 && <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />}
-            </li>
-          );
-        })}
-      </ol>
+    <div className="container mx-auto max-w-screen-xl px-4 py-8">
+      <h1 className="text-3xl font-bold mb-1">Fast Checkout</h1>
+      <p className="text-sm text-muted-foreground mb-6">One-page, simple, and secure. Edit anything before placing your order.</p>
 
       {items.length === 0 && (
         <Card className="mb-8">
@@ -505,14 +524,13 @@ export default function CheckoutPage() {
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Customer, Address, Payment */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Step 1: Contact */}
-          <Card ref={refContact}>
+          {/* Contact */}
+          <Card ref={refContact} className="rounded-xl shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><User className="h-5 w-5 text-primary" aria-hidden /> Contact Information</CardTitle>
               <CardDescription>We use this to send order updates and delivery info.</CardDescription>
             </CardHeader>
-            {step === 0 ? (
-              <CardContent className="grid gap-4" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (validateContact()) setStep(1); } }}>
+            <CardContent className="grid gap-4">
               {loadingProfile ? (
                 <div className="space-y-3">
                   <div className="h-5 w-40 bg-muted rounded animate-pulse" />
@@ -536,40 +554,50 @@ export default function CheckoutPage() {
                   {errors.email && <p className="text-xs text-red-600">{errors.email}</p>}
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" name="phone" value={form.phone} onChange={onChange} placeholder="01XXXXXXXXX" aria-invalid={!!errors.phone} autoComplete="tel" inputMode="tel" required />
+                  <Label htmlFor="phone-local">Phone</Label>
+                  <div className="flex gap-2">
+                    <select
+                      name="phoneCountry"
+                      value={form.phoneCountry}
+                      onChange={onChange}
+                      className="h-10 rounded-md border bg-white px-2 text-sm"
+                      aria-label="Country code"
+                    >
+                      <option value="BD">🇧🇩 +880</option>
+                    </select>
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{phonePrefix}</span>
+                      <input
+                        id="phone-local"
+                        inputMode="tel"
+                        className={`h-10 w-full rounded-md border pl-14 pr-3 text-sm ${errors.phone ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                        placeholder="1XXXXXXXXX"
+                        value={phoneLocal}
+                        onChange={onChangePhoneLocal}
+                        aria-invalid={!!errors.phone}
+                        autoComplete="tel"
+                        required
+                      />
+                    </div>
+                  </div>
                   {errors.phone && <p className="text-xs text-red-600">{errors.phone}</p>}
+                  {!errors.phone && form.phoneCountry === 'BD' && (
+                    <p className="text-xs text-muted-foreground">Type 1XXXXXXXXX; +880 is auto-applied.</p>
+                  )}
                 </div>
               </div>
               </>
               )}
-              </CardContent>
-            ) : (
-              <CardContent className="text-sm text-muted-foreground">
-                <div className="flex flex-col gap-0.5">
-                  <span>{form.fullName}</span>
-                  <span>{form.email}</span>
-                  <span>{form.phone}</span>
-                </div>
-              </CardContent>
-            )}
-            <CardFooter>
-              {step === 0 ? (
-                <Button onClick={() => { if (validateContact()) setStep(1); }} className="ml-auto">Continue to Address</Button>
-              ) : (
-                <Button variant="secondary" onClick={() => setStep(0)} className="ml-auto">Change</Button>
-              )}
-            </CardFooter>
+            </CardContent>
           </Card>
 
-          {/* Step 2: Address */}
-          <Card ref={refAddress}>
+          {/* Address */}
+          <Card ref={refAddress} className="rounded-xl shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" aria-hidden /> Shipping Address</CardTitle>
               <CardDescription>Where should we deliver your order?</CardDescription>
             </CardHeader>
-            {step === 1 ? (
-              <CardContent className="grid gap-4" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (validateAddress()) setStep(2); } }}>
+            <CardContent className="grid gap-4">
                 {loadingAddresses ? (
                   <div className="space-y-3">
                     <div className="h-5 w-24 bg-muted rounded animate-pulse" />
@@ -595,19 +623,27 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="deliveryWindow">Delivery Window</Label>
-                  <select id="deliveryWindow" name="deliveryWindow" className="h-10 w-full rounded-md border px-3 bg-white" value={form.deliveryWindow} onChange={onChange} aria-invalid={!!errors.deliveryWindow}>
-                    <option value="">Select…</option>
-                    <option value="9-12">9 AM - 12 PM</option>
-                    <option value="12-3">12 PM - 3 PM</option>
-                    <option value="3-6">3 PM - 6 PM</option>
-                    <option value="6-9">6 PM - 9 PM</option>
-                  </select>
+                  <Label htmlFor="deliveryWindow" className="flex items-center gap-2"><Clock className="h-4 w-4 text-primary" aria-hidden /> Preferred Delivery Window</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2" id="deliveryWindow">
+                    {[
+                      { key: '9-12', label: '9 AM - 12 PM' },
+                      { key: '12-3', label: '12 PM - 3 PM' },
+                      { key: '3-6', label: '3 PM - 6 PM' },
+                      { key: '6-9', label: '6 PM - 9 PM' },
+                    ].map(opt => (
+                      <OptionTile
+                        key={opt.key}
+                        active={form.deliveryWindow === opt.key}
+                        onClick={() => setForm(f => ({ ...f, deliveryWindow: opt.key }))}
+                        label={opt.label}
+                      />
+                    ))}
+                  </div>
                   {errors.deliveryWindow && <p className="text-xs text-red-600">{errors.deliveryWindow}</p>}
                 </div>
 
                 {/* Minimal by default; powerful when expanded */}
-                <div className="rounded-md border p-4">
+                <div className="rounded-xl border p-4 bg-muted/20">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-medium">Additional details</div>
                     <button type="button" className="inline-flex items-center gap-1 text-sm text-primary hover:underline" aria-expanded={showAddressMore} aria-controls="address-details" onClick={() => setShowAddressMore((v) => !v)}>
@@ -667,49 +703,18 @@ export default function CheckoutPage() {
                     </div>
                   )}
                 </div>
-                </>
-                )}
-              </CardContent>
-            ) : (
-              <CardContent className="text-sm text-muted-foreground">
-                <div className="flex flex-col gap-0.5">
-                  {loadingAddresses ? (
-                    <>
-                      <span className="h-4 w-64 bg-muted rounded animate-pulse" />
-                      <span className="h-4 w-48 bg-muted rounded animate-pulse" />
-                      <span className="h-4 w-24 bg-muted rounded animate-pulse" />
-                    </>
-                  ) : (
-                    <>
-                      <span>{form.address1}</span>
-                      <span>{form.area && `${form.area}, `}{form.city}</span>
-                      <span>{form.postalCode}</span>
-                      <span>{form.country}</span>
-                      <span>Delivery Window: {form.deliveryWindow || '-'}</span>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            )}
-            <CardFooter className="flex justify-between">
-              {step === 1 ? (
-                <>
-                  <Button variant="secondary" onClick={() => setStep(0)}>Back</Button>
-                  <Button onClick={() => { if (validateAddress()) setStep(2); }}>Continue to Delivery & Payment</Button>
-                </>
-              ) : (
-                <Button variant="secondary" onClick={() => setStep(1)} className="ml-auto">Change</Button>
-              )}
-            </CardFooter>
+        </>
+        )}
+      </CardContent>
           </Card>
 
           {/* Billing */}
-          <Card ref={refPayment}>
+          <Card ref={refPayment} className="rounded-xl shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" aria-hidden /> Billing Address</CardTitle>
               <CardDescription>Optional — only fill if different from shipping.</CardDescription>
             </CardHeader>
-            <CardContent className={`grid gap-4 ${step >= 1 ? '' : 'opacity-60 pointer-events-none select-none'}`}>
+            <CardContent className="grid gap-4">
               <div className="flex items-center gap-2">
                 <input
                   id="billingSameAsShipping"
@@ -755,34 +760,29 @@ export default function CheckoutPage() {
             </CardContent>
           </Card>
 
-          {/* Step 3: Delivery & Payment */}
+          {/* Delivery & Payment */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Truck className="h-5 w-5 text-primary" aria-hidden /> Delivery & Payment</CardTitle>
               <CardDescription>Choose a shipping speed and how you want to pay.</CardDescription>
             </CardHeader>
-            {step === 2 ? (
-              <CardContent className="space-y-4">
+            <CardContent className="space-y-4">
               {/* Shipping method */}
               <div className="space-y-2">
                 <div className="text-sm font-medium">Shipping</div>
-                <div className="inline-grid grid-cols-3 gap-1 rounded-lg border bg-muted/30 p-1 text-sm" role="tablist" aria-label="Shipping method">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2" role="tablist" aria-label="Shipping method">
                   {[
                     { key: 'pickup', label: 'Pickup', sub: 'Free' },
-                    { key: 'standard', label: 'Standard', sub: `${formatBDT(60)}` },
+                    { key: 'standard', label: 'Standard', sub: subtotal >= 1000 ? 'Free' : `${formatBDT(60)}` },
                     { key: 'express', label: 'Express', sub: `${formatBDT(120)}` },
-                  ].map(opt => (
-                    <button
+                  ].map((opt) => (
+                    <OptionTile
                       key={opt.key}
-                      role="tab"
-                      aria-selected={form.shippingMethod === opt.key}
-                      type="button"
-                      onClick={() => setForm(f => ({ ...f, shippingMethod: opt.key }))}
-                      className={`rounded-md px-3 py-2 text-left transition-colors ${form.shippingMethod === opt.key ? 'bg-background border shadow-sm' : 'text-muted-foreground'} border`}
-                    >
-                      <div className="font-medium">{opt.label}</div>
-                      <div className="text-xs">{opt.sub}</div>
-                    </button>
+                      active={form.shippingMethod === opt.key}
+                      onClick={() => setForm((f) => ({ ...f, shippingMethod: opt.key }))}
+                      label={opt.label}
+                      sub={opt.sub}
+                    />
                   ))}
                 </div>
                 <div className="text-xs text-muted-foreground">{deliveryEstimate}</div>
@@ -797,16 +797,13 @@ export default function CheckoutPage() {
                     { key: 'bkash', label: 'bKash', icon: CreditCardIcon },
                     { key: 'card', label: 'Credit/Debit Card', icon: CreditCardIcon },
                   ].map(opt => (
-                    <button
+                    <OptionTile
                       key={opt.key}
-                      type="button"
+                      active={form.paymentMethod === opt.key}
                       onClick={() => setForm(f => ({ ...f, paymentMethod: opt.key }))}
-                      className={`flex items-center gap-2 rounded-lg border p-3 text-left transition-colors ${form.paymentMethod === opt.key ? 'bg-background border-primary shadow-sm' : 'bg-muted/20'}`}
-                      aria-pressed={form.paymentMethod === opt.key}
-                    >
-                      <opt.icon className="h-5 w-5 text-primary" aria-hidden />
-                      <span className="text-sm">{opt.label}</span>
-                    </button>
+                      icon={opt.icon}
+                      label={opt.label}
+                    />
                   ))}
                 </div>
 
@@ -846,90 +843,15 @@ export default function CheckoutPage() {
                 )}
               </div>
               </CardContent>
-            ) : (
-              <CardContent className="text-sm text-muted-foreground">
-                <div className="flex flex-col gap-0.5">
-                  <span>Shipping: {form.shippingMethod === 'pickup' ? 'Store Pickup' : form.shippingMethod === 'express' ? 'Express' : 'Standard'}</span>
-                  <span>Payment: {form.paymentMethod === 'cod' ? 'Cash on Delivery' : form.paymentMethod === 'bkash' ? 'bKash' : 'Card'}</span>
-                </div>
-              </CardContent>
-            )}
-            <CardFooter className="flex justify-between">
-              {step === 2 ? (
-                <>
-                  <Button variant="secondary" onClick={() => setStep(1)}>Back</Button>
-                  <Button onClick={() => setStep(3)}>Review Order</Button>
-                </>
-              ) : (
-                <Button variant="secondary" onClick={() => setStep(2)} className="ml-auto">Change</Button>
-              )}
-            </CardFooter>
           </Card>
-
-          {/* Step 4: Review & Confirm */}
-          <Card ref={refReview} className={step === 3 ? '' : 'hidden'}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-primary" aria-hidden /> Review & Confirm</CardTitle>
-              <CardDescription>Double-check details before placing your order.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <div className="font-medium mb-1 flex items-center justify-between">
-                    <span>Contact</span>
-                    <button className="text-xs text-primary hover:underline" type="button" onClick={() => setStep(0)}>Change</button>
-                  </div>
-                  <div className="text-muted-foreground">
-                    <div>{form.fullName}</div>
-                    <div>{form.email}</div>
-                    <div>{form.phone}</div>
-                  </div>
-                </div>
-                <div>
-                  <div className="font-medium mb-1 flex items-center justify-between">
-                    <span>Shipping Address</span>
-                    <button className="text-xs text-primary hover:underline" type="button" onClick={() => setStep(1)}>Change</button>
-                  </div>
-                  <div className="text-muted-foreground">
-                    <div>{form.address1}</div>
-                    <div>{form.area && `${form.area}, `}{form.city}</div>
-                    <div>{form.postalCode}</div>
-                    <div>{form.country}</div>
-                    <div>Delivery Window: {form.deliveryWindow || '-'}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <div className="font-medium mb-1 flex items-center justify-between">
-                    <span>Delivery & Payment</span>
-                    <button className="text-xs text-primary hover:underline" type="button" onClick={() => setStep(2)}>Change</button>
-                  </div>
-                  <div className="text-muted-foreground space-y-1">
-                    <div>Shipping: {form.shippingMethod === 'pickup' ? 'Store Pickup' : form.shippingMethod === 'express' ? 'Express' : 'Standard'}</div>
-                    <div>Payment: {form.paymentMethod === 'cod' ? 'Cash on Delivery' : form.paymentMethod === 'bkash' ? 'bKash' : 'Card'}</div>
-                  </div>
-                </div>
-                <div>
-                  <div className="font-medium mb-1">Notes</div>
-                  <div className="text-muted-foreground whitespace-pre-wrap break-words min-h-6">{form.notes || '-'}</div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button variant="secondary" onClick={() => setStep(2)}>Back</Button>
-              <Button onClick={placeOrder} disabled={placing || items.length === 0 || !form.agreeToTerms}>{placing ? 'Placing Order...' : `Place Order (${formatBDT(total)})`}</Button>
-            </CardFooter>
-          </Card>
-
-          {/* Payment moved to order summary */}
+          {/* End left column */}
         </div>
 
         {/* Right: Order Summary */}
   <div className="space-y-6 lg:sticky lg:top-24">
-          <Card>
+          <Card className="rounded-xl shadow-sm lg:sticky lg:top-20">
             <CardHeader>
-              <CardTitle>Order Summary</CardTitle>
+              <CardTitle className="flex items-center gap-2"><ShoppingCart className="h-5 w-5 text-primary" aria-hidden /> Order Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {syncingCart ? (
@@ -989,7 +911,12 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-sm">
+              {discount > 0 && (
+                <div className="flex items-center gap-2 text-green-700 text-sm">
+                  <ShieldCheck className="h-4 w-4" aria-hidden /> You save {formatBDT(discount)} with promo
+                </div>
+              )}
+              <div className="rounded-xl border bg-muted/20 p-3 space-y-2 text-sm">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatBDT(subtotal)}</span></div>
                 <div className="flex justify-between"><span>Discount</span><span className="text-red-600">- {formatBDT(discount)}</span></div>
                 <div className="flex justify-between"><span>Shipping</span><span>{formatBDT(shipping)}</span></div>
@@ -1009,9 +936,10 @@ export default function CheckoutPage() {
                   <Label htmlFor="agreeToTerms" className="text-sm">I agree to the terms and conditions.</Label>
                 </div>
 
-                <Button className="w-full" onClick={placeOrder} disabled={placing || items.length === 0 || !form.agreeToTerms || step !== 3}>
+                <Button className="w-full h-11 text-base" onClick={placeOrder} disabled={placing || items.length === 0 || !form.agreeToTerms}>
                   {placing ? "Placing Order..." : `Place Order (${formatBDT(total)})`}
                 </Button>
+                <p className="text-xs text-muted-foreground text-center">Your data is protected. We never store card details.</p>
               </div>
             </CardContent>
           </Card>
