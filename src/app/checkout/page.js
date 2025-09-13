@@ -33,9 +33,8 @@ function OptionTile({ active, onClick, icon: Icon, label, sub }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-2 rounded-xl border p-3 text-left transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
-        active ? 'bg-card border-primary/60 shadow-sm' : 'bg-muted/30 hover:bg-muted/40'
-      }`}
+      className={`flex items-center gap-2 rounded-xl border p-3 text-left transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${active ? 'bg-card border-primary/60 shadow-sm' : 'bg-muted/30 hover:bg-muted/40'
+        }`}
       aria-pressed={!!active}
     >
       {Icon ? <Icon className="h-5 w-5 text-primary" aria-hidden /> : null}
@@ -86,32 +85,32 @@ export default function CheckoutPage() {
   const [form, setForm] = useState({
     fullName: "",
     email: "",
-  phone: "",
-  phoneCountry: "BD",
+    phone: "",
+    phoneCountry: "BD",
     country: "Bangladesh",
     city: "",
     area: "",
     address1: "",
     postalCode: "",
     notes: "",
-  deliveryWindow: "",
+    deliveryWindow: "",
     billingSameAsShipping: true,
     billingCountry: "Bangladesh",
     billingCity: "",
     billingArea: "",
     billingAddress1: "",
     billingPostalCode: "",
-  shippingMethod: "standard", // pickup | standard | express
-  saveAddress: false,
-  addressLabel: "Home",
-  agreeToTerms: false,
+    shippingMethod: "standard", // pickup | standard | express
+    saveAddress: false,
+    addressLabel: "Home",
+    agreeToTerms: false,
     paymentMethod: "cod", // cod | bkash | card
     bkashNumber: "",
     bkashTxnId: "",
     cardNumber: "",
     cardExpiry: "",
-  cardCvc: "",
-  codFeeEnabled: false,
+    cardCvc: "",
+    codFeeEnabled: false,
   });
 
   const suggestedAreas = useMemo(() => {
@@ -168,6 +167,7 @@ export default function CheckoutPage() {
     const eta = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
     return form.shippingMethod === 'pickup' ? 'Ready for pickup today' : `Estimated delivery ${eta.toLocaleDateString()}`;
   }, [form.shippingMethod]);
+
 
   // Prefill from profile and saved addresses
   useEffect(() => {
@@ -236,8 +236,8 @@ export default function CheckoutPage() {
     async function syncCart() {
       if (!session?.user) return;
       try {
-  setSyncingCart(true);
-  const res = await fetch('/api/cart', { cache: 'no-store' });
+        setSyncingCart(true);
+        const res = await fetch('/api/cart', { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
@@ -275,12 +275,12 @@ export default function CheckoutPage() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ items, subtotal })
             });
-          } catch {}
+          } catch { }
         } else {
           // Server is newer: adopt server snapshot
           setCartFromServer(serverItems, serverTsRaw);
         }
-      } catch {} finally {
+      } catch { } finally {
         if (!cancelled) setSyncingCart(false);
       }
     }
@@ -298,14 +298,14 @@ export default function CheckoutPage() {
       const data = await res.json();
       // data: { valid, type: 'percent'|'flat', value, label }
       if (!data?.valid) throw new Error('Invalid');
-      KNOWN_PROMOS[code] = { type: data.type, value: Number(data.value||0), label: data.label || `${code} applied` };
-  setAppliedPromo(code);
-  setPromoMessage({ type: 'success', text: `Applied ${KNOWN_PROMOS[code].label}` });
-  toast.success(`Coupon applied: ${KNOWN_PROMOS[code].label}`);
+      KNOWN_PROMOS[code] = { type: data.type, value: Number(data.value || 0), label: data.label || `${code} applied` };
+      setAppliedPromo(code);
+      setPromoMessage({ type: 'success', text: `Applied ${KNOWN_PROMOS[code].label}` });
+      toast.success(`Coupon applied: ${KNOWN_PROMOS[code].label}`);
     } catch {
-  setAppliedPromo(null);
-  setPromoMessage({ type: 'error', text: 'Invalid promo code.' });
-  toast.error('Invalid promo code');
+      setAppliedPromo(null);
+      setPromoMessage({ type: 'error', text: 'Invalid promo code.' });
+      toast.error('Invalid promo code');
     }
   };
 
@@ -319,7 +319,7 @@ export default function CheckoutPage() {
     }
     if (name === 'cardExpiry') {
       const digits = String(v).replace(/\D+/g, '').slice(0, 4);
-      v = digits.length > 2 ? `${digits.slice(0,2)}/${digits.slice(2)}` : digits;
+      v = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
     }
     if (name === 'cardCvc') {
       v = String(v).replace(/\D+/g, '').slice(0, 4);
@@ -375,7 +375,7 @@ export default function CheckoutPage() {
     if (!form.address1) {
       errs.address1 = "Address line 1 is required.";
     }
-  // Area optional to reduce friction
+    // Area optional to reduce friction
     if (!form.deliveryWindow) {
       errs.deliveryWindow = "Please choose a delivery window.";
     }
@@ -476,7 +476,7 @@ export default function CheckoutPage() {
             })
           });
           if (addrRes?.ok) toast.success('Address saved');
-        } catch {}
+        } catch { }
       }
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -521,7 +521,7 @@ export default function CheckoutPage() {
         </Card>
       )}
 
-  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Customer, Address, Payment */}
         <div className="lg:col-span-2 space-y-6">
           {/* Contact */}
@@ -541,52 +541,52 @@ export default function CheckoutPage() {
                   <div className="h-10 w-full bg-muted rounded animate-pulse" />
                 </div>
               ) : (
-              <>
-              <div className="grid gap-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input id="fullName" name="fullName" value={form.fullName} onChange={onChange} onBlur={(e)=>setForm((f)=>({...f, fullName: e.target.value.trim()}))} placeholder="John Doe" aria-invalid={!!errors.fullName} autoComplete="name" required />
-                {errors.fullName && <p className="text-xs text-red-600">{errors.fullName}</p>}
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input type="email" id="email" name="email" value={form.email} onChange={onChange} placeholder="you@example.com" aria-invalid={!!errors.email} autoComplete="email" required />
-                  {errors.email && <p className="text-xs text-red-600">{errors.email}</p>}
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="phone-local">Phone</Label>
-                  <div className="flex gap-2">
-                    <select
-                      name="phoneCountry"
-                      value={form.phoneCountry}
-                      onChange={onChange}
-                      className="h-10 rounded-md border bg-white px-2 text-sm"
-                      aria-label="Country code"
-                    >
-                      <option value="BD">🇧🇩 +880</option>
-                    </select>
-                    <div className="relative flex-1">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{phonePrefix}</span>
-                      <input
-                        id="phone-local"
-                        inputMode="tel"
-                        className={`h-10 w-full rounded-md border pl-14 pr-3 text-sm ${errors.phone ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
-                        placeholder="1XXXXXXXXX"
-                        value={phoneLocal}
-                        onChange={onChangePhoneLocal}
-                        aria-invalid={!!errors.phone}
-                        autoComplete="tel"
-                        required
-                      />
+                <>
+                  <div className="grid gap-2">
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input id="fullName" name="fullName" value={form.fullName} onChange={onChange} onBlur={(e) => setForm((f) => ({ ...f, fullName: e.target.value.trim() }))} placeholder="John Doe" aria-invalid={!!errors.fullName} autoComplete="name" required />
+                    {errors.fullName && <p className="text-xs text-red-600">{errors.fullName}</p>}
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input type="email" id="email" name="email" value={form.email} onChange={onChange} placeholder="you@example.com" aria-invalid={!!errors.email} autoComplete="email" required />
+                      {errors.email && <p className="text-xs text-red-600">{errors.email}</p>}
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="phone-local">Phone</Label>
+                      <div className="flex gap-2">
+                        <select
+                          name="phoneCountry"
+                          value={form.phoneCountry}
+                          onChange={onChange}
+                          className="h-10 rounded-md border bg-white px-2 text-sm"
+                          aria-label="Country code"
+                        >
+                          <option value="BD">🇧🇩 +880</option>
+                        </select>
+                        <div className="relative flex-1">
+                          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{phonePrefix}</span>
+                          <input
+                            id="phone-local"
+                            inputMode="tel"
+                            className={`h-10 w-full rounded-md border pl-14 pr-3 text-sm ${errors.phone ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                            placeholder="1XXXXXXXXX"
+                            value={phoneLocal}
+                            onChange={onChangePhoneLocal}
+                            aria-invalid={!!errors.phone}
+                            autoComplete="tel"
+                            required
+                          />
+                        </div>
+                      </div>
+                      {errors.phone && <p className="text-xs text-red-600">{errors.phone}</p>}
+                      {!errors.phone && form.phoneCountry === 'BD' && (
+                        <p className="text-xs text-muted-foreground">Type 1XXXXXXXXX; +880 is auto-applied.</p>
+                      )}
                     </div>
                   </div>
-                  {errors.phone && <p className="text-xs text-red-600">{errors.phone}</p>}
-                  {!errors.phone && form.phoneCountry === 'BD' && (
-                    <p className="text-xs text-muted-foreground">Type 1XXXXXXXXX; +880 is auto-applied.</p>
-                  )}
-                </div>
-              </div>
-              </>
+                </>
               )}
             </CardContent>
           </Card>
@@ -598,114 +598,114 @@ export default function CheckoutPage() {
               <CardDescription>Where should we deliver your order?</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
-                {loadingAddresses ? (
-                  <div className="space-y-3">
-                    <div className="h-5 w-24 bg-muted rounded animate-pulse" />
-                    <div className="h-10 w-full bg-muted rounded animate-pulse" />
-                    <div className="h-5 w-28 bg-muted rounded animate-pulse" />
-                    <div className="h-10 w-full bg-muted rounded animate-pulse" />
-                    <div className="h-5 w-36 bg-muted rounded animate-pulse" />
-                    <div className="h-10 w-full bg-muted rounded animate-pulse" />
-                  </div>
-                ) : (
+              {loadingAddresses ? (
+                <div className="space-y-3">
+                  <div className="h-5 w-24 bg-muted rounded animate-pulse" />
+                  <div className="h-10 w-full bg-muted rounded animate-pulse" />
+                  <div className="h-5 w-28 bg-muted rounded animate-pulse" />
+                  <div className="h-10 w-full bg-muted rounded animate-pulse" />
+                  <div className="h-5 w-36 bg-muted rounded animate-pulse" />
+                  <div className="h-10 w-full bg-muted rounded animate-pulse" />
+                </div>
+              ) : (
                 <>
-                <div className="grid gap-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input id="city" name="city" value={form.city} onChange={onChange} onBlur={(e)=>setForm((f)=>({...f, city: e.target.value.trim()}))} placeholder="Dhaka" aria-invalid={!!errors.city} autoComplete="shipping address-level2" required />
-                  {errors.city && <p className="text-xs text-red-600">{errors.city}</p>}
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="address1">Address</Label>
-                  <Input id="address1" name="address1" value={form.address1} onChange={onChange} onBlur={(e)=>setForm((f)=>({...f, address1: e.target.value.trim()}))} placeholder="House, Road, Block, Landmark" aria-invalid={!!errors.address1} autoComplete="shipping street-address" required />
-                  {errors.address1 && <p className="text-xs text-red-600">{errors.address1}</p>}
-                  <p className="text-xs text-muted-foreground">Tip: Include house, road, block; add floor or landmark if helpful.</p>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="deliveryWindow" className="flex items-center gap-2"><Clock className="h-4 w-4 text-primary" aria-hidden /> Preferred Delivery Window</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2" id="deliveryWindow">
-                    {[
-                      { key: '9-12', label: '9 AM - 12 PM' },
-                      { key: '12-3', label: '12 PM - 3 PM' },
-                      { key: '3-6', label: '3 PM - 6 PM' },
-                      { key: '6-9', label: '6 PM - 9 PM' },
-                    ].map(opt => (
-                      <OptionTile
-                        key={opt.key}
-                        active={form.deliveryWindow === opt.key}
-                        onClick={() => setForm(f => ({ ...f, deliveryWindow: opt.key }))}
-                        label={opt.label}
-                      />
-                    ))}
+                  <div className="grid gap-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input id="city" name="city" value={form.city} onChange={onChange} onBlur={(e) => setForm((f) => ({ ...f, city: e.target.value.trim() }))} placeholder="Dhaka" aria-invalid={!!errors.city} autoComplete="shipping address-level2" required />
+                    {errors.city && <p className="text-xs text-red-600">{errors.city}</p>}
                   </div>
-                  {errors.deliveryWindow && <p className="text-xs text-red-600">{errors.deliveryWindow}</p>}
-                </div>
 
-                {/* Minimal by default; powerful when expanded */}
-                <div className="rounded-xl border p-4 bg-muted/20">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">Additional details</div>
-                    <button type="button" className="inline-flex items-center gap-1 text-sm text-primary hover:underline" aria-expanded={showAddressMore} aria-controls="address-details" onClick={() => setShowAddressMore((v) => !v)}>
-                      <span>{showAddressMore ? 'Hide' : 'Add details'}</span>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${showAddressMore ? 'rotate-180' : ''}`} aria-hidden />
-                    </button>
+                  <div className="grid gap-2">
+                    <Label htmlFor="address1">Address</Label>
+                    <Input id="address1" name="address1" value={form.address1} onChange={onChange} onBlur={(e) => setForm((f) => ({ ...f, address1: e.target.value.trim() }))} placeholder="House, Road, Block, Landmark" aria-invalid={!!errors.address1} autoComplete="shipping street-address" required />
+                    {errors.address1 && <p className="text-xs text-red-600">{errors.address1}</p>}
+                    <p className="text-xs text-muted-foreground">Tip: Include house, road, block; add floor or landmark if helpful.</p>
                   </div>
-                  {showAddressMore && (
-                    <div id="address-details" className="mt-4 grid gap-4">
-                      <div className="grid md:grid-cols-3 gap-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="area">Area (optional)</Label>
-                          <Input id="area" name="area" value={form.area} onChange={onChange} onBlur={(e)=>setForm((f)=>({...f, area: e.target.value.trim()}))} placeholder="Gulshan" autoComplete="shipping address-line2" />
-              {suggestedAreas.length ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <span className="text-xs text-muted-foreground">Suggestions:</span>
-                {suggestedAreas.map((s) => (
-                                <button key={s} type="button" onClick={() => setForm((f)=>({...f, area: s }))} className={`h-7 rounded-md border px-2 text-xs ${form.area === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-background'}`}>
-                                  {s}
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="deliveryWindow" className="flex items-center gap-2"><Clock className="h-4 w-4 text-primary" aria-hidden /> Preferred Delivery Window</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2" id="deliveryWindow">
+                      {[
+                        { key: '9-12', label: '9 AM - 12 PM' },
+                        { key: '12-3', label: '12 PM - 3 PM' },
+                        { key: '3-6', label: '3 PM - 6 PM' },
+                        { key: '6-9', label: '6 PM - 9 PM' },
+                      ].map(opt => (
+                        <OptionTile
+                          key={opt.key}
+                          active={form.deliveryWindow === opt.key}
+                          onClick={() => setForm(f => ({ ...f, deliveryWindow: opt.key }))}
+                          label={opt.label}
+                        />
+                      ))}
+                    </div>
+                    {errors.deliveryWindow && <p className="text-xs text-red-600">{errors.deliveryWindow}</p>}
+                  </div>
+
+                  {/* Minimal by default; powerful when expanded */}
+                  <div className="rounded-xl border p-4 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Additional details</div>
+                      <button type="button" className="inline-flex items-center gap-1 text-sm text-primary hover:underline" aria-expanded={showAddressMore} aria-controls="address-details" onClick={() => setShowAddressMore((v) => !v)}>
+                        <span>{showAddressMore ? 'Hide' : 'Add details'}</span>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${showAddressMore ? 'rotate-180' : ''}`} aria-hidden />
+                      </button>
+                    </div>
+                    {showAddressMore && (
+                      <div id="address-details" className="mt-4 grid gap-4">
+                        <div className="grid md:grid-cols-3 gap-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="area">Area (optional)</Label>
+                            <Input id="area" name="area" value={form.area} onChange={onChange} onBlur={(e) => setForm((f) => ({ ...f, area: e.target.value.trim() }))} placeholder="Gulshan" autoComplete="shipping address-line2" />
+                            {suggestedAreas.length ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <span className="text-xs text-muted-foreground">Suggestions:</span>
+                                {suggestedAreas.map((s) => (
+                                  <button key={s} type="button" onClick={() => setForm((f) => ({ ...f, area: s }))} className={`h-7 rounded-md border px-2 text-xs ${form.area === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-background'}`}>
+                                    {s}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="postalCode">Postal Code (optional)</Label>
+                            <Input id="postalCode" name="postalCode" value={form.postalCode} onChange={onChange} placeholder="1212" inputMode="numeric" autoComplete="shipping postal-code" />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="country">Country</Label>
+                            <Input id="country" name="country" value={form.country} onChange={onChange} autoComplete="country-name" />
+                          </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="notes">Delivery Notes (optional)</Label>
+                            <Input id="notes" name="notes" value={form.notes} onChange={onChange} placeholder="e.g., Call on arrival, gate code" />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>Address Label</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {['Home', 'Office', 'Other'].map((lbl) => (
+                                <button key={lbl} type="button" onClick={() => setForm((f) => ({ ...f, addressLabel: lbl }))} className={`h-8 rounded-md border px-3 text-sm ${form.addressLabel === lbl ? 'bg-primary text-primary-foreground border-primary' : 'bg-background'}`}>
+                                  {lbl}
                                 </button>
                               ))}
-                            </div>
-                          ) : null}
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="postalCode">Postal Code (optional)</Label>
-                          <Input id="postalCode" name="postalCode" value={form.postalCode} onChange={onChange} placeholder="1212" inputMode="numeric" autoComplete="shipping postal-code" />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="country">Country</Label>
-                          <Input id="country" name="country" value={form.country} onChange={onChange} autoComplete="country-name" />
-                        </div>
-                      </div>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="notes">Delivery Notes (optional)</Label>
-                          <Input id="notes" name="notes" value={form.notes} onChange={onChange} placeholder="e.g., Call on arrival, gate code" />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label>Address Label</Label>
-                          <div className="flex flex-wrap gap-2">
-                            {['Home','Office','Other'].map((lbl) => (
-                              <button key={lbl} type="button" onClick={() => setForm((f) => ({ ...f, addressLabel: lbl }))} className={`h-8 rounded-md border px-3 text-sm ${form.addressLabel === lbl ? 'bg-primary text-primary-foreground border-primary' : 'bg-background'}`}>
-                                {lbl}
-                              </button>
-                            ))}
-                            <div className="flex-1 min-w-40">
-                              <Input id="addressLabel" name="addressLabel" value={form.addressLabel} onChange={onChange} onBlur={(e)=>setForm((f)=>({...f, addressLabel: e.target.value.trim()}))} placeholder="Custom label" />
+                              <div className="flex-1 min-w-40">
+                                <Input id="addressLabel" name="addressLabel" value={form.addressLabel} onChange={onChange} onBlur={(e) => setForm((f) => ({ ...f, addressLabel: e.target.value.trim() }))} placeholder="Custom label" />
+                              </div>
                             </div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <input id="saveAddress" name="saveAddress" type="checkbox" checked={form.saveAddress} onChange={onChange} />
+                          <Label htmlFor="saveAddress">Save/Update this address</Label>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <input id="saveAddress" name="saveAddress" type="checkbox" checked={form.saveAddress} onChange={onChange} />
-                        <Label htmlFor="saveAddress">Save/Update this address</Label>
-                      </div>
-                    </div>
-                  )}
-                </div>
-        </>
-        )}
-      </CardContent>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
           </Card>
 
           {/* Billing */}
@@ -842,13 +842,13 @@ export default function CheckoutPage() {
                   </div>
                 )}
               </div>
-              </CardContent>
+            </CardContent>
           </Card>
           {/* End left column */}
         </div>
 
         {/* Right: Order Summary */}
-  <div className="space-y-6 lg:sticky lg:top-24">
+        <div className="space-y-6 lg:sticky lg:top-24">
           <Card className="rounded-xl shadow-sm lg:sticky lg:top-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><ShoppingCart className="h-5 w-5 text-primary" aria-hidden /> Order Summary</CardTitle>
