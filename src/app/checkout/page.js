@@ -230,7 +230,7 @@ export default function CheckoutPage() {
     };
   }, [session?.user]);
 
-  // Sync cart from DB on load when authenticated with change + timestamp checks
+  // Sync cart from DB on load when authenticated with change + timestamp check
   useEffect(() => {
     let cancelled = false;
     async function syncCart() {
