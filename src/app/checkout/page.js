@@ -226,7 +226,7 @@ export default function CheckoutPage() {
     }
     prefill();
     return () => {
-      cancelled = false;
+      cancelled = true;
     };
   }, [session?.user]);
 
