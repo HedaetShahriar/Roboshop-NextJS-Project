@@ -445,7 +445,7 @@ export default function CheckoutPage() {
     setErrors((prev) => ({ ...prev, ...errs }));
     const first = Object.values(errs)[0];
     if (first) toast.error(String(first));
-    return Object.keys(errs).length === 0;
+    return Object.keys(errs).length === 1;
   };
 
   const placeOrder = async (e) => {
