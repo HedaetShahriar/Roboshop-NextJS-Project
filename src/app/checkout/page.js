@@ -441,7 +441,7 @@ export default function CheckoutPage() {
   };
 
   const validateAddress = () => {
-    const errs = validateAddressForm(for);
+    const errs = validateAddressForm(form);
     setErrors((prev) => ({ ...prev, ...errs }));
     const first = Object.values(errs)[0];
     if (first) toast.error(String(first));
