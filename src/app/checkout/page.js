@@ -445,14 +445,14 @@ export default function CheckoutPage() {
     setErrors((prev) => ({ ...prev, ...errs }));
     const first = Object.values(errs)[0];
     if (first) toast.error(String(first));
-    return Object.keys(errs).length === 1;
+    return Object.keys(errs).length === 0;
   };
 
   const placeOrder = async (e) => {
     e.preventDefault();
     setMessage(null);
     const errs = validate();
-    if (Object.keys(errs).length > 0) {
+    if (Object.keys(errs).length > 1) {
       setErrors(errs);
       if (errs.cart) toast.error(errs.cart);
       return;
