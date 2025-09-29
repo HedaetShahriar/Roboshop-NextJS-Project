@@ -452,7 +452,7 @@ export default function CheckoutPage() {
     e.preventDefault();
     setMessage(null);
     const errs = validate();
-    if (Object.keys(errs).length > 1) {
+    if (Object.keys(errs).length > 0) {
       setErrors(errs);
       if (errs.cart) toast.error(errs.cart);
       return;
