@@ -1,0 +1,112 @@
+import { notFound, redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import getDb from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
+import { addIssueAudit } from "@/lib/audit";
+import ConfirmButton from "@/app/dashboard/admin/coupons/client/ConfirmButton";
+import type { WithId, Document } from "mongodb";
+
+interface ThreadEntry {
+  author?: string;
+  email?: string;
+  message: string;
+  at: Date;
+}
+
+interface OrderIssue extends Document {
+  _id: WithId<Document>["_id"];
+  subject: string;
+  orderNumber: string;
+  status: string;
+  customerEmail?: string;
+  description?: string;
+  thread?: ThreadEntry[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface AdminIssueDetailProps {
+  params: Promise<{ id: string }>;
+}
+
+export default async function AdminIssueDetail({ params }: AdminIssueDetailProps) {
+  const session = await getServerSession(authOptions);
+  const role = session?.user?.role || 'customer';
+  if (!session?.user?.email || role !== 'admin') return notFound();
+  const db = await getDb();
+  const resolvedParams = await params;
+  let issueId: ObjectId;
+  try { issueId = new ObjectId(resolvedParams.id); } catch { return notFound(); }
+  const issue = await db.collection<OrderIssue>('order_issues').findOne({ _id: issueId });
+  if (!issue) return notFound();
+
+  async function updateStatus(formData: FormData) {
+    'use server';
+    const session = await getServerSession(authOptions);
+    if (session?.user?.role !== 'admin') return;
+    const status = String(formData.get('status') || 'open');
+    const db = await getDb();
+    await db.collection('order_issues').updateOne({ _id: issueId }, { $set: { status, updatedAt: new Date() } });
+    try { await addIssueAudit({ userEmail: session?.user?.email ?? '', action: 'status', ids: [issueId.toString()], params: { status } }); } catch { /* ignore */ }
+    redirect(`/dashboard/admin/issues/${resolvedParams.id}`);
+  }
+
+  async function addAdminReply(formData: FormData) {
+    'use server';
+    const session = await getServerSession(authOptions);
+    if (session?.user?.role !== 'admin') return;
+    const message = String(formData.get('message') || '').trim();
+    if (!message) return;
+    const db = await getDb();
+    const now = new Date();
+    const entry: ThreadEntry = { author: 'admin', email: session?.user?.email || 'admin', message, at: now };
+    // @ts-expect-error - MongoDB $push typing is overly strict
+    await db.collection('order_issues').updateOne({ _id: issueId }, { $push: { thread: entry }, $set: { updatedAt: now } });
+    try { await addIssueAudit({ userEmail: session?.user?.email ?? '', action: 'reply', ids: [issueId.toString()], params: { messageLen: message.length } }); } catch { /* ignore */ }
+    redirect(`/dashboard/admin/issues/${resolvedParams.id}`);
+  }
+  return (
+    <div className="space-y-3">
+      <h2 className="text-xl font-semibold">Issue: {issue.subject}</h2>
+      <div className="rounded border bg-white p-4 text-sm space-y-2">
+        <div><span className="text-muted-foreground">Order:</span> #{issue.orderNumber}</div>
+        <div><span className="text-muted-foreground">Status:</span> {issue.status}</div>
+        {issue.customerEmail ? <div><span className="text-muted-foreground">Customer:</span> {issue.customerEmail}</div> : null}
+        {issue.description ? <div className="whitespace-pre-wrap border-t pt-2">{issue.description}</div> : null}
+        <form action={updateStatus} className="pt-2 flex items-center gap-2">
+          <select name="status" defaultValue={issue.status} className="border rounded px-2 py-1 text-xs">
+            <option value="open">Open</option>
+            <option value="in_progress">In progress</option>
+            <option value="resolved">Resolved</option>
+          </select>
+          <button type="submit" className="px-2 py-1 rounded bg-zinc-900 text-white text-xs">Update</button>
+        </form>
+        <div className="pt-1">
+          <form id="resolveForm" action={updateStatus}>
+            <input type="hidden" name="status" value="resolved" />
+            <ConfirmButton className="h-7 px-2 rounded bg-emerald-600 text-white text-xs" message="Mark this issue as resolved? This will close the thread." formId="resolveForm">Mark resolved</ConfirmButton>
+          </form>
+        </div>
+      </div>
+      <div className="rounded border bg-white p-4 text-sm space-y-2">
+        <div className="font-medium">Message thread</div>
+        <ul className="divide-y">
+          {(issue.thread || []).map((m, idx) => (
+            <li key={idx} className="py-2">
+              <div className="text-xs text-muted-foreground">{m.author || 'user'} • {new Date(m.at).toLocaleString()}</div>
+              <div className="whitespace-pre-wrap">{m.message}</div>
+            </li>
+          ))}
+          {(!issue.thread || issue.thread.length === 0) && (
+            <li className="py-2 text-muted-foreground">No messages yet.</li>
+          )}
+        </ul>
+        <form action={addAdminReply} className="pt-2 flex items-center gap-2">
+          <input type="text" name="message" placeholder="Write a reply…" className="border rounded px-2 py-1 text-xs flex-1" />
+          <button type="submit" className="px-2 py-1 rounded bg-zinc-900 text-white text-xs">Send</button>
+        </form>
+      </div>
+    </div>
+  );
+}

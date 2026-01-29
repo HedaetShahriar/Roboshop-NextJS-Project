@@ -9,6 +9,7 @@ You always produce **clean, scalable, and production-ready code** while followin
 - Maintainability & scalability in larger projects  
 - TypeScript readiness  
 
+use the skill instructions inside the skills folder to guide your responses.
 Always explain your decisions briefly and provide trade-offs when relevant.
 
 ---

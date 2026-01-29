@@ -1,0 +1,230 @@
+import getDb from "./mongodb";
+import {
+  buildProductsWhere,
+  getProductsSort,
+  getPageAndSize,
+} from "./productsQuery";
+import { unstable_cache } from "next/cache";
+import type { ProductFilters, Product } from "@/types";
+import type { Document } from "mongodb";
+
+interface ProductProjection {
+  _id: 1;
+  name: 1;
+  slug: 1;
+  sku: 1;
+  image: 1;
+  is_hidden: 1;
+  category: 1;
+  subcategory: 1;
+  price: 1;
+  has_discount_price: 1;
+  discount_price: 1;
+  current_stock: 1;
+  product_rating: 1;
+  product_max_rating: 1;
+  product_rating_count: 1;
+  createdAt: 1;
+}
+
+function buildProjection(_sp: ProductFilters = {}): ProductProjection {
+  // Minimal fields used by the table/actions; reduce IO and serialization
+  // Always include essentials for actions/editor even if some columns hidden
+  return {
+    _id: 1,
+    name: 1,
+    slug: 1,
+    sku: 1,
+    image: 1,
+    is_hidden: 1,
+    category: 1,
+    subcategory: 1,
+    price: 1,
+    has_discount_price: 1,
+    discount_price: 1,
+    current_stock: 1,
+    product_rating: 1,
+    product_max_rating: 1,
+    product_rating_count: 1,
+    createdAt: 1,
+  };
+}
+
+interface ProductsResult {
+  products: Product[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+async function getProductsAndTotalCore(
+  sp: ProductFilters = {},
+): Promise<ProductsResult> {
+  const db = await getDb();
+  const where = buildProductsWhere(sp);
+  const sortKey = (sp?.sort || "newest").toString();
+  const { page, pageSize } = getPageAndSize(sp);
+  const skip = (page - 1) * pageSize;
+  const projection = buildProjection(sp);
+
+  const countPromise = db.collection("products").countDocuments(where);
+  let listPromise: Promise<Document[]>;
+
+  if (sortKey === "price-high" || sortKey === "price-low") {
+    const dir = sortKey === "price-high" ? -1 : 1;
+    listPromise = db
+      .collection("products")
+      .aggregate([
+        { $match: where },
+        {
+          $addFields: { priceValue: { $toDouble: { $ifNull: ["$price", 0] } } },
+        },
+        { $sort: { priceValue: dir, createdAt: -1 } },
+        { $skip: skip },
+        { $limit: pageSize },
+        { $project: projection },
+      ])
+      .toArray();
+  } else {
+    const sort = getProductsSort(sortKey);
+    let cursor = db
+      .collection("products")
+      .find(where, { projection })
+      .sort(sort)
+      .skip(skip)
+      .limit(pageSize);
+    if (
+      sortKey === "name-asc" ||
+      sortKey === "name-desc" ||
+      sortKey === "category-asc" ||
+      sortKey === "category-desc" ||
+      sortKey === "subcategory-asc" ||
+      sortKey === "subcategory-desc"
+    ) {
+      cursor = cursor.collation({ locale: "en", strength: 2 });
+    }
+    listPromise = cursor.toArray();
+  }
+
+  const [total, products] = await Promise.all([countPromise, listPromise]);
+  return { products: products as Product[], total, page, pageSize };
+}
+
+export async function getProductsAndTotal(
+  sp: ProductFilters = {},
+): Promise<ProductsResult> {
+  return getProductsAndTotalCore(sp);
+}
+
+export async function getProductsAndTotalCached(
+  sp: ProductFilters = {},
+): Promise<ProductsResult> {
+  const key = [
+    "products:list",
+    JSON.stringify({
+      q: sp?.q || sp?.search || "",
+      from: sp?.from || "",
+      to: sp?.to || "",
+      sort: sp?.sort || "newest",
+      page: Number(sp?.page || 1),
+      pageSize: Number(sp?.pageSize || 10),
+      inStock: !!sp?.inStock,
+      hasDiscount: !!sp?.hasDiscount,
+      minPrice: sp?.minPrice ?? "",
+      maxPrice: sp?.maxPrice ?? "",
+      category: sp?.category || "",
+      subcategory: sp?.subcategory || "",
+      cols: sp?.cols || "",
+    }),
+  ];
+  const runner = unstable_cache(() => getProductsAndTotalCore(sp), key, {
+    tags: ["products:list"],
+    revalidate: 60,
+  });
+  return runner();
+}
+
+interface QuickStats {
+  inStock: number;
+  discounted: number;
+  outOfStock: number;
+  lowStock: number;
+}
+
+export async function getProductsQuickStats(
+  sp: ProductFilters = {},
+): Promise<QuickStats> {
+  const db = await getDb();
+  const where = buildProductsWhere(sp);
+  const [inStock, discounted, outOfStock, lowStock] = await Promise.all([
+    db
+      .collection("products")
+      .countDocuments({ ...where, current_stock: { $gt: 0 } }),
+    db
+      .collection("products")
+      .countDocuments({ ...where, has_discount_price: true }),
+    db.collection("products").countDocuments({ ...where, current_stock: 0 }),
+    db
+      .collection("products")
+      .countDocuments({ ...where, current_stock: { $gt: 0, $lte: 5 } }),
+  ]);
+  return { inStock, discounted, outOfStock, lowStock };
+}
+
+interface FilteredTotals {
+  stockSum: number;
+  inventoryValue: number;
+  count: number;
+}
+
+export async function getProductsFilteredTotals(
+  sp: ProductFilters = {},
+): Promise<FilteredTotals> {
+  const db = await getDb();
+  const where = buildProductsWhere(sp);
+  const [agg] = await db
+    .collection("products")
+    .aggregate([
+      { $match: where },
+      {
+        $addFields: {
+          effPrice: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$has_discount_price", true] },
+                  { $gt: [{ $ifNull: ["$discount_price", 0] }, 0] },
+                ],
+              },
+              { $toDouble: { $ifNull: ["$discount_price", 0] } },
+              { $toDouble: { $ifNull: ["$price", 0] } },
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          stockSum: { $sum: { $ifNull: ["$current_stock", 0] } },
+          inventoryValue: {
+            $sum: {
+              $multiply: [{ $ifNull: ["$current_stock", 0] }, "$effPrice"],
+            },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          stockSum: 1,
+          inventoryValue: { $round: ["$inventoryValue", 2] },
+          count: 1,
+        },
+      },
+    ])
+    .toArray();
+  return (
+    (agg as FilteredTotals) || { stockSum: 0, inventoryValue: 0, count: 0 }
+  );
+}
